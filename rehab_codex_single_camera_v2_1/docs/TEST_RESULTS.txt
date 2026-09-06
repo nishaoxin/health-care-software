@@ -1,0 +1,46 @@
+test_cannot_replace_active_preview_without_stop (test_camera_reference.GateTests.test_cannot_replace_active_preview_without_stop) ... ok
+test_context_source_mismatch (test_camera_reference.GateTests.test_context_source_mismatch) ... ok
+test_duplicate_and_reversed_sequence (test_camera_reference.GateTests.test_duplicate_and_reversed_sequence) ... ok
+test_old_preview_packet_rejected_after_start (test_camera_reference.GateTests.test_old_preview_packet_rejected_after_start) ... ok
+test_preview_never_drives_business (test_camera_reference.GateTests.test_preview_never_drives_business) ... ok
+test_replay_and_live_are_distinct (test_camera_reference.GateTests.test_replay_and_live_are_distinct) ... ok
+test_setup_required (test_camera_reference.GateTests.test_setup_required) ... ok
+test_stop_rejects_late_results (test_camera_reference.GateTests.test_stop_rejects_late_results) ... ok
+test_switch_rejects_old_inference (test_camera_reference.GateTests.test_switch_rejects_old_inference) ... ok
+test_black_border_rejected (test_camera_reference.MappingTests.test_black_border_rejected) ... ok
+test_horizontal_mirror (test_camera_reference.MappingTests.test_horizontal_mirror) ... ok
+test_invalid_dimensions_and_point (test_camera_reference.MappingTests.test_invalid_dimensions_and_point) ... ok
+test_letterbox_center (test_camera_reference.MappingTests.test_letterbox_center) ... ok
+test_same_aspect_different_resolution (test_camera_reference.MappingTests.test_same_aspect_different_resolution) ... ok
+test_backend_mismatch_requires_selection (test_camera_reference.ResolutionTests.test_backend_mismatch_requires_selection) ... ok
+test_current_index_resolved_not_saved_index (test_camera_reference.ResolutionTests.test_current_index_resolved_not_saved_index) ... ok
+test_duplicate_path_is_ambiguous (test_camera_reference.ResolutionTests.test_duplicate_path_is_ambiguous) ... ok
+test_empty_path_requires_selection (test_camera_reference.ResolutionTests.test_empty_path_requires_selection) ... ok
+test_missing_does_not_open_another_camera (test_camera_reference.ResolutionTests.test_missing_does_not_open_another_camera) ... ok
+test_name_vid_pid_are_not_unique_identity (test_camera_reference.ResolutionTests.test_name_vid_pid_are_not_unique_identity) ... ok
+test_no_persistent_index (test_camera_reference.ResolutionTests.test_no_persistent_index) ... ok
+test_four_scenes_not_background_jobs (test_config_contract.ConfigTests.test_four_scenes_not_background_jobs) ... ok
+test_future_devices_not_required (test_config_contract.ConfigTests.test_future_devices_not_required) ... ok
+test_no_implicit_camera_or_fallback (test_config_contract.ConfigTests.test_no_implicit_camera_or_fallback) ... ok
+test_profile_is_unconfigured_not_default_roi (test_config_contract.ConfigTests.test_profile_is_unconfigured_not_default_roi) ... ok
+test_radar_not_core_dependency (test_config_contract.ConfigTests.test_radar_not_core_dependency) ... ok
+test_single_active_source (test_config_contract.ConfigTests.test_single_active_source) ... ok
+test_switch_keeps_alerts_and_requires_release (test_config_contract.ConfigTests.test_switch_keeps_alerts_and_requires_release) ... ok
+test_bad_dimensions (test_geometry.GeometryTests.test_bad_dimensions) ... ok
+test_nan_invalid (test_geometry.GeometryTests.test_nan_invalid) ... ok
+test_restore_non_square_coordinates (test_geometry.GeometryTests.test_restore_non_square_coordinates) ... ok
+test_right_angle (test_geometry.GeometryTests.test_right_angle) ... ok
+test_shoulder_angle_at_shoulder (test_geometry.GeometryTests.test_shoulder_angle_at_shoulder) ... ok
+test_straight_knee_is_zero_flexion (test_geometry.GeometryTests.test_straight_knee_is_zero_flexion) ... ok
+test_zero_vector_invalid (test_geometry.GeometryTests.test_zero_vector_invalid) ... ok
+test_changed_state_not_interpolated (test_geometry.ObservationTests.test_changed_state_not_interpolated) ... ok
+test_gap_not_assumed_activity (test_geometry.ObservationTests.test_gap_not_assumed_activity) ... ok
+test_missing_and_other_person (test_geometry.ObservationTests.test_missing_and_other_person) ... ok
+test_repeated_and_reverse_timestamp (test_geometry.ObservationTests.test_repeated_and_reverse_timestamp) ... ok
+test_unknown_never_counts (test_geometry.ObservationTests.test_unknown_never_counts) ... ok
+test_valid_duration (test_geometry.ObservationTests.test_valid_duration) ... ok
+
+----------------------------------------------------------------------
+Ran 41 tests in 0.006s
+
+OK

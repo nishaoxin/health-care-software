@@ -1,0 +1,77 @@
+# 自定义应用协议，需Codex实现；并非SDK自动读取的配置。
+# 数值是工程起点，不是临床/安全保证。初次运行由用户枚举和选择设备。
+schema_version: 2
+app:
+  name: home_rehab_single_camera
+  deployment: single_active_scene
+  timezone: system_local  # 保存时记录实际IANA时区/UTC偏移，不擅自固定上海或东京
+  database: data/home_rehab.sqlite3
+  active_scene_id: rehab
+  auto_start_analysis: false
+  current_device_ref: null
+  allow_remote_notifications: false
+  raw_video_recording: false
+  auto_download_weights: false
+capture:
+  max_active_sources: 1
+  allowed_source_kinds: [LIVE_CAMERA, REPLAY_FILE]
+  enumerate_backend: DSHOW
+  backend_candidates: [DSHOW, MSMF]
+  automatic_backend_fallback: false
+  automatic_device_fallback: false
+  resolve_saved_device_on_every_open: true
+  require_unique_path_match: true
+  request_width: 1280
+  request_height: 720
+  request_fps: 30
+  record_actual_frame_shape: true
+  measure_received_fps: true
+  latest_frame_slots: 1
+  stale_after_s: 3.0
+  offline_after_s: 10.0
+  worker_stop_confirmation_required: true
+  release_on_stop: true
+  release_on_privacy_pause: true
+  resume_to_preview_only: true
+vision:
+  backend: ultralytics
+  model_path: assets/models/yolo11n-pose.pt
+  device: auto
+  tracker: bytetrack.yaml
+  tracker_scope: active_run_epoch
+  inference_concurrency: 1
+  imgsz: 640
+  keypoint_schema: coco17
+  keypoint_conf_min: 0.50
+  filter_tau_s: 0.12
+  invalid_gap_s: 0.5
+  reuse_model_weights: true
+  reset_state_on_context_change: true
+  reject_late_generation_results: true
+lifecycle:
+  require_manual_start: true
+  preview_counts_as_session: false
+  interrupt_before_switch: true
+  clear_temporary_state_on_switch: true
+  persist_completed_results: true
+  persist_unresolved_alerts: true
+  cancel_old_session_feedback: true
+  block_new_capture_until_old_released: true
+  stop_on_storage_commit_failure: true
+profiles:
+  path: data/scene_profiles.json
+  default_device_ref: null
+  require_setup_confirmation_each_open: true
+  roi_coordinate_space: raw_unmirrored_normalized
+  allow_unconfirmed_roi_reuse: false
+  mirror_preview_default: false
+privacy:
+  raw_video_opt_in: false
+  keypoints_opt_in: false
+  reference_frame_opt_in: false
+  pause_releases_camera: true
+  device_paths_in_public_logs: false
+future_extensions:
+  multi_camera: false
+  rtsp: false
+  radar: false

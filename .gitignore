@@ -1,0 +1,16 @@
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/*.py[cod]
+**/data/
+**/assets/models/*.pt
+**/assets/models/*.pth
+**/build/
+**/dist/
+**/*.spec
+**/.runtime/
+**/.env
+backups/
+**/*.log
+**/*.sqlite3*
+**/qa-output/

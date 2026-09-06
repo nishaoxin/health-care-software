@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "profile_id": "rehab_sit_to_stand_needs_setup",
+  "scene_id": "rehab",
+  "device_ref": null,
+  "view": "sagittal",
+  "exercise_id": "sit_to_stand",
+  "side": null,
+  "placement_revision": 1,
+  "requested_capture": {"width": 1280, "height": 720, "fps": 30},
+  "actual_capture": {"width": null, "height": null, "reported_fps": null, "received_fps": null},
+  "transform": {"rotation_deg": 0, "crop": null, "mirror_preview": false},
+  "roi_coordinate_space": "raw_unmirrored_normalized",
+  "rois": {},
+  "optional_reference_frame_path": null,
+  "setup_confirmed_at": null,
+  "confirmation_run_id": null,
+  "status": "NEEDS_SETUP",
+  "targets": {"target_reps": 5, "target_knee_flexion_deg": null},
+  "notes": "设备与机位需现场选择；不能使用空配置开始正式评估。"
+}

@@ -1,0 +1,11 @@
+# 候选主依赖；不是已经在目标Windows/GPU验证的锁版本。
+# 先按PyTorch官方选择器安装目标驱动兼容的torch/torchvision；CPU也应能启动。
+# 不同时安装多个OpenCV发行包；目标机首次通过后锁版本。
+ultralytics
+opencv-python
+cv2-enumerate-cameras
+numpy
+PySide6
+PyYAML
+pytest
+# 可选：pyinstaller。pyserial、RTSP部署、多流不在首版要求。

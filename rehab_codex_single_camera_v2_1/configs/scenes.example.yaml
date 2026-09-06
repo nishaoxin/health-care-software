@@ -1,0 +1,59 @@
+# 同一摄像头可成为多个场景默认设备，但只有所选场景被启用。
+schema_version: 2
+max_active_scenes: 1
+inactive_scene_status: NOT_MONITORED
+scenes:
+  rehab:
+    title: 康复评估与训练
+    engine: RehabEngine
+    default_device_ref: null
+    default_profile_id: null
+    submodes: [assessment, training]
+    exercises: [sit_to_stand, shoulder_abduction]
+    require_participant_selection: true
+    require_view_confirmation: true
+    start_counts_on: user_start_after_setup
+    background_monitoring: false
+  activity:
+    title: 日常活动管理
+    engine: ActivityEngine
+    default_device_ref: null
+    default_profile_id: null
+    identity_mode: manual_single_track
+    sedentary_trigger_s: 2700
+    stand_task_target_s: 60
+    walk_task_target_s: 120
+    max_observation_gap_s: 0.5
+    require_activity_permission: true
+    allow_skip: true
+    unknown_completes_task: false
+    cross_scene_continuous_totals: false
+    background_monitoring: false
+  bedroom_demo:
+    title: 卧室照护演示
+    engine: BedroomEngine
+    default_device_ref: null
+    default_profile_id: null
+    require_roi_confirmation: true
+    required_rois: [bed, bed_edge, exit, floor_watch]
+    rois: {}
+    usage_context: CONTROLLED_DEMO
+    probability_prediction: false
+    background_monitoring: false
+  safety_demo:
+    title: 安全报警演示
+    engine: SafetyEngine
+    default_device_ref: null
+    default_profile_id: null
+    require_roi_confirmation: true
+    required_rois: [floor_watch]
+    optional_exclusion_rois: [bed, chair, sofa]
+    rois: {}
+    usage_context: CONTROLLED_DEMO
+    low_posture_hold_s: 2.0  # 待验证的工程值，不静默推迟初次候选提示
+    probability_prediction: false
+    local_alerts_only: true
+    auto_resolve_on_missing_person: false
+    auto_resolve_on_mode_switch: false
+    auto_resolve_on_device_failure: false
+    background_monitoring: false

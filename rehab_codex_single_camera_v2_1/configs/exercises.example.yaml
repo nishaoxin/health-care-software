@@ -1,0 +1,42 @@
+# 动作目标必须由人设置；null表示只测量、不判断幅度达标。
+# 不把此文件中的规则阈值称为临床正常值。
+schema_version: 1
+exercises:
+  sit_to_stand:
+    name: 居家坐站任务
+    view: sagittal
+    side_selection: fixed_near_side
+    keypoints:
+      left: [5, 11, 13, 15]
+      right: [6, 12, 14, 16]
+    calibration:
+      mode: comfortable_seated_and_standing_baselines
+      require_operator_confirmation: true
+    state_machine: [SEATED_READY, RISING, STANDING_REACHED, LOWERING]
+    count_at: STANDING_REACHED
+    rearm_at: SEATED_READY
+    target_reps: 5
+    target_knee_flexion_deg: null
+    allowed_use_of_hands: operator_configured
+    metrics: [completed_rises, partial_attempts, invalid_attempts, rise_time_s, lowering_time_s, knee_flexion_projection_deg, valid_time_ratio]
+    feedback_rules: [target_not_reached_if_set, lowering_tempo_if_set]
+    standardized_clinical_test: false
+  shoulder_abduction:
+    name: 肩外展训练
+    view: frontal
+    side_selection: manual_left_or_right
+    keypoints:
+      left: [11, 5, 7, 9]
+      right: [12, 6, 8, 10]
+    trunk_keypoints: [5, 6, 11, 12]
+    angle_vertex: shoulder
+    angle_points: [hip, shoulder, elbow]
+    state_machine: [REST, RAISING, PEAK_OR_HOLD, LOWERING]
+    count_at: RETURN_TO_REST
+    target_reps: 5
+    target_raise_deg: null
+    allowed_elbow_flexion_deg: null
+    allowed_trunk_tilt_deg: null
+    metrics: [cycles, target_met_cycles, partial_attempts, max_raise_projection_deg, phase_time_s, elbow_flexion_projection_deg, trunk_tilt_projection_deg, valid_time_ratio]
+    feedback_rules: [elbow_flexion_if_set, trunk_tilt_if_set]
+    diagnosis_output: false
