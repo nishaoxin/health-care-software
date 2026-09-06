@@ -1,0 +1,13 @@
+# Only the selected scene runs. All values are frozen into each session.
+schema_version: 2
+scenes:
+  activity:
+    sedentary_trigger_s: 2700.0
+    stand_target_s: 60.0
+    walk_target_s: 120.0
+  bedroom_demo:
+    real_bed: false
+    needs_assistance: false
+    night_confirmed: false
+  safety_demo:
+    low_hold_s: 2.0

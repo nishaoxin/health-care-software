@@ -1,0 +1,14 @@
+{
+  "manifest_version": 1,
+  "name": "yolo11n-pose.pt",
+  "source": "https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11n-pose.pt",
+  "source_owner": "ultralytics",
+  "sha256": "869e83fcdffdc7371fa4e34cd8e51c838cc729571d1635e5141e3075e9319dc0",
+  "schema_id": "coco17-v1",
+  "coordinate_space": "raw_image_pixels",
+  "keypoint_order_version": "coco17-anatomical-lr-v1",
+  "license_route": "AGPL-3.0 or Ultralytics Enterprise; no Enterprise license asserted",
+  "prepared_by": "explicit development setup, never application auto-download",
+  "prepared_date": "2026-09-06",
+  "training_dataset_reference": "COCO keypoints, not bundled; original data rights remain with their owners"
+}

@@ -9,6 +9,7 @@
 **/dist/
 **/*.spec
 **/.runtime/
+**/Ultralytics/
 **/.env
 backups/
 **/*.log
