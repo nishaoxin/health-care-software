@@ -59,6 +59,8 @@ QLabel#safetyNote { color:#8a6247; font-size:12px; }
 QTableWidget { background:white; alternate-background-color:#f8faf7; border:1px solid #e1e7df; border-radius:8px; gridline-color:#e9eee6; selection-background-color:#e0eadb; selection-color:#273a2d; }
 QHeaderView::section { background:#f0f4ed; color:#64765f; border:0; padding:12px; }
 QTableWidget::item { padding:8px; }
+QProgressBar { border:0; border-radius:5px; background:#edf2ea; color:#274832; text-align:center; font-size:12px; }
+QProgressBar::chunk { background:#bad1ad; border-radius:5px; }
 QScrollArea { border:0; background:transparent; }
 QScrollBar:vertical { width:8px; background:transparent; }
 QScrollBar::handle:vertical { background:#cfd9cc; border-radius:4px; min-height:32px; }

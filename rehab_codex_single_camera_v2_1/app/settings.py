@@ -28,6 +28,7 @@ def default_plan(exercise='shoulder_abduction'):
     plan = copy.deepcopy({
         'exercise_id': exercise, 'side': 'left', 'submode': 'assessment',
         'target_reps': 5, 'target_sets': 1, 'target_angle_deg': None,
+        'rest_between_sets_s': None,
         'allowed_elbow_flexion_deg': None, 'allowed_trunk_tilt_deg': None,
         'lowering_tempo_min_s': None, 'lowering_tempo_max_s': None,
         'use_of_hands': 'not_recorded', 'needs_companion': False, 'sound_enabled': False,

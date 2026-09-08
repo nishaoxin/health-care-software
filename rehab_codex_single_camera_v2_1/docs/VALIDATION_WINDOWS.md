@@ -1,5 +1,14 @@
 # Windows 工程首版验收记录
 
+## 2026-09-08 · 训练组次、休息、暂停与结束反馈
+
+- 当前分批检查：`tests/test_training_execution.py tests/test_app_controller.py tests/test_training_runtime.py` 共 39 项与 4 个子测试通过（2.23 秒）；`tests/test_training_ui.py tests/test_training_feedback.py tests/test_product_navigation.py tests/test_participant_runtime.py` 共 31 项通过（4.15 秒）。两批均正常退出，没有放宽等待阈值。
+- 覆盖计划驱动、组间不计次、空休息配置、暂停中断、坐站最后一次与未观察回坐、迟到/非有限时间、恢复确认、识别失败后旧结果清除、保存失败恢复、手工感受空值/0/冲突/删除后拒写、导出及小窗口操作。
+- 新增真实 Runtime/SQLite 命令往返：结束记录→填写感受→重开报告→正常退出→数据库重开；使用明确 SYNTHETIC/TEST 临时记录，不打开相机、不运行姿态推理。
+- 此前训练开发中的一次全量结果为 **554 项通过、1 项失败**（38.09 秒），失败为 `test_actual_blank_replay_has_no_person_no_task_and_no_false_save` 等待观察超时。该文件原样单独重跑 3 项通过（3.79 秒）；根因尚未证实。本次按用户要求不重复整套模型检查，不宣称当前全量通过。
+- `scripts/qa_training.py` 使用实际 PySide 控件、生产命令处理、SceneController 和 SQLite 配合合成姿态夹具，走通训练、暂停、确认恢复、休息、下一组、结束、填写感受与重开报告。不是实时 Runtime 线程/真人模型验证。截图放在忽略目录 `qa-output/training/`；已查看 1100×730 固定训练栏、结束反馈与计划表单。
+- 真人准确度、患者适用性、相机实机恢复和长期连续运行仍未验证。没有安装新依赖、下载模型或修改用户数据库结构。
+
 ## 2026-09-08 · 本地个人档案
 
 - 新增个人信息保存/重开、旧编号发现、空值与来源、版本冲突、迁移前备份及备份失败、只读 v1、导出脱敏测试。

@@ -63,6 +63,13 @@ class Runtime:
     def _message(self, kind, **data):
         self.messages.put({'kind': kind, **data})
 
+    def _inference_failed(self, packet, error):
+        self.controller.latest_packet = packet
+        self.controller.latest_pose = self.controller.latest_observation = None
+        self.preview_history = []
+        self.audio.reset(self.controller.context)
+        self._view(packet, error=error)
+
     def _execute(self, name, kw):
         c, store = self.controller, self.store
         if name == 'enumerate':
@@ -107,6 +114,14 @@ class Runtime:
             self._view()
             if had_session and c.last_saved_id:
                 self._message('saved', id=c.last_saved_id)
+        elif name == 'training_control':
+            self.audio.reset()
+            try:
+                c.training_control(kw['action'], setup_confirmed=kw.get('setup_confirmed', False))
+            finally:
+                self.audio.reset(c.context)
+            self.last_sound_count = c.engine.completed
+            self._view(c.latest_packet, c.latest_pose)
         elif name == 'preview_segment':
             if c.state != 'PREVIEW' or c.context.source_kind != 'REPLAY_FILE' or self.camera.worker is None:
                 raise ValueError('请先打开录像预览')
@@ -150,11 +165,14 @@ class Runtime:
             else:
                 output = export_body_profile(profile, kw['directory'])
                 self._message('notice', text=f'身体信息已导出：{output}')
-        elif name == 'report':
+        elif name in ('report', 'training_review'):
             s = store.get_session(kw['id'])
             if s is None:
                 raise ValueError('报告不存在')
-            self._message('report', snapshot=s, html=render_report(s))
+            self._message(name, snapshot=s, html=render_report(s))
+        elif name == 'save_training_feedback':
+            saved = store.save_training_feedback(kw['id'], kw['feedback'], expected_revision=kw['expected_revision'])
+            self._message('training_feedback_saved', snapshot=saved, html=render_report(saved))
         elif name == 'export':
             snapshot = store.get_session(kw['id'])
             if snapshot is None:
@@ -252,6 +270,8 @@ class Runtime:
                         self.last_frame_wall = None
                         self._view(error=error['message'] if error else None)
                         if save_ok:
+                            if had_session and c.last_saved_id:
+                                self._message('saved', id=c.last_saved_id)
                             self._message('notice', text=error['message'] if error else
                                           '回放结束，已保存本次任务。' if had_session else '回放已结束；预览没有生成任务报告。')
                         continue
@@ -296,9 +316,7 @@ class Runtime:
                 if packet.context != c.context:
                     continue
                 if error:
-                    c.latest_packet = packet
-                    c.latest_pose = None
-                    self._view(packet, error=error)
+                    self._inference_failed(packet, error)
                     continue
                 try:
                     c.consume(packet, pose)

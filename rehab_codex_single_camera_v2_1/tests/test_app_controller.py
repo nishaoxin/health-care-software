@@ -129,6 +129,126 @@ class ControllerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, '有效评估'):
             self.c.start()
 
+    def test_training_pause_checkpoint_and_source_time_barrier(self):
+        self._training_preview(self._assessment_reference())
+        self.c.start()
+        run_id = self.c.context.run_id
+        for i in range(16):
+            self.frame(i*.1, 0)
+        for i in range(16, 26):
+            self.frame(i*.1, 80)
+        self.c.training_control('pause')
+        checkpoint = self.store.get_session(run_id)
+        self.assertEqual(checkpoint['summary']['training']['stage'], 'PAUSED')
+        self.assertEqual(checkpoint['repetitions'][-1]['completion_status'], 'INTERRUPTED')
+        metrics_count = len(self.c.session['metrics'])
+        self.assertFalse(self.frame(1., 100))
+        self.assertEqual(len(self.c.session['metrics']), metrics_count)
+        for i in range(26, 40):
+            self.frame(i*.1, 0)
+        self.assertFalse(self.c.session['metrics'][-1]['included_in_training'])
+        self.assertEqual(self.c.session['metrics'][-1]['metrics'], {})
+        self.c.training_control('resume', setup_confirmed=True)
+        for i in range(40, 55):
+            self.frame(i*.1, 0)
+        for i in range(55, 75):
+            self.frame(i*.1, 80)
+        for i in range(75, 95):
+            self.frame(i*.1, 0)
+        self.c.stop('user_stop')
+        saved = self.store.get_session(run_id)
+        self.assertEqual(saved['summary']['completed'], 1)
+        self.assertEqual(saved['summary']['training']['stage'], 'FINISHED')
+        self.assertEqual(saved['training_execution_version'], 'sets-rest-1')
+
+    def test_invalid_training_plan_never_leaves_an_unsaved_running_session(self):
+        self._training_preview(self._assessment_reference())
+        self.c.setup['plan']['rest_between_sets_s'] = -5
+        with self.assertRaises(ValueError):
+            self.c.start()
+        self.assertIsNone(self.c.session)
+        self.assertEqual(self.c.state, 'PREVIEW')
+
+    def test_training_checkpoint_failure_releases_and_preserves_pending_result(self):
+        self._training_preview(self._assessment_reference())
+        self.c.start()
+        self.frame(1., 0)
+        original = self.store.save_session
+        def fail(snapshot):
+            raise OSError('disk full')
+        self.store.save_session = fail
+        try:
+            with self.assertRaises(RuntimeError):
+                self.c.training_control('pause')
+            self.assertEqual(self.c.state, 'SAVE_FAILED')
+            self.assertIsNotNone(self.c.pending)
+            self.assertIsNone(self.camera.worker)
+            self.assertEqual(self.c.pending['summary']['training']['ended_stage'], 'PAUSED')
+        finally:
+            self.store.save_session = original
+
+    def test_training_resume_rejects_missing_participant_and_assessment_has_no_controls(self):
+        self.c.start()
+        with self.assertRaises(ValueError):
+            self.c.training_control('pause')
+        self.c.stop('user_stop')
+        self.c.open(self.source, self.setup)
+        self.frame(0, 0)
+        self.c.confirm(self.setup)
+        self._training_preview(self._assessment_reference())
+        self.c.start()
+        self.frame(1., 0)
+        self.c.training_control('pause')
+        self.c.latest_observation = None
+        with self.assertRaisesRegex(ValueError, '清楚入镜'):
+            self.c.training_control('resume', setup_confirmed=True)
+
+    def test_training_resume_requires_matching_pose_and_finite_metrics(self):
+        self._training_preview(self._assessment_reference())
+        self.c.start()
+        self.frame(1., 0)
+        self.c.training_control('pause')
+        self.frame(2., 0)
+        pose, obs = self.c.latest_pose, self.c.latest_observation
+        self.c.latest_pose = None
+        with self.assertRaisesRegex(ValueError, '清楚入镜'):
+            self.c.training_control('resume', setup_confirmed=True)
+        self.c.latest_pose = pose
+        self.c.latest_packet.seq += 1
+        with self.assertRaisesRegex(ValueError, '清楚入镜'):
+            self.c.training_control('resume', setup_confirmed=True)
+        self.c.latest_packet.seq = pose.seq
+        key = self.c.engine.spec['required_metrics'][0]
+        original = obs.metrics[key]
+        for value in (float('nan'), float('inf'), True):
+            obs.metrics[key] = Metric(value, True)
+            with self.assertRaisesRegex(ValueError, '清楚入镜'):
+                self.c.training_control('resume', setup_confirmed=True)
+        obs.metrics[key] = original
+        self.assertEqual(self.c.engine.stage, 'PAUSED')
+        self.c.training_control('resume', setup_confirmed=True)
+        self.assertEqual(self.c.engine.stage, 'ACTIVE')
+
+    def test_training_live_resume_rejects_stale_future_or_nonfinite_receipt(self):
+        self._training_preview(self._assessment_reference())
+        self.c.start()
+        self.frame(1., 0)
+        self.c.training_control('pause')
+        self.frame(2., 0)
+        # Controller-only clock fixture; no live camera is opened or evidence relabelled.
+        self.c.source = dict(self.source, kind='LIVE_CAMERA')
+        try:
+            for received in (5., 11., float('nan')):
+                self.c.latest_packet.received_monotonic = received
+                with self.assertRaisesRegex(ValueError, '清楚入镜'):
+                    self.c.training_control('resume', now=10., setup_confirmed=True)
+            self.c.latest_packet.received_monotonic = 9.
+            self.c.training_control('resume', now=10., setup_confirmed=True)
+            self.assertFalse(self.frame(9.9, 90))
+            self.assertTrue(self.frame(10.1, 0))
+        finally:
+            self.c.source = self.source
+
     def test_other_participant_cannot_use_assessment_reference(self):
         reference = self._assessment_reference()
         self._training_preview(reference, participant='different-user')

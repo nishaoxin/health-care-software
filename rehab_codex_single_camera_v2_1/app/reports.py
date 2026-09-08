@@ -229,7 +229,8 @@ def render_report(s):
     if scene == 'rehab':
         rows = []
         for rep in s.get('repetitions') or []:
-            values = (fmt(rep.get('number'), 0), fmt(LABELS.get(rep.get('completion_status'), rep.get('completion_status'))),
+            number = fmt(rep.get('number'), 0)+(f" · 第 {fmt(rep['set_number'], 0)} 组" if rep.get('set_number') else '')
+            values = (number, fmt(LABELS.get(rep.get('completion_status'), rep.get('completion_status'))),
                       fmt(LABELS.get(rep.get('target_status'), rep.get('target_status'))), fmt(_rep_angle(rep, spec)),
                       fmt(rep.get('min_angle_deg')), fmt(rep.get('peak_angle_deg')), fmt(rep.get('range_deg')),
                       fmt(rep.get('duration_s')), fmt(LABELS.get(rep.get('observation_status'), rep.get('observation_status'))),
@@ -246,6 +247,7 @@ def render_report(s):
                    '<th>最小 °</th><th>最大 °</th><th>幅度 °</th><th>时长 s</th><th>观察情况</th><th>可见问题</th></tr>'
                    + (''.join(rows) or '<tr><td colspan="10">没有已记录的动作重复。</td></tr>') + '</table>')
         detail += _training_html(s)
+        detail += _training_execution_html(s)
         if s.get('measurement_limitations'):
             detail += '<h2>本动作的测量限制</h2><p>'+fmt(s['measurement_limitations'])+'</p>'
         baseline = ((s.get('config_snapshot') or {}).get('plan') or {}).get('joint_baseline') or {}
@@ -308,12 +310,43 @@ def _participant_html(profile):
             + '</table>')
 
 
+def _training_execution_html(session):
+    if session_value(session, 'submode') != 'training':
+        return ''
+    from .training import FEEDBACK_REASONS
+    summary = session.get('summary') or {}
+    training = summary.get('training') or {}
+    html = '<h2>训练执行</h2>'
+    if not training:
+        html += '<p>此记录未保存组间执行过程。</p>'
+    else:
+        html += (f'<p>计划 {fmt(training.get("target_reps"), 0)} 次 × {fmt(training.get("target_sets"), 0)} 组；'
+                 f'完成 {fmt(summary.get("completed_sets"), 0)} 组。完整动作与角度目标达成分别记录。</p>'
+                 f'<p>组间休息 {fmt(training.get("rest_s"))} 秒；暂停 {fmt(training.get("paused_s"))} 秒。'
+                 '这些时间按输入时钟记录，不计入训练的有效观察比例。暂停不是停止摄像头采集。</p>'
+                 '<table><tr><th>组</th><th>状态</th><th>完成次数</th><th>部分尝试</th><th>中断 / 无法评价</th><th>组后休息 s</th></tr>')
+        for group in training.get('sets', []):
+            values = [fmt(group.get('number'), 0), fmt({'ACTIVE': '进行中', 'COMPLETE': '次数已完成', 'INTERRUPTED': '提前结束'}.get(group.get('status'), '未记录')),
+                      fmt(group.get('completed'), 0), fmt(group.get('partial'), 0), fmt(group.get('interrupted'), 0), fmt(group.get('rest_s'))]
+            html += '<tr>'+''.join('<td>'+v+'</td>' for v in values)+'</tr>'
+        html += '</table>'
+    html += '<h2>本次训练感受</h2>'
+    feedback = session.get('training_feedback')
+    if not feedback:
+        return html + ('<p>导出未包含个人填写信息。</p>' if session.get('manual_information_omitted') else '<p>尚未填写，可在本地报告中补充。</p>')
+    return (html+f'<p>本人自述（可由照护者代录），不是摄像头判断。记录时间：{fmt(feedback.get("recorded_utc"))}。</p>'
+            f'<p>疼痛自评：{fmt(feedback.get("pain"), 0)} / 10；疲劳自评：{fmt(feedback.get("fatigue"), 0)} / 10。'
+            '— 表示未填写，不代表 0。</p>'
+            f'<p>结束原因：{fmt(FEEDBACK_REASONS.get(feedback.get("reason"), "未填写"))}</p>'
+            f'<p>{fmt(feedback.get("notes"))}</p>')
+
+
 # Nested plans/calibrations/references can carry the same sensitive metadata as
 # the top-level session. Redact recursively, not just the device_ref at the root.
 PRIVATE_KEYS = {'device_ref', 'device_path', 'path', 'file_path', 'video_path', 'model_path',
                 'participant_name', 'person_name', 'patient_name', 'full_name', 'display_name',
                 'name', 'operator', 'annotator', 'email', 'phone', 'address', 'serial_number',
-                'participant_snapshot'}
+                'participant_snapshot', 'training_feedback'}
 
 
 def _export_snapshot(snapshot):
@@ -335,7 +368,10 @@ def _export_snapshot(snapshot):
         if isinstance(value, (list, tuple)):
             return [redact(item) for item in value]
         return clean_json(value)
-    return redact(snapshot)
+    result = redact(snapshot)
+    if snapshot.get('participant_snapshot') or snapshot.get('training_feedback'):
+        result['manual_information_omitted'] = True
+    return result
 
 
 def _empty_export_directory(directory):

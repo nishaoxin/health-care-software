@@ -28,6 +28,7 @@ from .widgets import ROI_LABELS, Disclosure
 from .theme import STYLE
 from .workspace import build_workspace
 from .participants import ParticipantDialog, ParticipantSummary
+from .training import TrainingFeedbackDialog, STAGES as TRAINING_STAGES
 
 STATUS = {'UNSELECTED': '相机未打开', 'CONNECTING': '正在连接', 'PREVIEW': '预览中',
           'ONLINE': '记录中', 'OFFLINE': '输入已断开', 'PRIVACY_PAUSED': '采集已停止',
@@ -70,6 +71,9 @@ class MainWindow(QMainWindow):
         self._participant_to_activate = None
         self.body_profile = None
         self._summarize_after_save = None
+        self._feedback_after_save = None
+        self.feedback_dialog = None
+        self._training_execution = {}
         self.state = 'UNSELECTED'
         self.busy = 0
         self.pending_commands = Counter()
@@ -578,7 +582,24 @@ class MainWindow(QMainWindow):
     def _finish_task(self):
         if self.scene == 'rehab' and self.submode.currentData() == 'assessment' and self.state == 'ONLINE':
             self._summarize_after_save = self._body_scope_key()
+        if self.scene == 'rehab' and self.submode.currentData() == 'training' and self.state == 'ONLINE':
+            self._feedback_after_save = self.participant_id
         self._send('stop', reason='user_stop')
+
+    def _request_training_review(self, sid):
+        if self.state in ('ONLINE', 'SAVE_FAILED') or self.busy:
+            self.notice.setText('请先结束并保存当前任务，再填写训练感受。')
+            return
+        self._send('training_review', id=sid)
+
+    def _save_training_feedback(self, sid, feedback, revision):
+        if self.busy or not self.feedback_dialog:
+            return
+        self.feedback_dialog.set_busy(True)
+        self._send('save_training_feedback', id=sid, feedback=feedback, expected_revision=revision)
+
+    def _feedback_closed(self):
+        self.feedback_dialog = None
 
     def _show_body(self):
         if self.state in ('ONLINE', 'SAVE_FAILED') or self.busy:
@@ -638,6 +659,8 @@ class MainWindow(QMainWindow):
             self._send('report', id=item['session_id'])
 
     def _send(self, name, **kw):
+        if name in ('start', 'training_control'):
+            self.notice.clear()
         self.busy += 1
         self.pending_commands[name] += 1
         self._buttons()
@@ -650,6 +673,7 @@ class MainWindow(QMainWindow):
         self._confirmed = False
         self.start_button.setEnabled(False)
         self._accept_context_frames = False
+        self._training_execution = {}
         self.setup['plan']['joint_baseline'] = {}
         for metric_card in (self.count_card, self.angle_card, self.valid_card):
             metric_card.show_value(None)
@@ -745,6 +769,8 @@ class MainWindow(QMainWindow):
     def _sync_scene(self):
         self._update_personal_reminders()
         training = self.scene == 'rehab' and self.submode.currentData() == 'training'
+        self.training_panel.setVisible(training)
+        self.task_header.setVisible(not training)
         self.setup['plan'].update(participant_id=self.participant_id, side=self.side.currentData(),
                                   submode=self.submode.currentData())
         self.title.setText(('训练指导' if training else '身体评估') if self.scene == 'rehab' else SCENES[self.scene])
@@ -793,7 +819,9 @@ class MainWindow(QMainWindow):
         goal = '角度目标：未设置' if plan['target_angle_deg'] is None else f"角度目标：{plan['target_angle_deg']:g}°"
         if training:
             confirmation = '计划已确认' if plan.get('training_plan_confirmed') else '计划待确认'
-            self.plan_text.setText(f"{plan['target_reps']} 次 × {plan['target_sets']} 组\n{goal}\n{confirmation} · 完成后手动结束")
+            rest = plan.get('rest_between_sets_s')
+            rest_text = '组间休息：未指定时间' if rest is None else f'组间休息：{rest:g} 秒'
+            self.plan_text.setText(f"{plan['target_reps']} 次 × {plan['target_sets']} 组\n{goal}\n{rest_text}\n{confirmation} · 组间手动继续")
         else:
             self.plan_text.setText('评估模式：记录可见幅度、完整动作和观察质量。\n结束后汇总身体信息，不自动诊断或生成处方。')
         self.plan_button.setText('修改训练计划' if plan.get('training_plan_confirmed') else '确认训练计划')
@@ -944,6 +972,7 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'preview_button'):
             return
         available = self.busy == 0
+        self.training_panel.set_execution(self._training_execution, self.state == 'ONLINE', available)
         self.preview_button.setEnabled(available and self.state not in ('ONLINE', 'SAVE_FAILED'))
         self.confirm_button.setEnabled(available and self.state == 'PREVIEW')
         training_ready = (self.scene != 'rehab' or self.submode.currentData() != 'training'
@@ -1009,6 +1038,8 @@ class MainWindow(QMainWindow):
                 self.busy = max(0, self.busy-1)
             if self.participant_dialog:
                 self.participant_dialog.set_busy(self.busy > 0)
+            if self.feedback_dialog:
+                self.feedback_dialog.set_busy(self.busy > 0)
             if not self.busy and self._participant_to_activate:
                 pid = self._participant_to_activate
                 self._participant_to_activate = None
@@ -1029,6 +1060,8 @@ class MainWindow(QMainWindow):
             self._closing = False
             if m.get('command') == 'save_participant' and self.participant_dialog:
                 self.participant_dialog.error.setText(m['text'])
+            if m.get('command') == 'save_training_feedback' and self.feedback_dialog:
+                self.feedback_dialog.error.setText(m['text'])
             if kind == 'fatal':
                 self.preview_button.setEnabled(False)
         elif kind == 'notice':
@@ -1094,6 +1127,11 @@ class MainWindow(QMainWindow):
             self._sync_scene()
         elif kind == 'saved':
             self.notice.setText('已保存，可在历史记录中查看。')
+            if self._feedback_after_save:
+                participant_id = self._feedback_after_save
+                self._feedback_after_save = None
+                if participant_id == self.participant_id:
+                    self._send('training_review', id=m['id'])
             if self._summarize_after_save:
                 scope = self._summarize_after_save
                 self._summarize_after_save = None
@@ -1133,8 +1171,28 @@ class MainWindow(QMainWindow):
                     self.table.setItem(i, j, QTableWidgetItem(value))
                 self.table.setRowHeight(i, 54)
             self.history_empty.setVisible(not self.sessions)
+        elif kind == 'training_review':
+            snapshot = m['snapshot']
+            if snapshot.get('submode') != 'training' or snapshot.get('status') not in ('FINISHED', 'INTERRUPTED'):
+                self.notice.setText('这不是已结束的训练记录。')
+                return
+            self.feedback_dialog = TrainingFeedbackDialog(snapshot, self)
+            self.feedback_dialog.save_requested.connect(self._save_training_feedback)
+            self.feedback_dialog.finished.connect(self._feedback_closed)
+            self.feedback_dialog.set_busy(self.busy > 0)
+            self.feedback_dialog.show()
+        elif kind == 'training_feedback_saved':
+            snapshot = m['snapshot']
+            if self.feedback_dialog and self.feedback_dialog.snapshot['id'] == snapshot['id']:
+                self.feedback_dialog.set_busy(False)
+                self.feedback_dialog.accept()
+            for dialog in self.report_windows:
+                if dialog.snapshot['id'] == snapshot['id']:
+                    dialog.snapshot = snapshot
+                    dialog.browser.setHtml(m['html'])
+            self.notice.setText('训练感受已保存，测量结果未改变。')
         elif kind == 'report':
-            dialog = ReportDialog(m['snapshot'], m['html'], self._export, self)
+            dialog = ReportDialog(m['snapshot'], m['html'], self._export, self, on_feedback=self._request_training_review)
             self.report_windows.append(dialog)
             dialog.show()
         elif kind == 'events':
@@ -1180,8 +1238,12 @@ class MainWindow(QMainWindow):
         if context:
             self.last_generation = context.generation
         self.state = data['state']
+        self._training_execution = (data.get('summary') or {}).get('training') or {}
+        training_stage = self._training_execution.get('stage')
         self._confirmed = data['confirmed']
         status = STATUS.get(self.state, self.state)
+        if self.state == 'ONLINE' and training_stage in ('PAUSED', 'RESTING', 'COMPLETE'):
+            status = TRAINING_STAGES[training_stage]+' · 相机开启'
         if self.state == 'UNSELECTED' and self.source_kind.currentData() == 'REPLAY_FILE':
             status = '视频未打开'
         self.status_badge.setText(status)
@@ -1191,6 +1253,8 @@ class MainWindow(QMainWindow):
             self.status_badge.style().unpolish(self.status_badge)
             self.status_badge.style().polish(self.status_badge)
         self.coverage.setText(('正在观察：'+SCENES[self.scene] if self.state == 'ONLINE' else '当前未开始观察')+'\n其他场景未监测')
+        if self.state == 'ONLINE' and training_stage in ('PAUSED', 'RESTING', 'COMPLETE'):
+            self.coverage.setText('未计次，摄像头仍开启\n其他场景未监测')
         packet, pose = data.get('packet'), data.get('pose')
         if packet and self.state in ('PREVIEW', 'ONLINE'):
             self.canvas.set_frame(packet, pose)
@@ -1229,6 +1293,8 @@ class MainWindow(QMainWindow):
             ratio = summary.get('valid_ratio')
             self.valid_card.show_value(None if ratio is None else f'{ratio*100:.0f}')
             phase = PHASES.get(summary.get('phase'), summary.get('phase', ''))
+            if training_stage and training_stage != 'ACTIVE':
+                phase = TRAINING_STAGES.get(training_stage, phase)
             self.feedback.setText(phase+' · '+summary.get('message', ''))
             self.debug.setPlainText(dumps(summary, indent=2))
         elif self.state not in ('ONLINE',):
@@ -1240,7 +1306,8 @@ class MainWindow(QMainWindow):
         if self.state in ('OFFLINE', 'ERROR', 'SAVE_FAILED', 'PRIVACY_PAUSED'):
             self.feedback.setText(self._idle_copy()[2])
         observed = data.get('observation_status')
-        if self.state in ('PREVIEW', 'ONLINE') and observed in ('NO_PERSON_DETECTED', 'MULTI_PERSON', 'UNKNOWN'):
+        if (self.state in ('PREVIEW', 'ONLINE') and observed in ('NO_PERSON_DETECTED', 'MULTI_PERSON', 'UNKNOWN')
+                and training_stage not in ('PAUSED', 'RESTING', 'COMPLETE')):
             self.feedback.setText({'NO_PERSON_DETECTED': '未检测到人，请调整拍摄位置。',
                                    'MULTI_PERSON': '检测到多人，请只保留一位参与者。',
                                    'UNKNOWN': '暂时无法测量，请检查遮挡和拍摄位置。'}[observed])
@@ -1313,6 +1380,7 @@ class MainWindow(QMainWindow):
         reason, accepted = QInputDialog.getText(self, '丢弃未保存结果', '此操作会放弃本次未保存结果。建议先备份。\n输入丢弃原因以确认：')
         if accepted and reason.strip():
             self._summarize_after_save = None
+            self._feedback_after_save = None
             self._send('discard_pending', reason=reason)
 
     def closeEvent(self, event):

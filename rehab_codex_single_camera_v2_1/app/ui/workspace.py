@@ -4,6 +4,7 @@ from PySide6.QtWidgets import (QWidget, QFrame, QLabel, QPushButton, QLineEdit, 
     QVBoxLayout, QHBoxLayout, QStackedWidget, QPlainTextEdit, QScrollArea)
 
 from .catalog import ExerciseCatalog
+from .training import TrainingControls
 from .widgets import VideoCanvas, MetricCard, Disclosure, NoticeLabel
 
 
@@ -135,6 +136,7 @@ def build_workspace(w):
     monitor = QVBoxLayout()
     monitor.setSpacing(12)
     task = QFrame()
+    w.task_header = task
     task.setObjectName('taskHeader')
     taskbox = QHBoxLayout(task)
     taskbox.setContentsMargins(16, 10, 16, 10)
@@ -152,6 +154,8 @@ def build_workspace(w):
     w.catalog_button.clicked.connect(w._show_catalog)
     taskbox.addWidget(w.catalog_button)
     monitor.addWidget(task)
+    w.training_panel = TrainingControls()
+    w.training_panel.control_requested.connect(lambda action, confirmed: w._send('training_control', action=action, setup_confirmed=confirmed))
 
     w.canvas = VideoCanvas()
     w.canvas.roi_changed.connect(w._roi_changed)
@@ -193,7 +197,11 @@ def build_workspace(w):
     w.monitor_scroll.setWidgetResizable(True)
     w.monitor_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     w.monitor_scroll.setWidget(monitor_host)
-    split.addWidget(w.monitor_scroll, 1)
+    left = QVBoxLayout()
+    left.setSpacing(10)
+    left.addWidget(w.training_panel)
+    left.addWidget(w.monitor_scroll, 1)
+    split.addLayout(left, 1)
     w.setup_panel = w._setup_panel()
     w.setup_panel.setFixedWidth(328)
     split.addWidget(w.setup_panel)

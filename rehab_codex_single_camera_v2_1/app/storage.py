@@ -185,6 +185,29 @@ class Storage:
             return count
         return self._call(recover)
 
+    def save_training_feedback(self, sid, feedback, *, expected_revision):
+        from .training import validate_training_feedback
+        value = validate_training_feedback(copy.deepcopy(feedback))
+        if type(expected_revision) is not int or expected_revision < 0:
+            raise ValueError('训练感受版本无效，请重新打开报告')
+        def save(c):
+            c.execute('BEGIN IMMEDIATE')
+            row = c.execute('SELECT payload FROM sessions WHERE id=?', (sid,)).fetchone()
+            if row is None:
+                raise ValueError('报告不存在，训练感受未保存')
+            session = json.loads(row[0])
+            mode = session.get('submode') or (session.get('config_snapshot') or {}).get('plan', {}).get('submode')
+            if session.get('scene_id') != 'rehab' or mode != 'training' or session.get('status') not in ('FINISHED', 'INTERRUPTED'):
+                raise ValueError('只能为已结束的训练填写感受')
+            previous = session.get('training_feedback') or {}
+            if previous.get('revision', 0) != expected_revision:
+                raise ValueError('训练感受已更新，请重新打开报告；本次填写尚未保存')
+            value.update(revision=expected_revision+1, recorded_utc=utc_now())
+            session['training_feedback'] = value
+            c.execute('UPDATE sessions SET payload=? WHERE id=?', (dumps(session), sid))
+            return session
+        return self._call(save)
+
     def delete_session(self, sid):
         def delete(c):
             for table in ('config_snapshots', 'repetitions', 'activity_intervals', 'tasks'):

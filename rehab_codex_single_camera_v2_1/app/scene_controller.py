@@ -4,6 +4,7 @@ import copy
 from dataclasses import asdict
 from datetime import datetime
 import json
+import math
 from pathlib import Path
 from uuid import uuid4
 
@@ -11,6 +12,7 @@ from .domain import Context, PacketGate, RULE_VERSION, PREPROCESS_VERSION, JOINT
 from .geometry import valid_roi
 from .quality import PoseAnalyzer
 from .rehab import RehabEngine
+from .training import TrainingEngine
 from .exercises import exercise_spec
 from .assessment import build_body_profile, build_training_reference
 from .landmark_schemas import joint_names, BACKEND_SCHEMAS
@@ -223,6 +225,14 @@ class SceneController:
         self.setup['plan'] = copy.deepcopy(plan)
         if self.setup['plan']['needs_companion'] and not self.setup.get('companion_confirmed'):
             raise ValueError('训练计划要求陪同，请确认陪同者在场')
+        scene = self.setup['scene_id']
+        if scene == 'rehab':
+            engine = TrainingEngine(plan) if plan['submode'] == 'training' else RehabEngine(plan)
+        else:
+            from .activity import ActivityEngine
+            from .bedroom import BedroomEngine
+            from .safety import SafetyEngine
+            engine = {'activity': ActivityEngine, 'bedroom_demo': BedroomEngine, 'safety_demo': SafetyEngine}[scene](self.setup)
         participant_snapshot = self.storage.get_participant(plan['participant_id'])
         run_id = uuid4().hex
         context = self._context(run_id)
@@ -257,14 +267,9 @@ class SceneController:
             self.session['assessment_reference'] = copy.deepcopy(plan['assessment_reference'])
         if self.setup['poses_consent']:
             self.session['poses'] = []
-        scene = self.setup['scene_id']
-        if scene == 'rehab':
-            self.engine = RehabEngine(plan)
-        else:
-            from .activity import ActivityEngine
-            from .bedroom import BedroomEngine
-            from .safety import SafetyEngine
-            self.engine = {'activity': ActivityEngine, 'bedroom_demo': BedroomEngine, 'safety_demo': SafetyEngine}[scene](self.setup)
+        self.engine = engine
+        if isinstance(self.engine, TrainingEngine):
+            self.session['training_execution_version'] = 'sets-rest-1'
         try:
             self.storage.save_session(self.session)
         except Exception:
@@ -283,6 +288,8 @@ class SceneController:
 
     def consume(self, packet, pose):
         if packet.context != self.context or not self.gate.admit(pose):
+            return False
+        if isinstance(self.engine, TrainingEngine) and not self.engine.accepts_time(pose.time_s):
             return False
         if tuple(packet.image.shape[1::-1]) != tuple(pose.size):
             raise ValueError('画面与姿态尺寸不一致')
@@ -306,13 +313,17 @@ class SceneController:
             return True
         if obs.track_key:
             self.active_track = obs.track_key
+        training_event_count = len(self.engine.training_events) if isinstance(self.engine, TrainingEngine) else None
         self.engine.process(obs)
         self.processed_frames += 1
         if self.previous_seq is not None:
             self.dropped_frames += max(0, pose.seq-self.previous_seq-1)
         self.previous_seq = pose.seq
+        included = not isinstance(self.engine, TrainingEngine) or self.engine.last_observation_included
         self.session['metrics'].append({'time_s': obs.time_s, 'seq': pose.seq, 'phase': self.engine.phase,
-                                        'observation_status': obs.status, 'metrics': asdict_metrics(obs.metrics),
+                                        'training_stage': self.engine.stage if isinstance(self.engine, TrainingEngine) else None,
+                                        'included_in_training': included if isinstance(self.engine, TrainingEngine) else None,
+                                        'observation_status': obs.status, 'metrics': asdict_metrics(obs.metrics) if included else {},
                                         'annotation_origin': 'prediction', 'reasons': obs.reasons})
         if self.setup['poses_consent']:
             self.session['poses'].append({'pose': asdict(pose), 'center_raw_px': obs.center_raw_px,
@@ -331,7 +342,51 @@ class SceneController:
                     self.stop('event_save_failed')
                     raise
                 self.persisted_events.add(event['id'])
+        if training_event_count is not None and training_event_count != len(self.engine.training_events):
+            self._checkpoint_training()
         return True
+
+    def _checkpoint_training(self):
+        self.session.update(summary=self.engine.summary(), repetitions=copy.deepcopy(self.engine.repetitions),
+                            processed_frames=self.processed_frames, skipped_capture_frames=self.dropped_frames)
+        try:
+            self.storage.save_session(self.session)
+        except Exception:
+            self.stop('training_checkpoint_failed')
+            raise
+
+    def training_control(self, action, now=None, *, setup_confirmed=False):
+        if self.state != 'ONLINE' or not isinstance(self.engine, TrainingEngine) or self.pending is not None:
+            raise ValueError('请先开始已确认的训练计划')
+        if self.source['kind'] == 'LIVE_CAMERA':
+            import time
+            t = time.monotonic() if now is None else now
+        else:
+            t = self.latest_observation.time_s if self.latest_observation else self.engine.clock_t
+        if type(t) not in (int, float) or not math.isfinite(t):
+            raise ValueError('尚未取得有效输入时间，请等待新画面')
+        if action in ('resume', 'next_set'):
+            if setup_confirmed is not True:
+                raise ValueError('请先确认本人、测试侧与机位未变')
+            obs = self.latest_observation
+            packet, pose = self.latest_packet, self.latest_pose
+            if (obs is None or obs.status != 'VALID' or not obs.track_key
+                    or packet is None or pose is None or packet.context != self.context or pose.context != self.context
+                    or packet.seq != pose.seq or obs.time_s != pose.time_s
+                    or any(type(obs.value(k)) not in (int, float) or not math.isfinite(obs.value(k))
+                           for k in self.engine.spec['required_metrics'])
+                    or (self.source['kind'] == 'LIVE_CAMERA' and
+                        (type(packet.received_monotonic) not in (int, float)
+                         or not math.isfinite(packet.received_monotonic)
+                         or not 0 <= t-packet.received_monotonic <= 3))):
+                raise ValueError('请让当前参与者和必要关节重新清楚入镜，再继续')
+        self.engine.control(action, t)
+        if action in ('resume', 'next_set'):
+            self.engine.training_events[-1]['setup_manually_confirmed'] = True
+        if action in ('resume', 'next_set'):
+            self.analyzer = self._analyzer(self.setup['plan']['side'])
+        self._checkpoint_training()
+        return self.engine.summary()
 
     def stop(self, reason='user_stop', privacy=False):
         if self.pending is not None and self.session is None:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLabel, QComboBox,
+from PySide6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLabel, QComboBox, QWidget, QScrollArea,
     QDoubleSpinBox, QSpinBox, QCheckBox, QDialogButtonBox, QLineEdit, QTextBrowser,
     QPushButton, QHBoxLayout, QListWidget, QInputDialog, QMessageBox)
 
@@ -26,6 +26,7 @@ class PlanDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle('训练计划')
         self.setMinimumWidth(540)
+        self.resize(620, 650)
         self.plan = copy.deepcopy(plan)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 20)
@@ -37,7 +38,10 @@ class PlanDialog(QDialog):
         intro = QLabel('按已确认的训练安排填写。角度目标可不设置。')
         intro.setWordWrap(True)
         layout.addWidget(intro)
-        form = QFormLayout()
+        form_host = QWidget()
+        form_host.setObjectName('scrollContent')
+        form = QFormLayout(form_host)
+        form.setContentsMargins(0, 0, 10, 0)
         self.participant = QLineEdit(plan['participant_id'])
         self.participant.setReadOnly(True)
         self.participant.setToolTip('请在主界面“当前用户”处切换，以免混入其他用户记录。')
@@ -46,6 +50,9 @@ class PlanDialog(QDialog):
         self.reps.setValue(plan['target_reps'])
         self.sets.setRange(1, 20)
         self.sets.setValue(plan['target_sets'])
+        self.rest = nullable_spin(plan.get('rest_between_sets_s'), 1800, ' 秒')
+        self.rest.setDecimals(0)
+        self.rest.setSpecialValueText('未指定 · 手动继续')
         self.target = nullable_spin(plan['target_angle_deg'])
         self.elbow = nullable_spin(plan['allowed_elbow_flexion_deg'])
         self.tilt = nullable_spin(plan['allowed_trunk_tilt_deg'], 90)
@@ -59,9 +66,16 @@ class PlanDialog(QDialog):
         self.companion.setChecked(plan['needs_companion'])
         self.sound = QCheckBox('开启提示音')
         self.sound.setChecked(plan['sound_enabled'])
-        form.addRow('当前用户', self.participant)
+        self.participant.setParent(self)
+        self.participant.hide()
+        person = getattr(parent, 'participant_records', {}).get(plan['participant_id'], {})
+        person_label = QLabel(person.get('display_name', plan['participant_id']))
+        person_label.setTextFormat(Qt.TextFormat.PlainText)
+        person_label.setWordWrap(True)
+        form.addRow('当前用户', person_label)
         form.addRow('每组目标次数', self.reps)
         form.addRow('计划组数', self.sets)
+        form.addRow('组间休息时间', self.rest)
         direction = '投影角上限' if spec['target_direction'] == 'decrease' else '投影角目标'
         self.target.setToolTip(spec['metric_label'])
         form.addRow(direction, self.target)
@@ -75,7 +89,10 @@ class PlanDialog(QDialog):
             form.addRow('扶物 / 双手使用', self.hands)
         form.addRow(self.companion)
         form.addRow(self.sound)
-        layout.addLayout(form)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(form_host)
+        layout.addWidget(scroll, 1)
         if spec['joint'] != 'shoulder' and plan['exercise_id'] != 'sit_to_stand':
             note = QLabel('本动作支持可见角度、往返计数和人工目标提示；暂不识别代偿、坐位保持或支撑稳定性。')
             note.setWordWrap(True)
@@ -103,6 +120,7 @@ class PlanDialog(QDialog):
             QMessageBox.information(self, '检查节奏范围', '最短时间不能大于最长时间。')
             return
         self.plan.update(participant_id=self.participant.text().strip(), target_reps=self.reps.value(), target_sets=self.sets.value(),
+                         rest_between_sets_s=optional(self.rest),
                          target_angle_deg=optional(self.target), allowed_elbow_flexion_deg=optional(self.elbow),
                          allowed_trunk_tilt_deg=optional(self.tilt), lowering_tempo_min_s=low, lowering_tempo_max_s=high,
                          use_of_hands=self.hands.currentData(), needs_companion=self.companion.isChecked(), sound_enabled=self.sound.isChecked())
@@ -111,18 +129,24 @@ class PlanDialog(QDialog):
 
 
 class ReportDialog(QDialog):
-    def __init__(self, snapshot, html, on_export, parent=None):
+    def __init__(self, snapshot, html, on_export, parent=None, on_feedback=None):
         super().__init__(parent)
         self.setWindowTitle('本地任务报告')
         self.resize(1080, 760)
+        self.snapshot = snapshot
         box = QVBoxLayout(self)
         browser = QTextBrowser()
+        self.browser = browser
         browser.setOpenExternalLinks(False)
         browser.setHtml(html)
         box.addWidget(browser)
         row = QHBoxLayout()
         label = QLabel('原始视频默认不保存；报告中的 — 表示没有有效证据或不适用。')
         row.addWidget(label, 1)
+        if on_feedback and snapshot.get('submode') == 'training' and snapshot.get('status') in ('FINISHED', 'INTERRUPTED'):
+            feedback = QPushButton('填写训练感受')
+            feedback.clicked.connect(lambda: on_feedback(snapshot['id']))
+            row.addWidget(feedback)
         export = QPushButton('导出 HTML / JSON / CSV')
         export.clicked.connect(lambda: on_export(snapshot['id']))
         row.addWidget(export)
