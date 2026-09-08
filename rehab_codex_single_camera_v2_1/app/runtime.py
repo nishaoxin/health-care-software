@@ -135,6 +135,13 @@ class Runtime:
         elif name == 'history':
             sessions = store.list_sessions()
             self._message('history', sessions=[{k: v for k, v in s.items() if k not in ('metrics', 'poses')} for s in sessions])
+        elif name == 'participants':
+            self._message('participants', participants=store.list_participants())
+        elif name == 'save_participant':
+            if c.session is not None or c.pending is not None or c.state in ('ONLINE', 'SAVE_FAILED', 'PREVIEW', 'CONNECTING'):
+                raise ValueError('请先停止采集并保存当前任务，再编辑个人信息')
+            profile = store.save_participant(kw['profile'], expected_revision=kw['expected_revision'])
+            self._message('participant_saved', profile=profile)
         elif name in ('body_profile', 'export_body_profile'):
             profile = build_body_profile(store.list_sessions(), kw['participant_id'],
                                          kw['source_kind'], kw['usage_context'])

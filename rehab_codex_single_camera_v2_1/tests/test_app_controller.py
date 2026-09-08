@@ -68,6 +68,23 @@ class ControllerTests(unittest.TestCase):
         self.assertEqual(saved['usage_context'], 'TEST')
         self.assertNotIn('poses', saved)
 
+    def test_manual_profile_is_snapshotted_at_start_without_changing_targets(self):
+        from app.participants import legacy_participant
+        draft = dict(legacy_participant('participant-local'), display_name='测试档案',
+                     goals='开始时的目标', support='assisted')
+        saved = self.store.save_participant(draft, expected_revision=0)
+        self.c.start()
+        run_id = self.c.context.run_id
+        self.assertEqual(self.c.session['participant_snapshot'], saved)
+        self.assertIsNone(self.c.setup['plan']['target_angle_deg'])
+        # This is a manual statement, not a silently applied clinical plan.
+        self.assertFalse(self.c.setup['plan']['needs_companion'])
+        self.store.save_participant(dict(saved, goals='后来填写的目标'), expected_revision=1)
+        self.c.stop('user_stop')
+        reopened = self.store.get_session(run_id)
+        self.assertEqual(reopened['participant_snapshot']['goals'], '开始时的目标')
+        self.assertEqual(reopened['participant_snapshot']['revision'], 1)
+
     def _assessment_reference(self):
         self.c.start()
         t = 0

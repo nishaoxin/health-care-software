@@ -9,6 +9,7 @@ import sqlite3
 import threading
 
 from .domain import dumps, utc_now
+from .participants import legacy_participant, validate_participant
 
 
 class Storage:
@@ -30,18 +31,20 @@ class Storage:
             conn = sqlite3.connect(self.path.as_uri()+'?mode=ro', uri=True) if self.readonly else sqlite3.connect(self.path)
             conn.row_factory = sqlite3.Row
             conn.execute('PRAGMA busy_timeout=4000')
+            version = conn.execute('PRAGMA user_version').fetchone()[0]
+            if version not in (0, 1, 2):
+                raise RuntimeError('数据库版本高于本程序支持范围，原数据已保留')
             if not self.readonly:
-                version = conn.execute('PRAGMA user_version').fetchone()[0]
-                if version not in (0, 1):
-                    raise RuntimeError('数据库版本高于本程序支持范围，原数据已保留')
-                if version == 0 and existed:
-                    backup_path = self.path.with_name(self.path.name+'.before-v1-'+utc_now().replace(':', '-')+'.bak')
+                if version < 2 and existed:
+                    backup_path = self.path.with_name(self.path.name+'.before-v2-'+utc_now().replace(':', '-')+'.bak')
                     with sqlite3.connect(backup_path) as backup:
                         conn.backup(backup)
+                if version == 0 and existed:
                     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
                     if tables:
                         raise RuntimeError('发现未知旧数据库，已备份；需要显式迁移，未覆盖原表')
                 conn.executescript('''
+                    BEGIN IMMEDIATE;
                     CREATE TABLE IF NOT EXISTS sessions(id TEXT PRIMARY KEY, start_utc TEXT, scene_id TEXT, payload TEXT NOT NULL);
                     CREATE TABLE IF NOT EXISTS config_snapshots(session_id TEXT PRIMARY KEY, payload TEXT NOT NULL);
                     CREATE TABLE IF NOT EXISTS repetitions(session_id TEXT, ordinal INTEGER, payload TEXT NOT NULL, PRIMARY KEY(session_id,ordinal));
@@ -51,7 +54,9 @@ class Storage:
                     CREATE TABLE IF NOT EXISTS scene_profiles(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
                     CREATE TABLE IF NOT EXISTS devices(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
                     CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, at_utc TEXT NOT NULL, action TEXT NOT NULL, payload TEXT NOT NULL);
-                    PRAGMA user_version=1;
+                    CREATE TABLE IF NOT EXISTS participants(id TEXT PRIMARY KEY, revision INTEGER NOT NULL, payload TEXT NOT NULL);
+                    PRAGMA user_version=2;
+                    COMMIT;
                 ''')
                 conn.commit()
             self.ready.set_result(True)
@@ -120,6 +125,52 @@ class Storage:
 
     def list_sessions(self):
         return self._call(lambda c: [json.loads(r[0]) for r in c.execute('SELECT payload FROM sessions ORDER BY start_utc DESC')])
+
+    def get_participant(self, participant_id):
+        def get(c):
+            if not c.execute("SELECT 1 FROM sqlite_master WHERE name='participants' AND type='table'").fetchone():
+                return None  # Read-only v1 database, never migrate through a read.
+            row = c.execute('SELECT payload FROM participants WHERE id=?', (participant_id,)).fetchone()
+            return json.loads(row[0]) if row else None
+        return self._call(get)
+
+    def list_participants(self):
+        def collect(c):
+            tables = {r[0] for r in c.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            people = {r[0]: json.loads(r[1]) for r in c.execute('SELECT id,payload FROM participants')} if 'participants' in tables else {}
+            # Old records remain untouched. Unregistered IDs are shown as such,
+            # not silently converted into populated personal profiles.
+            for table in ('sessions', 'scene_profiles'):
+                if table not in tables:
+                    continue
+                for row in c.execute(f'SELECT payload FROM {table}'):
+                    item = json.loads(row[0])
+                    pid = (item.get('participant_id') or item.get('config_snapshot', {}).get('plan', {}).get('participant_id')
+                           or item.get('plan', {}).get('participant_id'))
+                    if isinstance(pid, str) and pid.strip() and pid not in people:
+                        people[pid] = legacy_participant(pid)
+            return sorted(people.values(), key=lambda p: (p['display_name'].casefold(), p['participant_id']))
+        return self._call(collect)
+
+    def save_participant(self, profile, *, expected_revision):
+        item = validate_participant(copy.deepcopy(profile))
+        if type(expected_revision) is not int or expected_revision < 0:
+            raise ValueError('档案版本无效，请重新打开档案')
+        def save(c):
+            c.execute('BEGIN IMMEDIATE')
+            row = c.execute('SELECT revision,payload FROM participants WHERE id=?', (item['participant_id'],)).fetchone()
+            if (row[0] if row else 0) != expected_revision:
+                raise ValueError('档案已更新，请关闭后重新打开；本次填写尚未保存')
+            previous = json.loads(row[1]) if row else {}
+            at = utc_now()
+            item.update(revision=expected_revision+1, record_origin='manual',
+                        created_utc=previous.get('created_utc') or at, updated_utc=at)
+            c.execute('INSERT OR REPLACE INTO participants VALUES (?,?,?)',
+                      (item['participant_id'], item['revision'], dumps(item)))
+            c.execute('INSERT INTO audit(at_utc,action,payload) VALUES (?,?,?)',
+                      (at, 'save_participant', dumps({'participant_id': item['participant_id'], 'revision': item['revision']})))
+            return item
+        return self._call(save)
 
     def recover_unfinished(self):
         def recover(c):

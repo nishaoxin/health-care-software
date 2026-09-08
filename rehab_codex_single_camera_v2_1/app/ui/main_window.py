@@ -20,12 +20,14 @@ from ..settings import ROOT, default_setup, default_plan
 from ..exercises import exercise_spec
 from ..exercise_instructions import exercise_instructions
 from ..assessment import build_training_reference
+from ..participants import legacy_participant, new_participant
 from ..runtime import Runtime
 from .dialogs import PlanDialog, ReportDialog, EventsDialog
 from .widgets import ROI_LABELS, Disclosure
 
 from .theme import STYLE
 from .workspace import build_workspace
+from .participants import ParticipantDialog, ParticipantSummary
 
 STATUS = {'UNSELECTED': '相机未打开', 'CONNECTING': '正在连接', 'PREVIEW': '预览中',
           'ONLINE': '记录中', 'OFFLINE': '输入已断开', 'PRIVACY_PAUSED': '采集已停止',
@@ -63,6 +65,9 @@ class MainWindow(QMainWindow):
         self.scene = 'rehab'
         self.setup = default_setup()
         self.participant_id = self.setup['plan']['participant_id']
+        self.participant_records = {self.participant_id: legacy_participant(self.participant_id)}
+        self.participant_dialog = None
+        self._participant_to_activate = None
         self.body_profile = None
         self._summarize_after_save = None
         self.state = 'UNSELECTED'
@@ -261,6 +266,11 @@ class MainWindow(QMainWindow):
         self.plan_button.setObjectName('primary')
         self.plan_button.clicked.connect(self._plan)
         box.addWidget(self.plan_button)
+        self.personal_reminders = QLabel()
+        self.personal_reminders.setTextFormat(Qt.TextFormat.PlainText)
+        self.personal_reminders.setWordWrap(True)
+        self.personal_reminders.setObjectName('safetyNote')
+        box.addWidget(self.personal_reminders)
         self.baselines = QWidget()
         baselinebox = QVBoxLayout(self.baselines)
         baselinebox.setContentsMargins(0, 0, 0, 0)
@@ -391,6 +401,10 @@ class MainWindow(QMainWindow):
         box = QVBoxLayout(page)
         box.setContentsMargins(0, 0, 0, 0)
         box.setSpacing(14)
+        self.personal_summary = ParticipantSummary()
+        self.personal_summary.edit_requested.connect(lambda: self._edit_participant())
+        self.personal_summary.set_profile(self.participant_records[self.participant_id])
+        box.addWidget(self.personal_summary)
         self.body_scope = QLabel()
         self.body_scope.setObjectName('muted')
         self.body_scope.setWordWrap(True)
@@ -419,7 +433,7 @@ class MainWindow(QMainWindow):
                                 ('查看报告', self._open_body_report),
                                 ('完整明细', self.body_detail_dialog.show),
                                 ('刷新', self._show_body),
-                                ('导出档案', self._export_body)):
+                                ('导出评估', self._export_body)):
             button = QPushButton(label)
             button.clicked.connect(callback)
             actions.addWidget(button)
@@ -449,6 +463,73 @@ class MainWindow(QMainWindow):
         self.setup['plan'].pop('assessment_reference', None)
         self.setup['plan']['training_plan_confirmed'] = False
 
+    def _refresh_participant_controls(self):
+        self.participant_records.setdefault(self.participant_id, legacy_participant(self.participant_id))
+        self.participant_select.blockSignals(True)
+        self.participant_select.clear()
+        records = sorted(self.participant_records.values(), key=lambda p: (p['display_name'].casefold(), p['participant_id']))
+        names = Counter(p['display_name'] for p in records)
+        for profile in records:
+            name = profile['display_name']
+            label = name[:20]+('…' if len(name) > 20 else '')
+            if names[name] > 1:
+                label += ' · '+profile['participant_id'][-8:]
+            if not profile.get('revision'):
+                label += ' · 未填档案'
+            self.participant_select.addItem(label, profile['participant_id'])
+            self.participant_select.setItemData(self.participant_select.count()-1,
+                                               name+'\n编号：'+profile['participant_id'], Qt.ItemDataRole.ToolTipRole)
+        self.participant_select.setCurrentIndex(self.participant_select.findData(self.participant_id))
+        self.participant_select.blockSignals(False)
+        if hasattr(self, 'personal_summary'):
+            self.personal_summary.set_profile(self.participant_records[self.participant_id])
+        if hasattr(self, 'personal_reminders'):
+            self._update_personal_reminders()
+
+    def _update_personal_reminders(self):
+        profile = self.participant_records[self.participant_id]
+        messages = []
+        if profile.get('restrictions'):
+            messages.append('档案中有已填活动限制，请先在“个人信息”中核对。')
+        if profile.get('support') in ('assisted', 'to_confirm'):
+            messages.append('档案中记录了陪同需求，请确认本次安排。')
+        self.personal_reminders.setText('\n'.join(messages))
+        self.personal_reminders.setVisible(bool(messages) and self.scene == 'rehab')
+
+    def _participant_selected(self):
+        if self.constructing:
+            return
+        pid = self.participant_select.currentData()
+        if pid:
+            self.participant.setText(pid)
+            self._apply_participant()
+
+    def _edit_participant(self, *, new=False):
+        if self.state in ('ONLINE', 'SAVE_FAILED') or self.busy:
+            self.notice.setText('请先结束并保存本次任务，再编辑个人信息。')
+            return
+        self._invalidate()
+        profile = new_participant() if new else self.participant_records.get(self.participant_id, legacy_participant(self.participant_id))
+        dialog = ParticipantDialog(profile, self)
+        self.participant_dialog = dialog
+        dialog.save_requested.connect(self._save_participant)
+        dialog.finished.connect(self._participant_editor_closed)
+        dialog.set_busy(self.busy > 0)
+        dialog.show()
+
+    def _participant_editor_closed(self, result):
+        self.participant_dialog = None
+        # Reload revisions after an edit/cancel, including a conflict in another
+        # app window. Existing unsaved form data is never silently replaced.
+        if result != QDialog.DialogCode.Accepted:
+            self._send('participants')
+
+    def _save_participant(self, profile, revision):
+        if self.busy or self.state in ('ONLINE', 'SAVE_FAILED'):
+            return
+        self.participant_dialog.set_busy(True)
+        self._send('save_participant', profile=profile, expected_revision=revision)
+
     def _apply_participant(self):
         name = self.participant.text().strip()
         if not name:
@@ -458,21 +539,27 @@ class MainWindow(QMainWindow):
             return
         if self.state in ('ONLINE', 'SAVE_FAILED') or self.busy:
             self.participant.setText(self.participant_id)
+            self._refresh_participant_controls()
             self.notice.setText('请先结束并保存当前任务，再切换用户。')
             return
         self._invalidate()
         self.participant_id = name
         self.participant.setText(name)
+        self._refresh_participant_controls()
         self.setup['plan'] = default_plan(self.exercise.currentData())
         self.setup['plan'].update(participant_id=name, submode=self.submode.currentData())
         self.body_profile = None
         self.body_action.clear()
+        self.body_overview.set_loading()
+        self.body_browser.clear()
+        self.body_detail_dialog.hide()
+        self._summarize_after_save = None
         self.body_train.setEnabled(False)
         if self.pages.currentIndex() == 2:
             self._request_body()
         else:
             self._sync_scene()
-        self.notice.setText(f'当前用户已切换为 {name}；本次目标和评估引用已清空。')
+        self.notice.setText('已切换用户，请重新选择评估或确认训练计划。')
 
     def _select_rehab(self, mode):
         if self.state == 'SAVE_FAILED' or self.busy:
@@ -505,7 +592,7 @@ class MainWindow(QMainWindow):
         self.pages.setCurrentIndex(2)
         self.title.setText('身体档案')
         self.subtitle.setText('查看各部位的评估记录，选择项目进入训练。')
-        self.body_scope.setText(f"当前用户：{self.participant_id}　｜　{SOURCES.get(self.source_kind.currentData(), '')} / {CONTEXTS.get(self.usage.currentData(), '')}　｜　其他来源与情境不合并")
+        self.body_scope.setText(f"{SOURCES.get(self.source_kind.currentData(), '')} / {CONTEXTS.get(self.usage.currentData(), '')}　｜　其他来源与情境不合并")
         for button in self.scene_buttons.values():
             button.setChecked(False)
         self.training_nav.setChecked(False)
@@ -656,6 +743,7 @@ class MainWindow(QMainWindow):
         self._sync_scene()
 
     def _sync_scene(self):
+        self._update_personal_reminders()
         training = self.scene == 'rehab' and self.submode.currentData() == 'training'
         self.setup['plan'].update(participant_id=self.participant_id, side=self.side.currentData(),
                                   submode=self.submode.currentData())
@@ -877,9 +965,12 @@ class MainWindow(QMainWindow):
             for button in (self.joint_rest_button, self.joint_direction_button):
                 button.setEnabled(available and self.state == 'PREVIEW')
             editable = available and self.state not in ('ONLINE', 'SAVE_FAILED')
-            for w in (self.participant, self.participant_button, self.joint_group, self.exercise, self.side, self.view,
+            for w in (self.participant, self.participant_select, self.participant_button, self.participant_new,
+                      self.joint_group, self.exercise, self.side, self.view,
                       self.plan_button, self.reference_button, self.source_kind, self.device, self.backend, self.refresh, self.mirror):
                 w.setEnabled(editable)
+            if hasattr(self, 'personal_summary'):
+                self.personal_summary.edit.setEnabled(editable)
             self.usage.setEnabled(editable and self.scene not in ('bedroom_demo', 'safety_demo'))
             for w in (*self.scene_buttons.values(), self.training_nav, self.body_nav):
                 w.setEnabled(available and self.state != 'SAVE_FAILED')
@@ -916,16 +1007,43 @@ class MainWindow(QMainWindow):
             if self.pending_commands[m['command']] > 0:
                 self.pending_commands[m['command']] -= 1
                 self.busy = max(0, self.busy-1)
+            if self.participant_dialog:
+                self.participant_dialog.set_busy(self.busy > 0)
+            if not self.busy and self._participant_to_activate:
+                pid = self._participant_to_activate
+                self._participant_to_activate = None
+                if pid != self.participant_id:
+                    self.participant.setText(pid)
+                    self._apply_participant()
+                else:
+                    self.setup['plan']['training_plan_confirmed'] = False
+                    if self.pages.currentIndex() == 0:
+                        self._sync_scene()
+                self.notice.setText('个人信息已保存。')
             self._buttons()
         elif kind == 'ready':
+            self._send('participants')
             self._send('enumerate', backend=self.backend.currentData())
         elif kind in ('error', 'fatal'):
             self.notice.setText(m['text'])
             self._closing = False
+            if m.get('command') == 'save_participant' and self.participant_dialog:
+                self.participant_dialog.error.setText(m['text'])
             if kind == 'fatal':
                 self.preview_button.setEnabled(False)
         elif kind == 'notice':
             self.notice.setText(m['text'])
+        elif kind == 'participants':
+            self.participant_records = {p['participant_id']: p for p in m['participants']}
+            self._refresh_participant_controls()
+        elif kind == 'participant_saved':
+            profile = m['profile']
+            self.participant_records[profile['participant_id']] = profile
+            self._refresh_participant_controls()
+            self._participant_to_activate = profile['participant_id']
+            if self.participant_dialog:
+                self.participant_dialog.set_busy(False)
+                self.participant_dialog.accept()
         elif kind == 'devices':
             previous = self.device.currentData()
             self.device.blockSignals(True)
@@ -993,7 +1111,10 @@ class MainWindow(QMainWindow):
                     self.body_action.addItem(item['exercise_label']+' · '+('左侧' if item['side'] == 'left' else '右侧'), item)
             self.body_overview.set_profile(profile)
             self._buttons()
-            self.notice.setText('评估已汇总。选择项目后可进入训练。' if self.body_action.count() else '还没有可用的评估。请先选择动作完成评估。')
+            if self.body_action.count():
+                self.notice.setText('评估已汇总。选择项目后可进入训练。')
+            else:
+                self.notice.clear()
         elif kind == 'history':
             self.sessions = m['sessions']
             self.table.setRowCount(len(self.sessions))
@@ -1002,7 +1123,9 @@ class MainWindow(QMainWindow):
                 ratio = summary.get('valid_ratio')
                 task_name = EXERCISES.get(s.get('exercise_id'), '康复任务') if s.get('scene_id') == 'rehab' else SCENES.get(s.get('scene_id'), '任务')
                 if s.get('scene_id') == 'rehab':
-                    task_name += ' · '+('训练' if s.get('submode') == 'training' else '评估')+'\n'+s.get('participant_id', '未记录用户')
+                    pid = s.get('participant_id')
+                    person = s.get('participant_snapshot') or self.participant_records.get(pid) or {}
+                    task_name += ' · '+('训练' if s.get('submode') == 'training' else '评估')+'\n'+person.get('display_name', pid or '未记录用户')
                 values = [s.get('start_utc', '').replace('T', ' ')[:19]+' UTC', task_name,
                           SOURCES.get(s.get('source_kind'), '未知')+' / '+CONTEXTS.get(s.get('usage_context'), '未知'),
                           str(summary.get('completed', '—')), '—' if ratio is None else f'{ratio*100:.0f}%', s.get('stop_reason', s.get('status', '未知'))]

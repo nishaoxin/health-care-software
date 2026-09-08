@@ -283,6 +283,7 @@ def render_report(s):
             f'<p>{fmt(source)} / {fmt(usage)} · 开始 {fmt(s.get("start_utc"))} · 结束 {fmt(s.get("end_utc"))}</p>'
             '<p class="note">仅报告所选场景的可见时段。二维投影测量；缺测不是动作差，个人目标不是通用医学标准。'
             '不据此推断疾病、肌力或真实负重。</p>'
+            + _participant_html(s.get('participant_snapshot'))
             + headline + f'<p>有效观察 {fmt(summary.get("valid_s"))} 秒 / 观察跨度 {fmt(summary.get("observed_span_s"))} 秒。'
             f'会话状态：{fmt(SESSION_STATUSES.get(s.get("status"), s.get("status")))} · '
             f'结束原因：{fmt(s.get("stop_reason"))}。</p>' + detail
@@ -292,11 +293,27 @@ def render_report(s):
     return _document('任务报告', body)
 
 
+def _participant_html(profile):
+    if not profile:
+        return ''
+    from .participants import REPORTERS, SIDES, SUPPORT, TEXT_FIELDS
+    rows = [('称呼', profile.get('display_name')), ('出生年份', profile.get('birth_year')),
+            ('关注侧别', SIDES.get(profile.get('affected_side'))),
+            ('日常陪同', SUPPORT.get(profile.get('support')))]
+    rows.extend((label, profile.get(key)) for key, label in TEXT_FIELDS.items())
+    return ('<h2>本次个人信息</h2><p>手工填写 · '+fmt(REPORTERS.get(profile.get('reported_by')))
+            +' · 开始任务时的档案版本 '+fmt(profile.get('revision'), 0)
+            +'。不代表专业审核或摄像头测量，不自动调整训练目标。</p><table>'
+            + ''.join(f'<tr><th>{fmt(label)}</th><td>{fmt(value)}</td></tr>' for label, value in rows if value not in (None, ''))
+            + '</table>')
+
+
 # Nested plans/calibrations/references can carry the same sensitive metadata as
 # the top-level session. Redact recursively, not just the device_ref at the root.
 PRIVATE_KEYS = {'device_ref', 'device_path', 'path', 'file_path', 'video_path', 'model_path',
                 'participant_name', 'person_name', 'patient_name', 'full_name', 'display_name',
-                'name', 'operator', 'annotator', 'email', 'phone', 'address', 'serial_number'}
+                'name', 'operator', 'annotator', 'email', 'phone', 'address', 'serial_number',
+                'participant_snapshot'}
 
 
 def _export_snapshot(snapshot):

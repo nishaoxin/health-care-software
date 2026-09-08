@@ -1,6 +1,6 @@
 """Desktop shell and layout. All actions use MainWindow's existing run gates."""
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import (QWidget, QFrame, QLabel, QPushButton, QLineEdit,
+from PySide6.QtWidgets import (QWidget, QFrame, QLabel, QPushButton, QLineEdit, QComboBox,
     QVBoxLayout, QHBoxLayout, QStackedWidget, QPlainTextEdit, QScrollArea)
 
 from .catalog import ExerciseCatalog
@@ -92,23 +92,32 @@ def build_workspace(w):
     person_row = QHBoxLayout(person)
     person_row.setContentsMargins(14, 8, 14, 8)
     person_row.addWidget(QLabel('当前用户'))
-    w.participant = QLineEdit(w.participant_id)
-    w.participant.setPlaceholderText('用户编号')
-    w.participant.setAccessibleName('当前用户编号')
+    # Legacy ID is the same authoritative selection used by run gates. The
+    # visible control selects saved profiles, not an editable identity string.
+    w.participant = QLineEdit(w.participant_id, person)
+    w.participant.hide()
     w.participant.setMaxLength(80)
-    w.participant.setMaximumWidth(220)
-    w.participant.returnPressed.connect(w._apply_participant)
     w.participant.textChanged.connect(lambda: w._buttons())
-    person_row.addWidget(w.participant)
-    w.participant_button = QPushButton('切换 / 新建用户')
+    w.participant_select = QComboBox()
+    w.participant_select.setAccessibleName('当前用户')
+    w.participant_select.setMinimumWidth(180)
+    w.participant_select.setMaximumWidth(250)
+    w.participant_select.currentIndexChanged.connect(w._participant_selected)
+    person_row.addWidget(w.participant_select)
+    w.participant_button = QPushButton('个人信息')
     w.participant_button.setObjectName('textButton')
-    w.participant_button.clicked.connect(w._apply_participant)
+    w.participant_button.clicked.connect(lambda: w._edit_participant())
     person_row.addWidget(w.participant_button)
+    w.participant_new = QPushButton('新建用户')
+    w.participant_new.setObjectName('textButton')
+    w.participant_new.clicked.connect(lambda: w._edit_participant(new=True))
+    person_row.addWidget(w.participant_new)
     person_row.addStretch()
     w.person_hint = QLabel('记录按用户分别保存')
     w.person_hint.setObjectName('muted')
     person_row.addWidget(w.person_hint)
     body.addWidget(person)
+    w._refresh_participant_controls()
     w.notice = NoticeLabel()
     w.notice.setObjectName('notice')
     w.notice.setWordWrap(True)

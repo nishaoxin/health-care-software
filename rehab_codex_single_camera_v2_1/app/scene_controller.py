@@ -223,6 +223,7 @@ class SceneController:
         self.setup['plan'] = copy.deepcopy(plan)
         if self.setup['plan']['needs_companion'] and not self.setup.get('companion_confirmed'):
             raise ValueError('训练计划要求陪同，请确认陪同者在场')
+        participant_snapshot = self.storage.get_participant(plan['participant_id'])
         run_id = uuid4().hex
         context = self._context(run_id)
         packet = self.latest_packet
@@ -232,6 +233,7 @@ class SceneController:
                         'usage_context': self.source['usage_context'], 'submode': plan['submode'],
                         'exercise_id': plan['exercise_id'], 'side': plan['side'],
                         'participant_id': plan['participant_id'], 'recording_id': self.source.get('recording_id', run_id),
+                        'participant_snapshot': copy.deepcopy(participant_snapshot),
                         'start_utc': utc_now(), 'local_utc_offset': datetime.now().astimezone().strftime('%z'),
                         'time_basis': packet.time_basis, 'generation': context.generation, 'epoch': context.epoch,
                         'device_ref': self.source.get('device_ref'), 'backend': self.source.get('device_ref', {}).get('backend'),
