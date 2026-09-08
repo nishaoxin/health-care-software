@@ -27,6 +27,7 @@ capture:
   record_actual_frame_shape: true
   measure_received_fps: true
   latest_frame_slots: 1
+  connect_timeout_s: 15.0
   stale_after_s: 3.0
   offline_after_s: 10.0
   worker_stop_confirmation_required: true

@@ -8,8 +8,17 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from app.runtime import Runtime
+from app.runtime import Runtime, input_timeout_reason
 from app.settings import ROOT, default_setup
+
+
+class RuntimeTimeoutTests(unittest.TestCase):
+    def test_slow_initial_connection_does_not_use_stream_stale_timeout(self):
+        settings = {'connect_timeout_s': 15, 'stale_after_s': 3}
+        self.assertIsNone(input_timeout_reason('CONNECTING', 10, 0, None, settings))
+        self.assertEqual(input_timeout_reason('CONNECTING', 15.1, 0, None, settings), 'connect_timeout')
+        self.assertIsNone(input_timeout_reason('PREVIEW', 12.9, None, 10, settings))
+        self.assertEqual(input_timeout_reason('ONLINE', 13.1, None, 10, settings), 'stream_stale')
 
 
 @unittest.skipUnless((ROOT/'assets/models/yolo11n-pose.pt').is_file() and importlib.util.find_spec('ultralytics'), 'Official local model not prepared')

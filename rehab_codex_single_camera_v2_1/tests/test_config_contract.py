@@ -22,6 +22,9 @@ class ConfigTests(unittest.TestCase):
         self.assertFalse(self.app['capture']['automatic_device_fallback'])
         self.assertFalse(self.app['capture']['automatic_backend_fallback'])
 
+    def test_initial_connection_allows_slow_camera_startup(self):
+        self.assertGreater(self.app['capture']['connect_timeout_s'], self.app['capture']['stale_after_s'])
+
     def test_four_scenes_not_background_jobs(self):
         self.assertEqual(set(self.scenes['scenes']), {'rehab','activity','bedroom_demo','safety_demo'})
         for scene in self.scenes['scenes'].values():

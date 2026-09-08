@@ -19,6 +19,17 @@ from .storage import Storage
 from .vision import VisionWorker
 
 
+def input_timeout_reason(state, now, connect_started_wall, last_frame_wall, settings):
+    """Keep slow camera startup separate from an established stream going stale."""
+    if state == 'CONNECTING' and connect_started_wall is not None:
+        if now-connect_started_wall > settings.get('connect_timeout_s', 15):
+            return 'connect_timeout'
+    elif state in ('PREVIEW', 'ONLINE') and last_frame_wall is not None:
+        if now-last_frame_wall > settings.get('stale_after_s', 3):
+            return 'stream_stale'
+    return None
+
+
 class Runtime:
     """UI sends commands; this thread owns orchestration, rules, and storage calls."""
     def __init__(self, data_dir=None):
@@ -28,6 +39,7 @@ class Runtime:
         self.ready = threading.Event()
         self.controller = None
         self.preview_history = []
+        self.connect_started_wall = None
         self.last_frame_wall = None
         self.last_sound_count = 0
         self.last_sound_event = None
@@ -61,7 +73,8 @@ class Runtime:
             options.update(kw.get('options') or {})
             c.open(kw['source'], kw['setup'], options)
             self.preview_history = []
-            self.last_frame_wall = time.monotonic()
+            self.connect_started_wall = time.monotonic()
+            self.last_frame_wall = None
             self._view()
         elif name == 'confirm':
             confirmed = c.confirm(kw['setup'])
@@ -87,6 +100,8 @@ class Runtime:
             had_session = c.session is not None
             c.stop(kw.get('reason', name), privacy=name == 'privacy')
             self.preview_history = []
+            self.connect_started_wall = None
+            self.last_frame_wall = None
             self._view()
             if had_session and c.last_saved_id:
                 self._message('saved', id=c.last_saved_id)
@@ -208,6 +223,8 @@ class Runtime:
                             self._message('error', text=str(exc))
                         self.audio.reset()
                         self.vision.clear()
+                        self.connect_started_wall = None
+                        self.last_frame_wall = None
                         self._view(error=error['message'] if error else None)
                         if save_ok:
                             self._message('notice', text=error['message'] if error else
@@ -216,6 +233,7 @@ class Runtime:
                     packet = worker.read_latest()
                     if packet is not None and packet.context == c.context:
                         self.last_frame_wall = time.monotonic()
+                        self.connect_started_wall = None
                         if c.state == 'CONNECTING':
                             c.state = 'PREVIEW'
                         self.vision.submit(packet)
@@ -223,16 +241,25 @@ class Runtime:
                             self._view(packet)
                     elif packet is not None:
                         worker.acknowledge(packet.seq)
-                    if (c.context and c.context.source_kind == 'LIVE_CAMERA' and self.last_frame_wall is not None
-                            and time.monotonic()-self.last_frame_wall > self.capture_settings.get('stale_after_s', 3)):
+                    timeout_reason = (input_timeout_reason(c.state, time.monotonic(), self.connect_started_wall,
+                                                           self.last_frame_wall, self.capture_settings)
+                                      if c.context and c.context.source_kind == 'LIVE_CAMERA' else None)
+                    if timeout_reason:
                         try:
-                            c.stop('stream_stale')
+                            c.stop(timeout_reason)
                             c.state = 'OFFLINE'
                         except Exception as exc:
                             self._message('error', text=str(exc))
                         self.audio.reset()
                         self.vision.clear()
-                        self._view(error='超过 3 秒未取得新画面，任务已中断；请重新预览')
+                        self.connect_started_wall = None
+                        self.last_frame_wall = None
+                        connect_timeout = self.capture_settings.get('connect_timeout_s', 15)
+                        stale_timeout = self.capture_settings.get('stale_after_s', 3)
+                        message = (f'摄像头启动超过 {connect_timeout:g} 秒仍未取得画面；请检查占用后重新预览'
+                                   if timeout_reason == 'connect_timeout' else
+                                   f'超过 {stale_timeout:g} 秒未取得新画面，任务已中断；请重新预览')
+                        self._view(error=message)
                 try:
                     packet, pose, error = self.vision.outputs.get_nowait()
                 except queue.Empty:
