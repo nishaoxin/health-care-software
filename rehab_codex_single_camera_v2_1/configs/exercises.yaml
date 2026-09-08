@@ -31,6 +31,26 @@ exercises:
   pinky_mcp_flexion: {}
   pinky_pip_flexion: {}
   pinky_dip_flexion: {}
+  thumb_mcp_extension: {}
+  thumb_ip_extension: {}
+  index_mcp_extension: {}
+  index_pip_extension: {}
+  index_dip_extension: {}
+  middle_mcp_extension: {}
+  middle_pip_extension: {}
+  middle_dip_extension: {}
+  ring_mcp_extension: {}
+  ring_pip_extension: {}
+  ring_dip_extension: {}
+  pinky_mcp_extension: {}
+  pinky_pip_extension: {}
+  pinky_dip_extension: {}
+  neck_lateral_flexion: {}
+  neck_flexion: {}
+  neck_extension: {}
+  trunk_lateral_flexion: {}
+  trunk_flexion: {}
+  trunk_extension: {}
   shoulder_abduction:
     ready_s: 1.0
     dwell_s: 0.18

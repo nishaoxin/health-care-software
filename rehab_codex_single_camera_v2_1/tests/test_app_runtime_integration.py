@@ -27,7 +27,7 @@ class RuntimeTimeoutTests(unittest.TestCase):
                         break
                 self.assertIsNotNone(response)
                 self.assertEqual(response['profile']['assessed_count'], 0)
-                self.assertEqual(len(response['profile']['items']), 66)
+                self.assertEqual(len(response['profile']['items']), 106)
                 self.assertIn('投影角度范围', response['html'])
                 self.assertEqual(runtime.store.list_sessions(), [])
                 self.assertIsNone(runtime.camera.worker)

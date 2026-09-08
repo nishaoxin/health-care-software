@@ -63,6 +63,7 @@ def _conditions_html(conditions):
             f' · 放置版本：{fmt(c.get("placement_revision"), 0)} · 实际尺寸：{fmt(c.get("actual_size"))}<br>'
             f'模型：<code>{fmt(c.get("model_manifest_id"))}</code> · 骨架：{fmt(c.get("schema_id"))}<br>'
             f'规则：{fmt(c.get("rule_version"))} · 预处理：{fmt(c.get("preprocess_version"))}'
+            f' · 测量契约：{fmt(c.get("measurement_contract"))}'
             f' · 时间基准：{fmt(c.get("time_basis"))}<br>来源引用：{fmt(_public_ref(c.get("source_ref")))}')
 
 

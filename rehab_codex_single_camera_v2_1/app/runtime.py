@@ -152,6 +152,24 @@ class Runtime:
             self._message('history', sessions=[{k: v for k, v in s.items() if k not in ('metrics', 'poses')} for s in sessions])
         elif name == 'participants':
             self._message('participants', participants=store.list_participants())
+        elif name in ('assessment_batch', 'create_assessment_batch', 'change_assessment_batch'):
+            from .assessment_batches import scope_key, batch_view
+            scope = scope_key(kw['scope'])
+            if name != 'assessment_batch' and (c.session is not None or c.pending is not None
+                                               or c.state in ('ONLINE', 'SAVE_FAILED', 'PREVIEW', 'CONNECTING')):
+                raise ValueError('请先结束并保存当前任务，再修改评估清单')
+            if name == 'create_assessment_batch':
+                batch = store.create_assessment_batch(scope, kw['items'])
+            elif name == 'change_assessment_batch':
+                batch = store.get_assessment_batch(kw['id'])
+                if batch is None or scope_key(batch) != scope:
+                    raise ValueError('清单不属于当前用户与来源')
+                batch = store.change_assessment_batch(kw['id'], kw['action'], expected_revision=kw['expected_revision'],
+                                                       entry_key=kw.get('entry_key'), reason=kw.get('reason'))
+            else:
+                batch = store.current_assessment_batch(scope)
+            self._message('assessment_batch', scope=scope,
+                          batch=batch_view(batch, store.list_sessions()) if batch else None)
         elif name == 'save_participant':
             if c.session is not None or c.pending is not None or c.state in ('ONLINE', 'SAVE_FAILED', 'PREVIEW', 'CONNECTING'):
                 raise ValueError('请先停止采集并保存当前任务，再编辑个人信息')

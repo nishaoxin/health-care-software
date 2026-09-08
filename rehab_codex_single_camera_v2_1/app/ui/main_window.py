@@ -29,6 +29,7 @@ from .theme import STYLE
 from .workspace import build_workspace
 from .participants import ParticipantDialog, ParticipantSummary
 from .training import TrainingFeedbackDialog, STAGES as TRAINING_STAGES
+from .assessment_batches import AssessmentBatchDialog
 
 STATUS = {'UNSELECTED': '相机未打开', 'CONNECTING': '正在连接', 'PREVIEW': '预览中',
           'ONLINE': '记录中', 'OFFLINE': '输入已断开', 'PRIVACY_PAUSED': '采集已停止',
@@ -73,6 +74,7 @@ class MainWindow(QMainWindow):
         self._summarize_after_save = None
         self._feedback_after_save = None
         self.feedback_dialog = None
+        self.batch_dialog = None
         self._training_execution = {}
         self.state = 'UNSELECTED'
         self.busy = 0
@@ -86,6 +88,7 @@ class MainWindow(QMainWindow):
         self.last_generation = -1
         self._accept_context_frames = True
         self._build()
+        self.catalog.checklist_requested.connect(self._open_assessment_batch)
         self.constructing = False
         self._sync_scene()
         self._show_catalog(initial=True)
@@ -137,6 +140,8 @@ class MainWindow(QMainWindow):
             self.notice.setText('请等待本次任务保存完成。')
             return
         exercise_spec(exercise_id)  # Reject unknown IDs, never select row zero.
+        self.setup['plan'].pop('assessment_batch_id', None)
+        self.setup['plan'].pop('assessment_entry_key', None)
         self._select_rehab('assessment')
         self.joint_group.setCurrentIndex(self.joint_group.findData('all'))
         self.exercise.setCurrentIndex(self.exercise.findData(exercise_id))
@@ -221,9 +226,10 @@ class MainWindow(QMainWindow):
         form.setContentsMargins(0, 0, 0, 0)
         self.exercise = combo(EXERCISES)
         self.exercise.setMaxVisibleItems(12)
-        self.exercise.setToolTip('先选关节动作；腕、踝、手指为实验性二维观察，具体限制见下方说明。')
+        self.exercise.setToolTip('先选动作；标记为实验性的项目仅提供二维观察，具体限制见说明。')
         self.joint_group = combo({'all': '全部部位', 'shoulder': '肩', 'elbow': '肘', 'hip': '髋',
-                                  'knee': '膝 / 坐站', 'wrist': '腕', 'ankle': '踝', 'finger': '手指'})
+                                  'knee': '膝 / 坐站', 'wrist': '腕', 'ankle': '踝', 'finger': '手指',
+                                  'neck': '头颈', 'trunk': '躯干'})
         self.joint_group.currentIndexChanged.connect(self._filter_exercises)
         self.exercise.currentIndexChanged.connect(self._exercise_changed)
         self.submode = combo({'assessment': '评估', 'training': '训练'})
@@ -434,6 +440,7 @@ class MainWindow(QMainWindow):
         self.body_train.clicked.connect(self._train_from_body)
         actions = QHBoxLayout()
         for label, callback in (('继续评估', self._show_catalog),
+                                ('本轮评估清单', self._open_assessment_batch),
                                 ('查看报告', self._open_body_report),
                                 ('完整明细', self.body_detail_dialog.show),
                                 ('刷新', self._show_body),
@@ -463,9 +470,50 @@ class MainWindow(QMainWindow):
         return dict(participant_id=self.participant_id, source_kind=self.source_kind.currentData(),
                     usage_context=self.usage.currentData())
 
+    def _open_assessment_batch(self):
+        if self.busy or self.state in ('ONLINE', 'SAVE_FAILED'):
+            self.notice.setText('请先结束并保存当前任务，再打开评估清单。')
+            return
+        self._invalidate()
+        dialog = AssessmentBatchDialog(self._body_scope_key(), self)
+        self.batch_dialog = dialog
+        dialog.create_requested.connect(lambda items: self._batch_command('create_assessment_batch', items=items))
+        dialog.change_requested.connect(lambda change: self._batch_command('change_assessment_batch', **change))
+        dialog.assessment_requested.connect(self._choose_batch_item)
+        dialog.report_requested.connect(lambda sid: self._batch_report(sid))
+        dialog.finished.connect(lambda: setattr(self, 'batch_dialog', None))
+        dialog.set_busy(True)
+        dialog.show()
+        self._send('assessment_batch', scope=dialog.scope)
+
+    def _batch_command(self, name, **kwargs):
+        if self.busy or not self.batch_dialog:
+            return
+        self.batch_dialog.set_busy(True)
+        self._send(name, scope=self.batch_dialog.scope, **kwargs)
+
+    def _batch_report(self, sid):
+        if self.batch_dialog:
+            self.batch_dialog.accept()
+        self._send('report', id=sid)
+
+    def _choose_batch_item(self, batch, item):
+        from ..assessment_batches import scope_key
+        if self.busy or self.state in ('ONLINE', 'SAVE_FAILED') or scope_key(batch) != self._body_scope_key():
+            return
+        if self.batch_dialog:
+            self.batch_dialog.accept()
+        self._choose_catalog_exercise(item['exercise_id'])
+        self.side.setCurrentIndex(self.side.findData(item['side']))
+        self.setup['plan'].update(assessment_batch_id=batch['id'], assessment_entry_key=item['key'])
+        self._sync_scene()
+        self.notice.setText('已选择本轮项目。请打开预览并重新确认准备；保存后可从清单继续。')
+
     def _clear_training_reference(self):
         self.setup['plan'].pop('assessment_reference', None)
         self.setup['plan']['training_plan_confirmed'] = False
+        self.setup['plan'].pop('assessment_batch_id', None)
+        self.setup['plan'].pop('assessment_entry_key', None)
 
     def _refresh_participant_controls(self):
         self.participant_records.setdefault(self.participant_id, legacy_participant(self.participant_id))
@@ -1040,6 +1088,8 @@ class MainWindow(QMainWindow):
                 self.participant_dialog.set_busy(self.busy > 0)
             if self.feedback_dialog:
                 self.feedback_dialog.set_busy(self.busy > 0)
+            if self.batch_dialog:
+                self.batch_dialog.set_busy(self.busy > 0)
             if not self.busy and self._participant_to_activate:
                 pid = self._participant_to_activate
                 self._participant_to_activate = None
@@ -1062,6 +1112,8 @@ class MainWindow(QMainWindow):
                 self.participant_dialog.error.setText(m['text'])
             if m.get('command') == 'save_training_feedback' and self.feedback_dialog:
                 self.feedback_dialog.error.setText(m['text'])
+            if m.get('command') in ('assessment_batch', 'create_assessment_batch', 'change_assessment_batch') and self.batch_dialog:
+                self.batch_dialog.error.setText(m['text'])
             if kind == 'fatal':
                 self.preview_button.setEnabled(False)
         elif kind == 'notice':
@@ -1069,6 +1121,9 @@ class MainWindow(QMainWindow):
         elif kind == 'participants':
             self.participant_records = {p['participant_id']: p for p in m['participants']}
             self._refresh_participant_controls()
+        elif kind == 'assessment_batch':
+            if self.batch_dialog and m['scope'] == self.batch_dialog.scope == self._body_scope_key():
+                self.batch_dialog.set_batch(m['batch'])
         elif kind == 'participant_saved':
             profile = m['profile']
             self.participant_records[profile['participant_id']] = profile

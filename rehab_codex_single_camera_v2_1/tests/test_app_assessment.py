@@ -41,8 +41,8 @@ def metric_rows(values, metric='raise_deg'):
 class BodyProfileTests(unittest.TestCase):
     def test_lists_all_sixtysix_items_and_does_not_invent_missing_values(self):
         profile = build_body_profile([], 'person-a')
-        self.assertEqual((profile['total_items'], profile['assessed_count']), (66, 0))
-        self.assertEqual(len({(i['exercise_id'], i['side']) for i in profile['items']}), 66)
+        self.assertEqual((profile['total_items'], profile['assessed_count']), (106, 0))
+        self.assertEqual(len({(i['exercise_id'], i['side']) for i in profile['items']}), 106)
         for item in profile['items']:
             self.assertEqual(item['status'], 'NOT_ASSESSED')
             for key in ('session_id', 'valid_ratio', 'completed', 'motion_range'):
@@ -254,8 +254,8 @@ class AssessmentReportTests(unittest.TestCase):
         profile = build_body_profile([session()], 'person-a')
         rendered = render_body_profile(profile, compact=True)
         first_table = rendered.split('</table>')[0]
-        self.assertEqual(first_table.count('<tr>'), 67)
-        self.assertEqual(first_table.count('<td>'), 330)
+        self.assertEqual(first_table.count('<tr>'), 107)
+        self.assertEqual(first_table.count('<td>'), 530)
         self.assertIn('当前测量边界', rendered)
         self.assertIn('2026-09-01 08:01', rendered)
         self.assertIn('最近评估（UTC）', rendered)

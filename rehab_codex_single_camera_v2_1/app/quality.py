@@ -160,6 +160,16 @@ class PoseAnalyzer:
             reasons[-2] = 'hand_point_confidence_not_provided'
         if self.exercise_id:
             spec = exercise_spec(self.exercise_id)
+            if spec['joint'] in ('neck', 'trunk'):
+                from .axial_geometry import head_roll, head_pitch, trunk_frontal, trunk_sagittal
+                raw_contracts = {
+                    'head_roll_raw_deg': (['left_shoulder', 'right_shoulder', 'left_eye', 'right_eye'], head_roll),
+                    'head_pitch_raw_deg': ([hi, sh, self.side+'_ear', self.side+'_eye'], head_pitch),
+                    'trunk_frontal_raw_deg': (['left_hip', 'right_hip', 'left_shoulder', 'right_shoulder'], trunk_frontal),
+                    'trunk_sagittal_raw_deg': ([hi, sh], trunk_sagittal),
+                }
+                ids, function = raw_contracts[spec['raw_metric']]
+                metrics[spec['raw_metric']] = measured(ids, function)
             if spec['directional_calibration']:
                 raw = metrics.get(spec['raw_metric'], Metric.missing('missing_raw_metric'))
                 baseline = self.joint_baseline

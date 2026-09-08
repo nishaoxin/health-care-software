@@ -9,6 +9,7 @@ from .exercises import exercise_spec
 JOINT_LABELS = {
     'shoulder': '肩部', 'elbow': '肘部', 'wrist': '腕部', 'finger': '手指',
     'hip': '髋部', 'knee': '膝部', 'ankle': '踝部',
+    'neck': '头颈', 'trunk': '躯干',
 }
 
 # Start, outbound and return are separate: extension from a flexed start is not
@@ -33,6 +34,12 @@ _MOVEMENTS = {
     'wrist_ulnar_deviation': ('前臂保持稳定，手腕处于舒适起点。', '向小指侧缓慢偏腕。', '缓慢回到起点，手掌保持原来的朝向。'),
     'ankle_dorsiflexion': ('坐稳，让测试脚处于舒适起点。', '向小腿方向缓慢抬脚尖。', '缓慢放回起点，不以抬腿代替踝部活动。'),
     'ankle_plantarflexion': ('坐稳，让测试脚处于舒适起点。', '向远离小腿的方向缓慢下压脚尖。', '缓慢回到起点，不以踮脚站立代替。'),
+    'neck_lateral_flexion': ('坐稳，头部保持舒适起点。', '向所选侧缓慢小幅侧屈头部，不转头或耸肩。', '缓慢回到起点。'),
+    'neck_flexion': ('坐稳，头部处于舒适起点。', '按已确认安排缓慢小幅低头。', '缓慢回到起点，不强行抬高。'),
+    'neck_extension': ('坐稳，头部处于舒适起点。', '仅在已获准的舒适范围内小幅抬头，不追求后仰极限。', '缓慢回到起点。'),
+    'trunk_lateral_flexion': ('稳定坐位，保持已确认的支撑。', '向所选侧小幅侧屈，不追求接近地面。', '缓慢回到起点，保持坐稳。'),
+    'trunk_flexion': ('稳定坐位，躯干保持舒适起点。', '按已确认安排小幅前倾，保持支撑。', '缓慢回到起点。'),
+    'trunk_extension': ('稳定坐位，躯干保持舒适起点。', '仅按已确认安排小幅向后移动躯干，不追求后仰极限。', '缓慢回到起点。'),
 }
 
 
@@ -47,6 +54,10 @@ def exercise_instructions(exercise_id: str) -> dict:
         'wrist': '肘、腕和整只测试手入镜，另一只手移出画面。',
         'ankle': '从测试侧拍摄，小腿、踝、足跟和足尖完整入镜。',
         'finger': '单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。',
+        'neck': ('正对镜头，双眼与双肩清楚入镜。' if spec['view'] == 'frontal' else
+                 '测试侧朝向镜头，同侧眼、耳、肩、髋清楚入镜。'),
+        'trunk': ('正对镜头，双肩、双髋完整入镜。' if spec['view'] == 'frontal' else
+                  '测试侧朝向镜头，同侧肩、髋完整入镜。'),
     }[joint]
     position = {
         'shoulder': '坐稳或按已确认的支撑安排站稳。',
@@ -56,6 +67,8 @@ def exercise_instructions(exercise_id: str) -> dict:
         'wrist': '坐稳，前臂保持稳定，手腕留出活动空间。',
         'ankle': '稳定坐位；不要站立踮脚测试。',
         'finger': '手保持稳定，其余手指不要挡住所测关节。',
+        'neck': '稳定坐位；仅按已确认的活动安排测试，不做快速转头或环绕。',
+        'trunk': '稳定坐位，按已确认安排使用支撑或陪同；保持机位固定。',
     }[joint]
     boundary = {
         'shoulder': '记录上臂相对躯干的二维变化，不分离肩胛与盂肱关节。',
@@ -65,16 +78,22 @@ def exercise_instructions(exercise_id: str) -> dict:
         'wrist': '实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。',
         'ankle': '实验性小腿—足部二维观察，不测后足内外翻或足弓。',
         'finger': '实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。',
+        'neck': '实验性头部相对身体参考线的二维变化，不是颈椎节段活动度，也不测旋转。疼痛、头晕或不适立即停止。',
+        'trunk': '实验性躯干整体二维变化，不能分离脊柱、骨盆和髋部贡献，不是胸腰椎节段活动度。',
     }[joint]
     search_terms = f"{spec['label']} {JOINT_LABELS[joint]} {exercise_id}"
     if joint == 'finger':
-        finger, articulation, _ = exercise_id.split('_')
+        finger, articulation, direction = exercise_id.split('_')
         name = {'thumb': '拇指', 'index': '食指', 'middle': '中指', 'ring': '无名指', 'pinky': '小指'}[finger]
         location = {'mcp': '指根的掌指关节', 'pip': '中间的近端指间关节',
                     'dip': '靠近指尖的远端指间关节', 'ip': '拇指的指间关节'}[articulation]
         start = f'{name}保持舒适伸展，不要强行掰直。'
         move = f'缓慢弯曲{name}{location}，保持该关节两侧指段可见。'
         back = '缓慢伸回起始姿势，不要求所有手指同时握拳。'
+        if direction == 'extension':
+            start = f'{name}保持舒适屈曲姿势，记录起点。'
+            move = f'缓慢伸展{name}{location}，不强行掰直。'
+            back = '缓慢屈回刚才记录的起点，其他手指不要遮挡。'
         search_terms += ' '+articulation.upper()
         if articulation == 'mcp' and finger != 'thumb':
             boundary += ' 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。'

@@ -33,6 +33,8 @@ class JointGlyph(QWidget):
             'hip': [(12, 10), (13, 22), (25, 23), (31, 38)],
             'knee': [(16, 8), (30, 25), (19, 40)],
             'ankle': [(19, 8), (19, 32), (37, 37), (37, 41), (12, 41), (12, 32)],
+            'neck': [(15, 40), (21, 30), (21, 22), (15, 15), (20, 8), (29, 8), (34, 15), (28, 22), (28, 30), (35, 40)],
+            'trunk': [(13, 12), (35, 12), (31, 36), (17, 36), (13, 12)],
         }
         pen = QPen(QColor('#66835f'), 2.2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
@@ -41,7 +43,8 @@ class JointGlyph(QWidget):
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawPolyline(QPolygonF([QPointF(x, y) for x, y in paths[self.joint]]))
         cx, cy = {'shoulder': (25, 16), 'elbow': (13, 32), 'wrist': (24, 25),
-                  'finger': (24, 24), 'hip': (25, 23), 'knee': (30, 25), 'ankle': (19, 32)}[self.joint]
+                  'finger': (24, 24), 'hip': (25, 23), 'knee': (30, 25), 'ankle': (19, 32),
+                  'neck': (24, 28), 'trunk': (24, 25)}[self.joint]
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(QColor('#b8cb85'))
         painter.drawEllipse(QPointF(cx, cy), 4.5, 4.5)
@@ -95,6 +98,7 @@ class ExerciseCard(QFrame):
 
 class ExerciseCatalog(QWidget):
     exercise_selected = Signal(str)
+    checklist_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -111,6 +115,9 @@ class ExerciseCatalog(QWidget):
         self.total = QLabel(f'{len(JOINT_LABELS)} 个部位 · {len(EXERCISE_IDS)} 项动作')
         self.total.setObjectName('muted')
         heading.addWidget(self.total)
+        self.checklist = QPushButton('本轮评估清单')
+        self.checklist.clicked.connect(self.checklist_requested.emit)
+        heading.addWidget(self.checklist)
         layout.addLayout(heading)
         filters = QHBoxLayout()
         filters.setSpacing(4)

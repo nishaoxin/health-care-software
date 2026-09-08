@@ -143,6 +143,31 @@ for finger, label, joints in (
              '单只测试手近景，所测手指从侧面展开在成像平面内，其余手指不要遮挡。记录舒适起点后缓慢弯曲、回位。手部模型不提供逐点置信度，遮挡和离开测量平面可能无法自动发现；仅作实验性观察。'+
              ('掌指角的近端参考使用腕—掌指连线，不是骨性关节测量。' if joint == 'mcp' and finger != 'thumb' else ''),
              backend='mediapipe_hands', experimental=True)
+        _add(f'{finger}_{joint}_extension', label+part+'伸展', 'finger', 'sagittal', eid+'_deg',
+             label+part+'二维投影屈曲角（伸展时减小）',
+             '单只测试手侧面近景；记录舒适屈曲起点，缓慢伸展所测关节，再屈回起点。不要求完全伸直，不测超伸；其余手指不要遮挡。'
+             '手部点没有逐点置信度，离面运动可能无法自动发现，仅作实验性观察。',
+             backend='mediapipe_hands', direction='decrease', experimental=True)
+
+# Whole-segment projections, deliberately distinct from vertebral joint ROM.
+for eid, label, joint, view, raw, guide in (
+    ('neck_lateral_flexion', '头颈侧屈观察', 'neck', 'frontal', 'head_roll_raw_deg',
+     '坐稳并正对镜头，双眼与双肩清楚可见；向所选左/右侧小幅侧屈头部，不转头、不耸肩。记录双眼线相对双肩线的变化，不是颈椎各节段角。'),
+    ('neck_flexion', '头颈前屈观察', 'neck', 'sagittal', 'head_pitch_raw_deg',
+     '坐稳并从测试侧拍摄，同侧眼、耳、肩、髋清楚可见；按已确认安排小幅低头。记录耳—眼线相对躯干线的变化，不是颈椎关节角。'),
+    ('neck_extension', '头颈后伸观察', 'neck', 'sagittal', 'head_pitch_raw_deg',
+     '坐稳并从测试侧拍摄，同侧眼、耳、肩、髋清楚可见；仅在已获准的舒适范围小幅抬头，不追求后仰极限。记录耳—眼线相对躯干线的变化。'),
+    ('trunk_lateral_flexion', '躯干侧屈观察', 'trunk', 'frontal', 'trunk_frontal_raw_deg',
+     '稳定坐位正对镜头，双肩、双髋完整入镜；按已确认安排向所选左/右侧小幅侧屈。记录肩髋中线相对骨盆参考线的变化，不分离脊柱各节段。'),
+    ('trunk_flexion', '躯干前屈观察', 'trunk', 'sagittal', 'trunk_sagittal_raw_deg',
+     '稳定坐位从测试侧拍摄，同侧肩、髋完整入镜；按已确认安排小幅前倾后回位。记录肩髋连线相对起点的变化，不能区分腰椎活动与髋部转动。'),
+    ('trunk_extension', '躯干后伸观察', 'trunk', 'sagittal', 'trunk_sagittal_raw_deg',
+     '稳定坐位从测试侧拍摄，同侧肩、髋完整入镜；仅在已确认安排内小幅后移躯干，再回到起点，不追求后仰极限。不能分离胸腰椎、骨盆和髋部贡献。'),
+):
+    _add(eid, label, joint, view, eid+'_excursion_deg', label+'相对舒适起点二维投影变化',
+         guide+'先记录舒适起点，再小幅试动作记录方向；疼痛、头晕或不适立即停止。',
+         directional=True, experimental=True)
+    _SPECS[eid].update(raw_metric=raw, measurement_contract='whole-segment-projection-1')
 
 EXERCISE_IDS = tuple(_SPECS)
 
@@ -152,7 +177,8 @@ UNSUPPORTED_COVERAGE = (
     ('髋内/外旋', '二维骨架不能可靠区分髋轴向旋转、骨盆转动与机位变化。'),
     ('踝内/外翻、足弓', '现有足跟/足尖不足以独立量化后足与距下关节运动。'),
     ('拇指腕掌关节、对掌、手指侧向外展', '涉及多平面与遮挡，未建立可验证的单目测量契约。'),
-    ('颈椎、胸腰椎各节段', '模型没有椎体关键点；头部/躯干倾斜不等于节段关节活动度。'),
+    ('颈椎、胸腰椎各节段及轴向旋转', '已提供头颈/躯干整体屈伸和侧屈观察；没有椎体关键点，不输出节段活动度或轴向旋转角。'),
+    ('足趾各关节', '现有足部点没有各足趾的关节链；不以足尖位移冒充足趾屈伸。'),
     ('肌力、疼痛、关节稳定性、病种诊断', '不能从摄像头投影角推断；需要用户自述或专业检查。'),
 )
 
@@ -166,6 +192,7 @@ def exercise_spec(exercise_id: str) -> dict:
     spec.setdefault('baseline_required', False)
     spec.setdefault('directional_calibration', False)
     spec.setdefault('experimental', False)
+    spec.setdefault('measurement_contract', 'joint-projection-0.3')
     spec.update(measurement_type='2d_projection', clinical_rom=False,
                 readiness_note='起始姿势与方向校准仅用于工程分期，不是正常值或医学目标；有不适立即停止。')
     return spec

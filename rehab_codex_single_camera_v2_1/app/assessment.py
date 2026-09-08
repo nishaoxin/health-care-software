@@ -51,7 +51,7 @@ def session_conditions(session):
     config = _config(session)
     keys = ('source_ref', 'profile_id', 'profile_version', 'time_basis', 'model_manifest_id',
             'schema_id', 'keypoint_order_version', 'coordinate_space', 'rule_version',
-            'preprocess_version', 'preprocessing_hash', 'pose_backend', 'target_kind')
+            'preprocess_version', 'preprocessing_hash', 'pose_backend', 'target_kind', 'measurement_contract')
     result = {key: session.get(key, config.get(key)) for key in keys}
     result.update(view=session.get('view', config.get('view')),
                   placement_revision=session.get('placement_revision', config.get('placement_revision')),

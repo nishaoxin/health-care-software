@@ -31,8 +31,8 @@ def test_empty_profile_does_not_fill_screen_with_missing_measurements(qt_app):
     assert view.review.value.text() == '0 项'
     assert view.current_item() is None
     view.show_unassessed.setChecked(True)
-    assert view.table.rowCount() == 66
-    assert all(view.table.item(i, 3).text() == '—' for i in range(66))
+    assert view.table.rowCount() == 106
+    assert all(view.table.item(i, 3).text() == '—' for i in range(106))
     view.close()
 
 

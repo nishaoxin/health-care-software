@@ -92,7 +92,7 @@ class DesktopTests(unittest.TestCase):
 
     def test_assessment_training_are_separate_sections_and_expanded_actions_available(self):
         self.assertEqual(self.window.title.text(), '身体评估')
-        self.assertEqual(self.window.exercise.count(), 33)
+        self.assertEqual(self.window.exercise.count(), 53)
         self.assertTrue(self.window.submode.isHidden())
         self.window._select_rehab('training')
         self.assertEqual(self.window.title.text(), '训练指导')
@@ -125,7 +125,7 @@ class DesktopTests(unittest.TestCase):
         w.side.setCurrentIndex(1)
         self.assertFalse(w.setup['plan']['joint_baseline'])
         w.joint_group.setCurrentIndex(w.joint_group.findData('finger'))
-        self.assertEqual(w.exercise.count(), 14)
+        self.assertEqual(w.exercise.count(), 28)
         self.assertTrue(w.joint_direction_button.isHidden())
         self.assertFalse(w.joint_rest_button.isEnabled())
         w.state = 'PREVIEW'

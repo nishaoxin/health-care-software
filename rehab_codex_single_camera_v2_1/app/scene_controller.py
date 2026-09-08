@@ -207,6 +207,8 @@ class SceneController:
             if plan.get('submode') not in ('assessment', 'training'):
                 raise ValueError('请明确选择身体评估或训练指导')
             if plan['submode'] == 'training':
+                plan.pop('assessment_batch_id', None)
+                plan.pop('assessment_entry_key', None)
                 if not plan.get('training_plan_confirmed'):
                     raise ValueError('请先人工设置并确认本次训练计划')
                 profile = build_body_profile(self.storage.list_sessions(), plan['participant_id'],
@@ -222,6 +224,12 @@ class SceneController:
             else:
                 plan.pop('assessment_reference', None)
                 plan['training_plan_confirmed'] = False
+                if plan.get('assessment_batch_id') or plan.get('assessment_entry_key'):
+                    from .assessment_batches import validate_binding
+                    validate_binding(self.storage.get_assessment_batch(plan.get('assessment_batch_id')),
+                                     dict(participant_id=plan['participant_id'], source_kind=self.source['kind'],
+                                          usage_context=self.source['usage_context']),
+                                     plan['exercise_id'], plan['side'], plan.get('assessment_entry_key'))
         self.setup['plan'] = copy.deepcopy(plan)
         if self.setup['plan']['needs_companion'] and not self.setup.get('companion_confirmed'):
             raise ValueError('训练计划要求陪同，请确认陪同者在场')
@@ -255,6 +263,7 @@ class SceneController:
                         'joint_order': joint_names(self.latest_pose.schema_id),
                         'pose_backend': self.latest_pose.backend, 'target_kind': self.latest_pose.target_kind,
                         'measurement_limitations': exercise_spec(plan['exercise_id'])['guide'] if self.setup['scene_id'] == 'rehab' else None,
+                        'measurement_contract': exercise_spec(plan['exercise_id'])['measurement_contract'] if self.setup['scene_id'] == 'rehab' else None,
                         'rule_version': RULE_VERSION, 'preprocess_version': PREPROCESS_VERSION,
                         'preprocessing_hash': digest(self.setup['preprocessing']),
                         'requested_capture': {k: self.capture_options.get(k) for k in ('width', 'height', 'fps')} if self.source['kind'] == 'LIVE_CAMERA' else None,
@@ -265,6 +274,9 @@ class SceneController:
                         'repetitions': [], 'events': [], 'metrics': [], 'summary': {}}
         if plan.get('assessment_reference'):
             self.session['assessment_reference'] = copy.deepcopy(plan['assessment_reference'])
+        if scene == 'rehab' and plan['submode'] == 'assessment' and plan.get('assessment_batch_id'):
+            self.session.update(assessment_batch_id=plan['assessment_batch_id'],
+                                assessment_entry_key=plan['assessment_entry_key'])
         if self.setup['poses_consent']:
             self.session['poses'] = []
         self.engine = engine

@@ -21,6 +21,8 @@ def valid_roi(roi):
 
 
 def compatible_reports(a, b):
+    if a.get('measurement_contract') != b.get('measurement_contract'):
+        return False
     keys = ('scene_id', 'exercise_id', 'side', 'profile_id', 'profile_version',
             'source_ref', 'source_kind', 'usage_context', 'rule_version', 'model_manifest_id',
             'preprocess_version', 'preprocessing_hash', 'plan_hash', 'participant_id')

@@ -1,5 +1,26 @@
 # Windows 工程首版验收记录
 
+## 2026-09-08 · 功能优先：53 项任务与本轮评估清单
+
+五批互不重叠的工程检查，共 **673 项与 4 个子测试通过**。没有反复启动全量检查；被排除的模型/回放实测明确保留为本轮未复测。
+
+| 批次 | 实际命令中的测试文件 | 结果 |
+| --- | --- | --- |
+| 新增动作 | `test_axial_and_extension.py` | 110 项通过，9.47 秒；已确认进程正常退出 |
+| 原几何与核心流程 | `test_app_joint_exercises.py test_app_assessment.py test_app_controller.py test_training_execution.py` | 220 项与 4 个子测试通过，4.49 秒 |
+| 注册、界面入口与关键点协议 | `test_product_catalog.py test_product_body_overview.py test_app_ui.py test_training_ui.py test_app_landmarks.py` | 264 项通过，4.37 秒；仅排除 3 项 `test_official_local_models_really_load_on_blank_image_without_false_person` |
+| 清单与数据库 | `test_assessment_batches.py test_assessment_batch_ui.py test_participants.py test_app_storage.py` | 51 项通过，2.16 秒 |
+| 原扩展路径与运行层 | `test_app_joint_expansion_flow.py test_app_runtime_integration.py test_training_runtime.py test_training_feedback.py` | 28 项通过，3.90 秒；排除 3 项 `routes_single_blank_replay` 和 1 项 `actual_blank_replay` |
+
+以上用项目 `.venv/Scripts/python.exe -m pytest ... -q` 执行。被排除的 7 项涉及此前重复加载的本地模型/真实空白回放；本次没有换模型、更新依赖或修改采集后端，未把旧验证结果当成本轮已复测。
+
+- 新增动作验证：已知坐标角度、左右侧、等比例平移缩放、镜像方向、刚性旋转、缺少必要点、短参考线拒测、手指反向起点与减小方向目标；40 条左右侧合成流程通过真实 SceneController/SQLite 完成评估→保存→汇总→训练两组。不是人体模型准确度或临床疗效验证。
+- 清单验证：只关联本轮项目，异人/异来源拒绝、旧成功不填入、最新失败需补测、异常退出、跳过/恢复/冲突/结束/重开/删除报告后状态、开始前重新校验、运行期间禁止修改、失败保留选择。真实 Runtime 读写清单不打开输入。
+- 数据迁移：v1/v2→v3 迁移前备份、旧会话不改写、备份失败原库不变、只读旧库不迁移。测试仅使用临时数据库，没有为测试打开正式用户数据。
+- 实际应用入口 `app.main --data-dir qa-output/function-v05-data --screenshot qa-output/function-v05-startup.png` 正常退出；独立 QA 数据目录，无摄像头采集。仅验证初始化与关闭，不开展视觉重设计。
+- `compileall` 与 `git diff --check` 通过。开发中一项旧 UI 测试仍断言手指只有 14 个任务；扩展为 28 个正/反起点任务后同步该期望，相关批次已通过，原动作逻辑未删减。
+- 本轮仍未验证真人测角/计数精度、临床适用性、内置/USB 相机切换或长期实机运行。肩/髋旋转、前臂旋转、拇指 CMC/对掌等未实现范围见 `FUNCTIONAL_EXPANSION_V0_5.md`。
+
 ## 2026-09-08 · 训练组次、休息、暂停与结束反馈
 
 - 当前分批检查：`tests/test_training_execution.py tests/test_app_controller.py tests/test_training_runtime.py` 共 39 项与 4 个子测试通过（2.23 秒）；`tests/test_training_ui.py tests/test_training_feedback.py tests/test_product_navigation.py tests/test_participant_runtime.py` 共 31 项通过（4.15 秒）。两批均正常退出，没有放宽等待阈值。

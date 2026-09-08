@@ -32,11 +32,11 @@ class Storage:
             conn.row_factory = sqlite3.Row
             conn.execute('PRAGMA busy_timeout=4000')
             version = conn.execute('PRAGMA user_version').fetchone()[0]
-            if version not in (0, 1, 2):
+            if version not in (0, 1, 2, 3):
                 raise RuntimeError('数据库版本高于本程序支持范围，原数据已保留')
             if not self.readonly:
-                if version < 2 and existed:
-                    backup_path = self.path.with_name(self.path.name+'.before-v2-'+utc_now().replace(':', '-')+'.bak')
+                if version < 3 and existed:
+                    backup_path = self.path.with_name(self.path.name+'.before-v3-'+utc_now().replace(':', '-')+'.bak')
                     with sqlite3.connect(backup_path) as backup:
                         conn.backup(backup)
                 if version == 0 and existed:
@@ -55,7 +55,8 @@ class Storage:
                     CREATE TABLE IF NOT EXISTS devices(id TEXT PRIMARY KEY, payload TEXT NOT NULL);
                     CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, at_utc TEXT NOT NULL, action TEXT NOT NULL, payload TEXT NOT NULL);
                     CREATE TABLE IF NOT EXISTS participants(id TEXT PRIMARY KEY, revision INTEGER NOT NULL, payload TEXT NOT NULL);
-                    PRAGMA user_version=2;
+                    CREATE TABLE IF NOT EXISTS assessment_batches(id TEXT PRIMARY KEY, participant_id TEXT NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL);
+                    PRAGMA user_version=3;
                     COMMIT;
                 ''')
                 conn.commit()
@@ -122,6 +123,75 @@ class Storage:
     def get_session(self, sid):
         row = self._call(lambda c: c.execute('SELECT payload FROM sessions WHERE id=?', (sid,)).fetchone())
         return json.loads(row['payload']) if row else None
+
+    def get_assessment_batch(self, batch_id):
+        def get(c):
+            if not c.execute("SELECT 1 FROM sqlite_master WHERE name='assessment_batches' AND type='table'").fetchone():
+                return None
+            row = c.execute('SELECT payload FROM assessment_batches WHERE id=?', (batch_id,)).fetchone()
+            return json.loads(row[0]) if row else None
+        return self._call(get)
+
+    def current_assessment_batch(self, scope):
+        from .assessment_batches import scope_key
+        key = scope_key(scope)
+        def get(c):
+            if not c.execute("SELECT 1 FROM sqlite_master WHERE name='assessment_batches' AND type='table'").fetchone():
+                return None
+            for row in c.execute('SELECT payload FROM assessment_batches WHERE participant_id=? ORDER BY rowid DESC', (key['participant_id'],)):
+                batch = json.loads(row[0])
+                if batch['status'] == 'ACTIVE' and scope_key(batch) == key:
+                    return batch
+            return None
+        return self._call(get)
+
+    def create_assessment_batch(self, scope, items):
+        from .assessment_batches import new_batch, scope_key
+        batch = new_batch(scope, items)
+        def save(c):
+            c.execute('BEGIN IMMEDIATE')
+            for row in c.execute('SELECT payload FROM assessment_batches WHERE participant_id=?', (batch['participant_id'],)):
+                previous = json.loads(row[0])
+                if previous['status'] == 'ACTIVE' and scope_key(previous) == scope_key(batch):
+                    raise ValueError('当前已有评估清单，请继续或先结束该轮评估')
+            c.execute('INSERT INTO assessment_batches VALUES (?,?,?,?)',
+                      (batch['id'], batch['participant_id'], batch['revision'], dumps(batch)))
+            return batch
+        return self._call(save)
+
+    def change_assessment_batch(self, batch_id, action, *, expected_revision, entry_key=None, reason=None):
+        from .assessment_batches import batch_view
+        if type(expected_revision) is not int or expected_revision < 1:
+            raise ValueError('评估清单版本无效，请重新打开')
+        if action not in ('skip', 'restore', 'close'):
+            raise ValueError('未知评估清单操作')
+        if action == 'skip' and (not isinstance(reason, str) or not reason.strip() or len(reason.strip()) > 500):
+            raise ValueError('请填写跳过原因，最多 500 字')
+        def change(c):
+            c.execute('BEGIN IMMEDIATE')
+            row = c.execute('SELECT payload FROM assessment_batches WHERE id=?', (batch_id,)).fetchone()
+            batch = json.loads(row[0]) if row else None
+            if batch is None or batch['status'] != 'ACTIVE' or batch['revision'] != expected_revision:
+                raise ValueError('评估清单已更新或已结束，请重新打开')
+            sessions = [json.loads(r[0]) for r in c.execute('SELECT payload FROM sessions')]
+            view = batch_view(batch, sessions)
+            if any(i['status'] == 'IN_PROGRESS' for i in view['items']):
+                raise ValueError('请先结束并保存当前评估')
+            if action == 'close':
+                batch.update(status='CLOSED', closed_utc=utc_now())
+            else:
+                item = next((i for i in batch['items'] if i['key'] == entry_key), None)
+                resolved = next((i for i in view['items'] if i['key'] == entry_key), None)
+                if item is None or (action == 'skip' and resolved['status'] == 'ASSESSED'):
+                    raise ValueError('请选择待测或需补测项目；不能用跳过覆盖已评估结果')
+                item['skip_reason'] = reason.strip() if action == 'skip' else None
+            batch['revision'] += 1
+            c.execute('UPDATE assessment_batches SET revision=?,payload=? WHERE id=?',
+                      (batch['revision'], dumps(batch), batch_id))
+            c.execute('INSERT INTO audit(at_utc,action,payload) VALUES (?,?,?)',
+                      (utc_now(), 'assessment_batch_'+action, dumps({'id': batch_id, 'entry_key': entry_key, 'reason': reason})))
+            return batch
+        return self._call(change)
 
     def list_sessions(self):
         return self._call(lambda c: [json.loads(r[0]) for r in c.execute('SELECT payload FROM sessions ORDER BY start_utc DESC')])

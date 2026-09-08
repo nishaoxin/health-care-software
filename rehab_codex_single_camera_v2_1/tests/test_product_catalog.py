@@ -61,7 +61,7 @@ def test_catalog_filters_searches_and_emits_real_action(qt_app):
     assert picked == ['wrist_radial_deviation']
     catalog.select_joint('finger')
     catalog.search.setText('食指 DIP')
-    assert catalog.visible_ids == ['index_dip_flexion']
+    assert set(catalog.visible_ids) == {'index_dip_flexion', 'index_dip_extension'}
     catalog.search.setText('不存在的动作')
     assert catalog.visible_ids == []
     assert catalog.empty.isVisible()
