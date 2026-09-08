@@ -175,7 +175,7 @@ class MainWindow(QMainWindow):
         self.coverage.setWordWrap(True)
         nav.addWidget(self.coverage)
         nav.addSpacing(20)
-        nav.addWidget(QLabel('v0.2  ·  本地关节观察'))
+        nav.addWidget(QLabel('v0.3  ·  本地关节观察'))
         root.addWidget(sidebar)
         body = QVBoxLayout()
         body.setContentsMargins(24, 20, 24, 18)
@@ -353,12 +353,18 @@ class MainWindow(QMainWindow):
         form = QFormLayout(self.rehab_controls)
         form.setContentsMargins(0, 0, 0, 0)
         self.exercise = combo(EXERCISES)
+        self.exercise.setMaxVisibleItems(12)
+        self.exercise.setToolTip('先选关节动作；腕、踝、手指为实验性二维观察，具体限制见下方说明。')
+        self.joint_group = combo({'all': '全部部位', 'shoulder': '肩', 'elbow': '肘', 'hip': '髋',
+                                  'knee': '膝 / 坐站', 'wrist': '腕', 'ankle': '踝', 'finger': '手指'})
+        self.joint_group.currentIndexChanged.connect(self._filter_exercises)
         self.exercise.currentIndexChanged.connect(self._exercise_changed)
         self.submode = combo({'assessment': '评估', 'training': '训练'})
         self.submode.setParent(self.rehab_controls)
         self.submode.hide()  # Distinct sidebar sections now own this value.
         self.side = combo({'left': '左侧（本人左侧）', 'right': '右侧（本人右侧）'})
         self.side.currentIndexChanged.connect(self._placement_changed)
+        form.addRow('部位', self.joint_group)
         form.addRow('动作', self.exercise)
         form.addRow('测试侧', self.side)
         box.addWidget(self.rehab_controls)
@@ -390,6 +396,18 @@ class MainWindow(QMainWindow):
         self.baseline_text.setWordWrap(True)
         baselinebox.addWidget(self.baseline_text)
         box.addWidget(self.baselines)
+        self.joint_baselines = QWidget()
+        jointbox = QVBoxLayout(self.joint_baselines)
+        jointbox.setContentsMargins(0, 0, 0, 0)
+        self.joint_rest_button = QPushButton('记录舒适起始姿势')
+        self.joint_rest_button.clicked.connect(lambda: self._record_joint_baseline('rest'))
+        self.joint_direction_button = QPushButton('记录活动方向')
+        self.joint_direction_button.clicked.connect(lambda: self._record_joint_baseline('direction'))
+        self.joint_baseline_text = QLabel()
+        self.joint_baseline_text.setWordWrap(True)
+        for widget in (self.joint_rest_button, self.joint_direction_button, self.joint_baseline_text):
+            jointbox.addWidget(widget)
+        box.addWidget(self.joint_baselines)
         self.region_controls = QWidget()
         region = QVBoxLayout(self.region_controls)
         region.setContentsMargins(0, 0, 0, 0)
@@ -596,6 +614,7 @@ class MainWindow(QMainWindow):
             self.notice.setText('该项目尚无可用评估，请先完成评估。')
             return
         self._select_rehab('training')
+        self.joint_group.setCurrentIndex(self.joint_group.findData('all'))
         self.exercise.setCurrentIndex(self.exercise.findData(item['exercise_id']))
         self.side.setCurrentIndex(self.side.findData(item['side']))
         self.setup['plan'] = default_plan(item['exercise_id'])
@@ -631,6 +650,7 @@ class MainWindow(QMainWindow):
         self._confirmed = False
         self.start_button.setEnabled(False)
         self._accept_context_frames = False
+        self.setup['plan']['joint_baseline'] = {}
         for metric_card in (self.count_card, self.angle_card, self.valid_card):
             metric_card.show_value(None)
         if self.state in ('ONLINE', 'PREVIEW', 'CONNECTING', 'ERROR'):
@@ -697,6 +717,20 @@ class MainWindow(QMainWindow):
         self.view.setCurrentIndex(self.view.findData(self.setup['plan']['view']))
         self._sync_scene()
 
+    def _filter_exercises(self):
+        selected = self.exercise.currentData()
+        joint = self.joint_group.currentData()
+        self.exercise.blockSignals(True)
+        self.exercise.clear()
+        for eid, label in EXERCISES.items():
+            if joint == 'all' or exercise_spec(eid)['joint'] == joint:
+                self.exercise.addItem(label, eid)
+        index = self.exercise.findData(selected)
+        self.exercise.setCurrentIndex(max(0, index))
+        self.exercise.blockSignals(False)
+        if self.exercise.currentData() != selected:
+            self._exercise_changed()
+
     def _select_scene(self, scene):
         if scene != self.scene:
             self._invalidate()
@@ -733,6 +767,16 @@ class MainWindow(QMainWindow):
             self.usage.blockSignals(False)
         plan = self.setup['plan']
         spec = exercise_spec(plan['exercise_id'])
+        self.joint_baselines.setVisible(self.scene == 'rehab' and plan['exercise_id'] != 'sit_to_stand')
+        self.joint_direction_button.setVisible(spec['directional_calibration'])
+        baseline = plan.get('joint_baseline') or {}
+        self.joint_baseline_text.setText(
+            ('起点已记录' if baseline else '起点未记录')+
+            (' · 方向已记录' if baseline.get('direction_sign') else ' · 方向未记录' if spec['directional_calibration'] else '')+
+            ('\n本动作须在预览中记录；舒适起点不是医学标准。' if spec['baseline_required'] else
+             '\n可选：活动受限时记录自己的舒适起点，无需强行伸直。'))
+        if spec['experimental']:
+            self.manual.setText('已确认测试侧、测量平面和关节清楚可见')
         goal = '未设置幅度目标 · 仅测量' if plan['target_angle_deg'] is None else f"个人角度目标：{plan['target_angle_deg']:g}°"
         if training:
             confirmation = '已人工确认计划' if plan.get('training_plan_confirmed') else '请先人工确认训练计划'
@@ -741,7 +785,8 @@ class MainWindow(QMainWindow):
             self.plan_text.setText('评估模式：记录可见幅度、完整动作和观察质量。\n结束后汇总身体信息，不自动诊断或生成处方。')
         self.plan_button.setText('修改已确认的训练计划' if plan.get('training_plan_confirmed') else '设置并确认训练计划')
         self.action_guide.setVisible(self.scene == 'rehab')
-        self.action_guide.setText(spec['guide'])
+        self.action_guide.setText(('实验性二维观察 · 非临床ROM\n' if spec['experimental'] else '')+spec['guide']+
+            ('\n橙色手部点：模型未提供逐点置信度，不表示测量可靠。' if spec['backend'] in ('mediapipe_hands', 'mediapipe_wrist') else ''))
         self.reference_text.setVisible(training)
         reference = plan.get('assessment_reference') or {}
         self.reference_text.setText(('已引用评估：'+reference.get('exercise_label', spec['label'])+' · '+('左侧' if reference.get('side') == 'left' else '右侧')+'\n'+reference.get('start_utc', '')[:19]+' UTC\n仅供观察参考，不自动转换为训练目标。')
@@ -812,6 +857,7 @@ class MainWindow(QMainWindow):
             self.notice.setText(str(exc))
             return
         self.manual.setChecked(False)
+        self.setup['plan']['joint_baseline'] = {}
         if source['kind'] == 'LIVE_CAMERA':
             self.setup['plan']['calibration'] = {}
             self._sync_scene()
@@ -823,6 +869,15 @@ class MainWindow(QMainWindow):
 
     def _confirm(self):
         self._send('confirm', setup=self._read_setup())
+
+    def _record_joint_baseline(self, position):
+        if position == 'direction':
+            label = exercise_spec(self.exercise.currentData())['label']
+            answer = QMessageBox.question(self, '确认试动作方向',
+                f'请确认已从舒适起点按“{label}”方向小幅移动，并稳定保持。\n这一步只记录方向，不要求最大幅度；不适时取消。是否记录？')
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+        self._send('joint_baseline', position=position)
 
     def _plan(self):
         dialog = PlanDialog(self._read_setup()['plan'], self)
@@ -881,8 +936,10 @@ class MainWindow(QMainWindow):
         for button in (self.preview_button, self.confirm_button, self.start_button):
             button.setVisible(self.state != 'SAVE_FAILED')
         if hasattr(self, 'poses'):
+            for button in (self.joint_rest_button, self.joint_direction_button):
+                button.setEnabled(available and self.state == 'PREVIEW')
             editable = available and self.state not in ('ONLINE', 'SAVE_FAILED')
-            for w in (self.participant, self.participant_button, self.exercise, self.side, self.view,
+            for w in (self.participant, self.participant_button, self.joint_group, self.exercise, self.side, self.view,
                       self.plan_button, self.source_kind, self.device, self.backend, self.refresh, self.mirror):
                 w.setEnabled(editable)
             self.usage.setEnabled(editable and self.scene not in ('bedroom_demo', 'safety_demo'))
@@ -948,6 +1005,19 @@ class MainWindow(QMainWindow):
             self.setup = m['setup']
             self._confirmed = True
             self.notice.setText('本次机位已确认。点击开始后才正式记录；训练模式还需有效评估和人工确认计划。')
+        elif kind == 'joint_baseline':
+            baseline = m['baseline']
+            origin = baseline['provenance']
+            if (not self._accept_context_frames or origin['participant_id'] != self.participant_id or
+                    origin['exercise_id'] != self.exercise.currentData() or origin['side'] != self.side.currentData() or
+                    m['context'].generation < self.last_generation):
+                return
+            self.setup['plan']['joint_baseline'] = baseline
+            self._confirmed = False
+            self.manual.setChecked(False)
+            self._sync_scene()
+            self.notice.setText('已记录舒适起点与活动方向；请回到起点，再确认机位。' if baseline.get('direction_sign') else
+                                '舒适起点已记录。需要方向校准时，请做小幅试动作后记录方向；不要追求最大范围。')
         elif kind == 'baseline':
             self._confirmed = False
             self.runtime.command('unconfirm')
@@ -1058,6 +1128,7 @@ class MainWindow(QMainWindow):
             # Preview readout only. Business processing stays in the runtime worker.
             # Use model confidence in debug without calculating a second action result.
             self.debug.setPlainText(dumps({'people': len(pose.people), 'keypoint_confidence': [p.conf for p in pose.people],
+                                           'landmark_attributes': [p.attributes for p in pose.people],
                                            'schema': pose.schema_id, 'inference_ms': pose.inference_ms}, indent=2))
         if summary:
             if self.scene == 'rehab':
@@ -1090,6 +1161,12 @@ class MainWindow(QMainWindow):
             self.feedback.setText({'NO_PERSON_DETECTED': '未检测到人 · 当前画面没有足够人体证据，不等于确认房间无人。',
                                    'MULTI_PERSON': '检测到多人 · 请重新确认单一参与者，暂不归属个人动作。',
                                    'UNKNOWN': '人物或动作未知 · 当前证据不足，暂不评价。'}[observed])
+            if pose and pose.target_kind == 'hand':
+                self.feedback.setText({'NO_PERSON_DETECTED': '未检测到测试手 · 请让单只测试手清楚入镜。',
+                                       'MULTI_PERSON': '检测到多只手 · 无法确认归属，请仅保留测试手。',
+                                       'UNKNOWN': '手部证据不足 · 请检查遮挡、距离和关节轮廓。'}[observed])
+            elif pose and pose.backend == 'mediapipe_wrist' and observed == 'UNKNOWN':
+                self.feedback.setText('腕部暂不能测量 · 请让所选侧肘、腕和整只手入镜，另一只手移出画面，并稳定保持。')
         self._buttons()
 
     def _history(self):

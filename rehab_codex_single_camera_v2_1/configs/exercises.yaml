@@ -1,8 +1,36 @@
-# Application rules v0.2.0. Engineering starting values, not clinical norms.
+# Application rules v0.3.0. Engineering starting values, not clinical norms.
 # Plan UI values override these only before a newly confirmed session.
 schema_version: 2
-rule_version: rules-0.2.0
+rule_version: rules-0.3.0
 exercises:
+  # New actions use observed comfort baselines; no automatic clinical targets.
+  shoulder_adduction: {}
+  elbow_extension: {}
+  knee_flexion: {}
+  shoulder_extension: {}
+  hip_flexion: {}
+  hip_extension: {}
+  hip_adduction: {}
+  wrist_flexion: {}
+  wrist_extension: {}
+  wrist_radial_deviation: {}
+  wrist_ulnar_deviation: {}
+  ankle_dorsiflexion: {}
+  ankle_plantarflexion: {}
+  thumb_mcp_flexion: {}
+  thumb_ip_flexion: {}
+  index_mcp_flexion: {}
+  index_pip_flexion: {}
+  index_dip_flexion: {}
+  middle_mcp_flexion: {}
+  middle_pip_flexion: {}
+  middle_dip_flexion: {}
+  ring_mcp_flexion: {}
+  ring_pip_flexion: {}
+  ring_dip_flexion: {}
+  pinky_mcp_flexion: {}
+  pinky_pip_flexion: {}
+  pinky_dip_flexion: {}
   shoulder_abduction:
     ready_s: 1.0
     dwell_s: 0.18

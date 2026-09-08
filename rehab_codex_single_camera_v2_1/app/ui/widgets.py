@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import math
+
 from PySide6.QtCore import Qt, Signal, QRectF, QPointF
 from PySide6.QtGui import QColor, QPainter, QPen, QFont, QImage
 from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QLabel
 
 from ..geometry import display_to_raw_normalized
+from ..landmark_schemas import skeleton_edges
 
 SKELETON = [(5, 6), (5, 7), (7, 9), (6, 8), (8, 10), (5, 11), (6, 12),
             (11, 12), (11, 13), (13, 15), (12, 14), (14, 16)]
@@ -105,12 +108,19 @@ class VideoCanvas(QWidget):
                 w, h = self.pose.size
                 for person in self.pose.people:
                     p.setPen(QPen(QColor('#a6ffe0'), 3))
-                    for a, b in SKELETON:
-                        if person.conf[a] >= .5 and person.conf[b] >= .5:
+                    def drawable(i):
+                        if i >= len(person.xy) or i >= len(person.conf):
+                            return False
+                        xy, confidence = person.xy[i], person.conf[i]
+                        return (len(xy) == 2 and all(isinstance(v, (int, float)) and math.isfinite(v) for v in xy)
+                                and 0 < xy[0] < w and 0 < xy[1] < h and (confidence is None or confidence >= .5))
+                    for a, b in skeleton_edges(self.pose.schema_id):
+                        if drawable(a) and drawable(b):
                             p.drawLine(self.map_raw(person.xy[a][0]/w, person.xy[a][1]/h), self.map_raw(person.xy[b][0]/w, person.xy[b][1]/h))
                     p.setBrush(QColor('#e9fff4'))
                     for i, (x, y) in enumerate(person.xy):
-                        if person.conf[i] >= .5 and 0 < x < w and 0 < y < h:
+                        if drawable(i):
+                            p.setBrush(QColor('#ffc77d' if person.conf[i] is None else '#e9fff4'))
                             p.drawEllipse(self.map_raw(x/w, y/h), 3, 3)
             for name, roi in self.rois.items():
                 a, b = self.map_raw(roi[0], roi[1]), self.map_raw(roi[2], roi[3])

@@ -90,9 +90,9 @@ class DesktopTests(unittest.TestCase):
     def test_history_starts_empty(self):
         self.assertEqual(self.window.table.rowCount(), 0)
 
-    def test_assessment_training_are_separate_sections_and_six_actions_available(self):
+    def test_assessment_training_are_separate_sections_and_expanded_actions_available(self):
         self.assertEqual(self.window.title.text(), '身体评估')
-        self.assertEqual(self.window.exercise.count(), 6)
+        self.assertEqual(self.window.exercise.count(), 33)
         self.assertTrue(self.window.submode.isHidden())
         self.window._select_rehab('training')
         self.assertEqual(self.window.title.text(), '训练指导')
@@ -113,6 +113,32 @@ class DesktopTests(unittest.TestCase):
         self.assertIsNone(plan['target_angle_deg'])
         self.assertFalse(plan.get('assessment_reference'))
         self.assertEqual(self.window.view.currentData(), 'frontal')
+
+    def test_body_part_filter_and_calibration_controls(self):
+        w = self.window
+        w.joint_group.setCurrentIndex(w.joint_group.findData('wrist'))
+        self.assertEqual(w.exercise.count(), 4)
+        self.assertEqual(w.exercise.currentData(), 'wrist_flexion')
+        self.assertFalse(w.joint_direction_button.isHidden())
+        self.assertIn('实验性', w.action_guide.text())
+        w.setup['plan']['joint_baseline'] = {'rest_value': 10}
+        w.side.setCurrentIndex(1)
+        self.assertFalse(w.setup['plan']['joint_baseline'])
+        w.joint_group.setCurrentIndex(w.joint_group.findData('finger'))
+        self.assertEqual(w.exercise.count(), 14)
+        self.assertTrue(w.joint_direction_button.isHidden())
+        self.assertFalse(w.joint_rest_button.isEnabled())
+        w.state = 'PREVIEW'
+        w._buttons()
+        self.assertTrue(w.joint_rest_button.isEnabled())
+
+    def test_hand_canvas_accepts_unknown_confidence_and_missing_points(self):
+        from test_app_landmarks import frame
+        pose = frame('mediapipe-hand21-v1')
+        pose.people[0].xy[4] = [None, None]
+        packet = FramePacket(pose.context, 1, 0., 0., '', np.zeros((720,1280,3), dtype=np.uint8))
+        self.window.canvas.set_frame(packet, pose)
+        self.window.canvas.grab()  # Exercise actual Qt paint path without a camera.
 
     def test_body_summary_waits_for_successful_save_even_when_retrying(self):
         self.window.state = 'ONLINE'

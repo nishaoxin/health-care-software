@@ -13,6 +13,9 @@ from .quality import PoseAnalyzer
 from .rehab import RehabEngine
 from .exercises import exercise_spec
 from .assessment import build_body_profile, build_training_reference
+from .landmark_schemas import joint_names, BACKEND_SCHEMAS
+from .joint_calibration import stable_preview_value, provenance
+from .quality import angle_delta
 
 
 class SceneController:
@@ -52,7 +55,9 @@ class SceneController:
 
     def _analyzer(self, side):
         return PoseAnalyzer(side=side, conf_min=self.vision_config.get('keypoint_conf_min', .5),
-                            tau=self.vision_config.get('filter_tau_s', .12), max_gap=self.vision_config.get('invalid_gap_s', .5))
+                            tau=self.vision_config.get('filter_tau_s', .12), max_gap=self.vision_config.get('invalid_gap_s', .5),
+                            exercise_id=self.setup['plan']['exercise_id'] if self.setup['scene_id'] == 'rehab' else None,
+                            joint_baseline=self.setup['plan'].get('joint_baseline'))
 
     def open(self, source, setup, options=None):
         if self.pending is not None:
@@ -60,6 +65,8 @@ class SceneController:
         if self.camera.worker is not None or self.context is not None:
             self.stop('configuration_change')
         self.source, self.setup = copy.deepcopy(source), copy.deepcopy(setup)
+        self.live_joint_baseline = {}
+        self.setup['plan']['joint_baseline'] = {}
         self.capture_options = copy.deepcopy(options or {})
         self.input_diagnostics = {}
         self.last_error = ''
@@ -92,6 +99,48 @@ class SceneController:
             raise
         return self.context
 
+    def record_joint_baseline(self, history, position):
+        if self.state != 'PREVIEW' or self.setup['scene_id'] != 'rehab' or self.latest_pose is None:
+            raise ValueError('请先预览并取得所选动作的有效关键点')
+        plan = self.setup['plan']
+        spec = exercise_spec(plan['exercise_id'])
+        if plan['exercise_id'] == 'sit_to_stand':
+            raise ValueError('坐站请使用舒适坐位和站位基线')
+        metric = spec.get('raw_metric', spec['metric'])
+        value = stable_preview_value(history, metric, now_time=self.latest_pose.time_s,
+                                     track_key=self.latest_observation.track_key,
+                                     circular=spec['directional_calibration'])
+        current_provenance = provenance(self)
+        if position == 'rest':
+            baseline = {'rest_value': value, 'raw_metric': metric, 'provenance': current_provenance,
+                        'measurement_kind': 'observed_comfort_start', 'recorded_at': utc_now()}
+        elif position == 'direction' and spec['directional_calibration']:
+            baseline = copy.deepcopy(self.live_joint_baseline)
+            if baseline.get('provenance') != current_provenance:
+                raise ValueError('请先在当前预览记录舒适起点')
+            delta = angle_delta(value, baseline['rest_value'])
+            if not 5 <= abs(delta) <= 90:
+                raise ValueError('暂不能区分活动方向；仅在舒适范围内做清楚的小幅试动作，不要勉强扩大幅度')
+            baseline.update(direction_sign=1 if delta > 0 else -1, direction_probe_value=value,
+                            direction_recorded_at=utc_now(), direction_manually_identified=True)
+        else:
+            raise ValueError('未知的关节基线操作')
+        self.live_joint_baseline = copy.deepcopy(baseline)
+        self.setup['plan']['joint_baseline'] = copy.deepcopy(baseline)
+        self.analyzer = self._analyzer(plan['side'])
+        self.confirmed = False
+        return baseline
+
+    def _check_joint_baseline(self, plan):
+        spec = exercise_spec(plan['exercise_id'])
+        baseline = plan.get('joint_baseline') or {}
+        if not baseline and not spec['baseline_required']:
+            return
+        if (not baseline or baseline != self.live_joint_baseline or baseline.get('provenance') != provenance(self)):
+            raise ValueError('请在本次预览重新记录舒适起始姿势；不能沿用其他人或旧机位的基线')
+        if spec['directional_calibration'] and baseline.get('direction_sign') not in (-1, 1):
+            raise ValueError('请先按所选动作方向做舒适的小幅试动作，并点击“记录活动方向”')
+
     def confirm(self, setup):
         if self.state != 'PREVIEW' or self.latest_packet is None:
             raise ValueError('请先打开有效画面预览')
@@ -113,6 +162,7 @@ class SceneController:
         if scene == 'activity' and not setup.get('activity_permission'):
             raise ValueError('活动任务需要人工确认活动许可')
         if scene == 'rehab':
+            self._check_joint_baseline(setup['plan'])
             expected_view = exercise_spec(exercise)['view']
             if setup['view'] != expected_view:
                 raise ValueError('此动作需要'+('正面' if expected_view == 'frontal' else '侧面')+'机位')
@@ -132,7 +182,9 @@ class SceneController:
         setup['profile_id'] = digest({k: setup.get(k) for k in ('scene_id', 'source_ref', 'view', 'rois', 'placement_revision')}
                                      | {'exercise': exercise, 'side': setup['plan']['side']})[:24]
         setup['profile_version'] = digest({'view': setup['view'], 'rois': setup['rois'], 'size': setup['actual_size_confirmed'],
-                                           'calibration': setup['plan'].get('calibration'), 'placement_revision': setup['placement_revision']})[:16]
+                                           'calibration': setup['plan'].get('calibration'),
+                                           'joint_baseline': setup['plan'].get('joint_baseline'),
+                                           'placement_revision': setup['placement_revision']})[:16]
         self.storage.save_profile(setup)
         self.setup, self.confirmed = setup, True
         return copy.deepcopy(setup)
@@ -146,6 +198,7 @@ class SceneController:
         if not str(plan.get('participant_id', '')).strip():
             raise ValueError('请先选择当前用户')
         if self.setup['scene_id'] == 'rehab':
+            self._check_joint_baseline(plan)
             necessary = exercise_spec(plan['exercise_id'])['required_metrics']
             if any(self.latest_observation.value(k) is None for k in necessary):
                 raise ValueError('动作必要关节不可见，请调整机位后再开始')
@@ -185,8 +238,11 @@ class SceneController:
                         'resolved_index_at_start': self.camera.resolved.index if self.camera.resolved else None,
                         'profile_id': self.setup['profile_id'], 'profile_version': self.setup['profile_version'],
                         'model_manifest_id': self.latest_pose.model_manifest_id,
-                        'schema_id': 'coco17-v1', 'coordinate_space': 'raw_image_pixels',
-                        'keypoint_order_version': 'coco17-anatomical-lr-v1', 'joint_order': JOINTS,
+                        'schema_id': self.latest_pose.schema_id, 'coordinate_space': self.latest_pose.coordinate_space,
+                        'keypoint_order_version': self.latest_pose.keypoint_order_version,
+                        'joint_order': joint_names(self.latest_pose.schema_id),
+                        'pose_backend': self.latest_pose.backend, 'target_kind': self.latest_pose.target_kind,
+                        'measurement_limitations': exercise_spec(plan['exercise_id'])['guide'] if self.setup['scene_id'] == 'rehab' else None,
                         'rule_version': RULE_VERSION, 'preprocess_version': PREPROCESS_VERSION,
                         'preprocessing_hash': digest(self.setup['preprocessing']),
                         'requested_capture': {k: self.capture_options.get(k) for k in ('width', 'height', 'fps')} if self.source['kind'] == 'LIVE_CAMERA' else None,
@@ -228,6 +284,9 @@ class SceneController:
             return False
         if tuple(packet.image.shape[1::-1]) != tuple(pose.size):
             raise ValueError('画面与姿态尺寸不一致')
+        backend = exercise_spec(self.setup['plan']['exercise_id'])['backend'] if self.setup['scene_id'] == 'rehab' else 'yolo'
+        if pose.schema_id != BACKEND_SCHEMAS[backend]:
+            raise ValueError('所选动作与关键点组件不匹配，未进行测量')
         if self.state == 'ONLINE' and list(pose.size) != self.setup.get('actual_size_confirmed'):
             self.stop('frame_shape_changed')
             raise RuntimeError('采集尺寸改变，已结束任务；需重新确认机位与区域')

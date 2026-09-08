@@ -23,6 +23,10 @@ class VisionWorker:
         self.model = None
         self.context = None
         self.manifest_id = ''
+        self.landmark_backend = None
+        self.landmark_selection = None
+        self.failed_selection = None
+        self.failed_message = None
         self.thread.start()
 
     def _load(self):
@@ -52,7 +56,19 @@ class VisionWorker:
             raise RuntimeError('文件不是姿态模型')
         self.manifest_id = h
 
-    def infer(self, packet):
+    def infer(self, packet, backend='yolo', side='left'):
+        if backend != 'yolo':
+            from .landmark_backend import LandmarkBackend
+            selection = (backend, side)
+            if selection != self.landmark_selection:
+                if self.landmark_backend:
+                    self.landmark_backend.close()
+                self.landmark_backend = LandmarkBackend(backend, side=side, cancel_event=self.stop_event)
+                self.landmark_selection = selection
+            return self.landmark_backend.infer(packet)
+        if self.landmark_backend:
+            self.landmark_backend.close()
+            self.landmark_backend = self.landmark_selection = None
         if self.model is None:
             self._load()
         if self.context != packet.context:
@@ -81,17 +97,26 @@ class VisionWorker:
     def _run(self):
         while not self.stop_event.is_set():
             try:
-                packet = self.inputs.get(timeout=.1)
+                packet, backend, side = self.inputs.get(timeout=.1)
             except queue.Empty:
                 continue
             try:
-                result = self.infer(packet)
+                selection = (packet.context, backend, side)
+                if selection == self.failed_selection:
+                    raise RuntimeError(self.failed_message)
+                result = self.infer(packet, backend, side)
                 put_latest(self.outputs, (packet, result, None))
             except Exception as exc:
-                put_latest(self.outputs, (packet, None, f'{type(exc).__name__}: {exc}'))
+                if selection != self.failed_selection:
+                    self.failed_selection, self.failed_message = selection, f'{type(exc).__name__}: {exc}；请重新预览后重试'
+                put_latest(self.outputs, (packet, None, self.failed_message))
 
-    def submit(self, packet):
-        put_latest(self.inputs, packet)
+        if self.landmark_backend:
+            self.landmark_backend.close()
+
+    def submit(self, packet, backend='yolo', side='left'):
+        # Bind selection to this packet, never a mutable global UI setting.
+        put_latest(self.inputs, (packet, backend, side))
 
     def clear(self):
         for slot in (self.inputs, self.outputs):

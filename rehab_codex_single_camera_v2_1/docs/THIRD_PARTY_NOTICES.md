@@ -2,6 +2,19 @@
 
 本文件记录实际使用资源，不表示取得了额外商业授权。未向外发布软件或数据。
 
+## 2026-09-08 可选关键点组件增补
+
+| 对象 | 本机来源 / 版本 | 许可与分发边界 |
+|---|---|---|
+| MediaPipe 代码 / Python wheel | 官方 PyPI，1.0.1 Windows x64；独立 `.venv-landmarks` | [官方代码许可证](https://github.com/google-ai-edge/mediapipe/blob/master/LICENSE) 为 Apache-2.0，另有附带文件通知；不能据此推定所有外部权重/数据的许可 |
+| Pose Landmarker full / Hand Landmarker bundle | Google 官方 `storage.googleapis.com/mediapipe-models/` 固定 `/float16/1/` 端点 | 只在本机下载，未将权重打包进 Git；URL、尺寸、SHA256 在 `assets/models/landmarks-manifest.json`。当前记录未单独确证权重再分发条款，商用或打包分发前必须核查模型卡与相应许可，不能以代码许可代替 |
+| 扩展环境的 NumPy / OpenCV contrib / 其他 wheel | 官方 PyPI；完整版本见 `requirements.landmarks.lock.txt` | 安装包保留各自 LICENSE / NOTICE；没有修改原 YOLO 环境的 NumPy/OpenCV |
+| 模型训练图像、测试人体照片、患者录像 | 本次未下载或分发 | 模型的训练背景不构成对其训练数据的授权；本次新增测试仅使用人工构造点及纯色视频 |
+
+MediaPipe wheel SHA256：`96dc9de6bd04a6315ef424fda5c48e0929f2d78317295e75bc32c0bceeab517b`（官方 PyPI 的 1.0.1 `py3-none-win_amd64`）。模型参考：[Pose 官方说明](https://developers.google.com/edge/mediapipe/solutions/vision/pose_landmarker)、[Hand 官方说明](https://developers.google.com/edge/mediapipe/solutions/vision/hand_landmarker)。这些来源不提供本应用的康复/临床准确性认证。
+
+以下为原环境来源记录，继续保留。
+
 | 资源 | 本次实际版本 / 来源 | 许可记录与范围 |
 |---|---|---|
 | Ultralytics | 8.3.199，PyPI 官方发行内容 | 官方为 AGPL-3.0 / Enterprise 路线；未声称拥有 Enterprise 授权 |

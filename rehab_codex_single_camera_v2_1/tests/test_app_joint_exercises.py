@@ -57,10 +57,12 @@ def test_registry_matches_config_and_preserves_existing_names():
     required = {'label', 'joint', 'view', 'metric', 'metric_label', 'required_metrics',
                 'rep_value_key', 'target_direction', 'guide', 'ready_hint'}
     config = yaml.safe_load((Path(__file__).resolve().parents[1]/'configs/exercises.yaml').read_text(encoding='utf-8'))
-    assert set(EXERCISES) == set(config['exercises']) == {c[0] for c in JOINT_CASES} | {'sit_to_stand'}
+    assert set(EXERCISES) == set(config['exercises'])
+    assert {c[0] for c in JOINT_CASES} | {'sit_to_stand'} <= set(EXERCISES)
+    assert len(EXERCISES) == 33
     assert EXERCISES['shoulder_abduction'] == '肩外展'
     assert EXERCISES['sit_to_stand'] == '居家坐站'
-    assert config['rule_version'] == RULE_VERSION == 'rules-0.2.0'
+    assert config['rule_version'] == RULE_VERSION == 'rules-0.3.0'
     for exercise, label in EXERCISES.items():
         spec = exercise_spec(exercise)
         assert required <= spec.keys()

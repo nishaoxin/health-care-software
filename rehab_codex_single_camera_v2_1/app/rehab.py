@@ -47,6 +47,15 @@ class RehabEngine:
         if target is not None and (not math.isfinite(target) or not 0 <= target <= 180):
             raise ValueError('人工角度目标必须是 0–180 度之间的有限数值或 null')
         self.primary_metric = self.spec['metric']
+        baseline = self.plan.get('joint_baseline') or {}
+        if self.spec['baseline_required'] and not baseline:
+            raise ValueError('本动作需要先记录舒适起点')
+        if baseline:
+            value = baseline.get('rest_value')
+            if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value):
+                raise ValueError('舒适起点不是有效测量')
+            if self.spec['directional_calibration'] and baseline.get('direction_sign') not in (-1, 1):
+                raise ValueError('本动作需要先记录活动方向')
         self.direction = 1 if self.spec['target_direction'] == 'increase' else -1
         self.motion_evidence = _AngleEvidence()
         self.rest_samples = deque(maxlen=3)
@@ -88,7 +97,12 @@ class RehabEngine:
             return
         self.current['angle_evidence'].add(o.value(self.primary_metric))
         shoulder = self.spec['joint'] == 'shoulder'
+        relevant = set(self.spec['required_metrics'])
+        if shoulder:
+            relevant.update(('elbow_flexion_deg', 'trunk_tilt_deg', 'raise_deg'))
         for name, metric in o.metrics.items():
+            if name not in relevant:
+                continue
             if (shoulder and name in ('elbow_flexion_deg', 'trunk_tilt_deg')
                     and (self.phase not in ('RAISING', 'PEAK_OR_HOLD') or (o.value('raise_deg') or 0) <= self.plan['rest_deg'])):
                 continue
@@ -249,6 +263,11 @@ class RehabEngine:
         # the flexion metric and does not enter the sit-to-stand state machine.
         at_rest = angle >= rest if self.direction == -1 else -rest <= angle <= rest
         outbound = self.direction*(angle-rest) >= self.plan['raising_delta_deg']
+        baseline = self.plan.get('joint_baseline') or {}
+        if baseline:
+            rest = 0. if self.spec['directional_calibration'] else baseline['rest_value']
+            at_rest = abs(angle-rest) <= 5.
+            outbound = self.direction*(angle-rest) >= self.plan['raising_delta_deg']
         if self.phase in ('WAIT_READY', 'REST') and at_rest:
             self.rest_samples.append(angle)
         if self.phase == 'WAIT_READY':

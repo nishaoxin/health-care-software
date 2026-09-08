@@ -1,0 +1,21 @@
+{
+  "manifest_version": 1,
+  "runtime": "mediapipe==1.0.1",
+  "source": "Google AI Edge official fixed-version MediaPipe task bundles",
+  "models": {
+    "mediapipe_pose": {
+      "filename": "pose_landmarker_full.task",
+      "schema_id": "mediapipe33-v1",
+      "url": "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
+      "sha256": "5134a3aad27a58b93da0088d431f366da362b44e3ccfbe3462b3827a839011b1",
+      "bytes": 9398198
+    },
+    "mediapipe_hands": {
+      "filename": "hand_landmarker.task",
+      "schema_id": "mediapipe-hand21-v1",
+      "url": "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+      "sha256": "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1",
+      "bytes": 7819105
+    }
+  }
+}

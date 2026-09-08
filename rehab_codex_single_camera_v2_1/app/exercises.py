@@ -71,7 +71,90 @@ _SPECS = {
     },
 }
 
+def _add(exercise_id, label, joint, view, metric, metric_label, guide,
+         *, backend='yolo', direction='increase', directional=False, experimental=False):
+    _SPECS[exercise_id] = {
+        'label': label, 'joint': joint, 'view': view, 'metric': metric,
+        'metric_label': metric_label, 'required_metrics': (metric,),
+        'rep_value_key': 'peak_angle_deg' if direction == 'increase' else 'min_angle_deg',
+        'target_direction': direction, 'backend': backend, 'baseline_required': True,
+        'directional_calibration': directional, 'experimental': experimental,
+        'guide': guide,
+        'ready_hint': '请回到已记录的舒适起始姿势，保持约 1 秒；不要强行伸直或追求最大幅度',
+        'outbound_hint': '按已确认方向，在舒适范围缓慢完成'+label,
+        'return_hint': '缓慢回到已记录的舒适起始姿势',
+    }
+
+
+_add('shoulder_adduction', '肩内收回位', 'shoulder', 'frontal', 'raise_deg',
+     '肩内收二维投影抬举角（内收时减小）',
+     '正面，髋、肩、肘清楚可见；从舒适侧抬臂姿势向身体收回，再返回起始位置。仅测抬臂平面内内收，不测横向内收。', direction='decrease')
+_add('elbow_extension', '肘伸展', 'elbow', 'sagittal', 'elbow_flexion_deg',
+     '肘屈曲二维投影角（伸展时减小）', '侧面，肩、肘、腕入镜；先记录舒适屈肘姿势，缓慢伸肘后回位。', direction='decrease')
+_add('knee_flexion', '膝屈曲', 'knee', 'sagittal', 'knee_flexion_deg',
+     '膝屈曲二维投影角', '侧面，髋、膝、踝入镜；使用已确认的稳定坐位或支撑姿势，先记录舒适起点，缓慢屈膝后回位。')
+
+# Signed angles are direction-calibrated against a comfortable starting pose.
+# A small, manually identified excursion establishes screen direction, NOT ROM
+# or a clinical target. This avoids confusing flexion with extension after mirroring.
+for eid, label, joint, view, raw, guide in (
+    ('shoulder_extension', '肩后伸', 'shoulder', 'sagittal', 'shoulder_sagittal_raw_deg', '侧面，髋、肩、肘入镜；保持躯干舒适稳定，向身体后方小幅移臂。'),
+    ('hip_flexion', '髋屈曲', 'hip', 'sagittal', 'hip_sagittal_raw_deg', '侧面，肩、髋、膝入镜；使用已确认的稳定支撑，向身体前方小幅移腿。'),
+    ('hip_extension', '髋后伸', 'hip', 'sagittal', 'hip_sagittal_raw_deg', '侧面，肩、髋、膝入镜；使用已确认的稳定支撑，向身体后方小幅移腿。'),
+    ('hip_adduction', '髋内收', 'hip', 'frontal', 'hip_abduction_deg', '正面，双髋与测试侧膝入镜；从舒适外展位置向身体中线收腿，避免另一条腿遮挡。'),
+):
+    _add(eid, label, joint, view, eid+'_excursion_deg', label+'相对舒适起点二维投影变化',
+         guide+'先记录舒适起点，再按本动作方向小幅移动并记录方向；这不是最大幅度测试。', directional=True)
+    _SPECS[eid]['raw_metric'] = raw
+    if eid in ('hip_flexion', 'hip_extension'):
+        _SPECS[eid]['guide'] += '角度参考肩—髋躯干线与大腿线；骨盆/躯干转动会影响结果，不能分离为纯髋关节ROM。'
+
+for eid, label, view, plane in (
+    ('wrist_flexion', '腕屈曲', 'sagittal', '从手的侧缘拍摄，向掌侧弯腕'),
+    ('wrist_extension', '腕伸展', 'sagittal', '从手的侧缘拍摄，向手背侧弯腕'),
+    ('wrist_radial_deviation', '腕桡偏', 'frontal', '手背或手掌正对镜头，向拇指侧偏腕'),
+    ('wrist_ulnar_deviation', '腕尺偏', 'frontal', '手背或手掌正对镜头，向小指侧偏腕'),
+):
+    _add(eid, label, 'wrist', view, eid+'_excursion_deg', label+'相对舒适起点二维投影变化',
+         plane+'；让测试侧肘、腕、整只手清楚入镜，另一只手移出画面。先记录舒适起点，再小幅移动记录方向。手指姿势尽量不变；遮挡时停止。',
+         backend='mediapipe_wrist', directional=True, experimental=True)
+    _SPECS[eid]['raw_metric'] = 'wrist_raw_deg'
+
+for eid, label, movement in (
+    ('ankle_dorsiflexion', '踝背屈', '向小腿方向抬脚尖'),
+    ('ankle_plantarflexion', '踝跖屈', '向远离小腿方向下压脚尖'),
+):
+    _add(eid, label, 'ankle', 'sagittal', eid+'_excursion_deg', label+'相对舒适起点二维投影变化',
+         '侧面稳定坐位，小腿、踝、足跟、足尖完整可见；'+movement+'，不以踮脚站立代替。先记录舒适起点，再小幅移动记录方向。仅测小腿—足部投影变化。',
+         backend='mediapipe_pose', directional=True, experimental=True)
+    _SPECS[eid]['raw_metric'] = 'ankle_raw_deg'
+
+for finger, label, joints in (
+    ('thumb', '拇指', ('mcp', 'ip')),
+    ('index', '食指', ('mcp', 'pip', 'dip')),
+    ('middle', '中指', ('mcp', 'pip', 'dip')),
+    ('ring', '无名指', ('mcp', 'pip', 'dip')),
+    ('pinky', '小指', ('mcp', 'pip', 'dip')),
+):
+    for joint in joints:
+        part = {'mcp': '掌指关节', 'pip': '近端指间关节', 'dip': '远端指间关节', 'ip': '指间关节'}[joint]
+        eid = f'{finger}_{joint}_flexion'
+        _add(eid, label+part+'屈伸', 'finger', 'sagittal', eid+'_deg', label+part+'二维投影屈曲角',
+             '单只测试手近景，所测手指从侧面展开在成像平面内，其余手指不要遮挡。记录舒适起点后缓慢弯曲、回位。手部模型不提供逐点置信度，遮挡和离开测量平面可能无法自动发现；仅作实验性观察。'+
+             ('掌指角的近端参考使用腕—掌指连线，不是骨性关节测量。' if joint == 'mcp' and finger != 'thumb' else ''),
+             backend='mediapipe_hands', experimental=True)
+
 EXERCISE_IDS = tuple(_SPECS)
+
+UNSUPPORTED_COVERAGE = (
+    ('肩内/外旋、水平内/外收', '单目常用机位存在离面运动与肢段重叠，不能可靠分离肩关节旋转。'),
+    ('前臂旋前/旋后', '手掌朝向变化不能直接当成桡尺关节旋转角；暂不输出角度。'),
+    ('髋内/外旋', '二维骨架不能可靠区分髋轴向旋转、骨盆转动与机位变化。'),
+    ('踝内/外翻、足弓', '现有足跟/足尖不足以独立量化后足与距下关节运动。'),
+    ('拇指腕掌关节、对掌、手指侧向外展', '涉及多平面与遮挡，未建立可验证的单目测量契约。'),
+    ('颈椎、胸腰椎各节段', '模型没有椎体关键点；头部/躯干倾斜不等于节段关节活动度。'),
+    ('肌力、疼痛、关节稳定性、病种诊断', '不能从摄像头投影角推断；需要用户自述或专业检查。'),
+)
 
 
 def exercise_spec(exercise_id: str) -> dict:
@@ -79,6 +162,10 @@ def exercise_spec(exercise_id: str) -> dict:
     if not isinstance(exercise_id, str) or exercise_id not in _SPECS:
         raise ValueError(f'未知康复动作：{exercise_id!r}')
     spec = copy.deepcopy(_SPECS[exercise_id])
+    spec.setdefault('backend', 'yolo')
+    spec.setdefault('baseline_required', False)
+    spec.setdefault('directional_calibration', False)
+    spec.setdefault('experimental', False)
     spec.update(measurement_type='2d_projection', clinical_rom=False,
-                readiness_note='准备阈值仅为 v0.2 工程分期参数，不是正常值；不适用时应停止并调整已确认计划。')
+                readiness_note='起始姿势与方向校准仅用于工程分期，不是正常值或医学目标；有不适立即停止。')
     return spec

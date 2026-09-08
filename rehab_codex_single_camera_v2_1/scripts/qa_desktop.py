@@ -84,6 +84,13 @@ plan.show()
 app.processEvents()
 plan.grab().save(str(out/'plan.png'))
 plan.close()
+for eid in ('hip_flexion', 'wrist_flexion', 'ankle_dorsiflexion', 'index_pip_flexion'):
+    window._select_rehab('assessment')
+    window.joint_group.setCurrentIndex(window.joint_group.findData('all'))
+    window.exercise.setCurrentIndex(window.exercise.findData(eid))
+    window._poll()
+    app.processEvents()
+    window.grab().save(str(out/f'expanded-{eid}.png'))
 window._allow_close = True
 window.close()
 print('Rendered scenes, assessment/body/training workflow, history and plan; only labelled synthetic fixtures, no camera or user DB opened.')

@@ -1,5 +1,38 @@
 # Windows 工程首版验收记录
 
+## 2026-09-08 · 应用 v0.3 扩展关节
+
+本次 Windows x64 / Python 3.13.12，主 `.venv` 保留，可选 `.venv-landmarks` 使用 MediaPipe 1.0.1。以下是本次结果；后文为历史记录。
+
+| 检查 | 实际结果 | 能证明的范围 |
+|---|---|---|
+| 全量 pytest | 432 项通过，另有 4 个子测试通过，26.84 秒 | 原回归、新模型协议、14 个手指关节独立几何、腕/踝/肩/髋方向、全部新增动作计数、数据/界面流程 |
+| unittest | 165 项通过，10.234 秒 | 与上行重叠的 unittest 子集；参数化测试仍由 pytest 执行，不相加 |
+| 官方模型真实加载 | Pose33、Hand21、Pose33+Hand21 腕组合均实际启动并对纯色 RGB 输入推理，返回 0 个目标 | 本机模型/接口/CPU/退出可用，不是人体识别准确度 |
+| Runtime 扩展后端路由 | 踝、手指、腕分别通过同一个 CameraManager 从临时纯色 AVI 解码并送到正确的真实模型；不生成会话或假报告 | 原采集/推理框架接入，明确 REPLAY_FILE + TEST；不是摄像头实机 |
+| 保存与训练 | 16 个左右侧扩展合成闭环及 2 个校准门禁测试通过 | 评估保存、身体信息、训练引用、SQLite 重开、普通导出无骨架；旧/伪造基线和缺方向被拒绝 |
+| 独立环境 | 两个环境 pip check 均无冲突；`setup_landmarks.ps1 -VerifyOnly` 通过 | 原环境未混装可选 OpenCV；模型 SHA256 与官方固定版本清单一致 |
+| 桌面布局 | 原场景与新增髋、腕、踝、手指、身体汇总和关联训练离屏渲染并检查 | `qa-output/` 的界面自有状态；无用户屏幕、摄像头或用户数据库采集 |
+| 完整入口 / 静态检查 | `app.main --data-dir .runtime/qa-v03-startup --screenshot qa-output/startup-v03.png`、compileall、git diff --check 通过 | 独立测试数据目录初始化、离屏启动与关闭；没有打开摄像头 |
+
+运行记录：
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m unittest discover -s tests -q
+.\.venv\Scripts\python.exe scripts/qa_desktop.py
+.\scripts\setup_landmarks.ps1 -VerifyOnly
+.\.venv\Scripts\python.exe -m pip check
+```
+
+新模型协议保留 Hand21 逐点置信度为 null。已测试缺点、零长骨段、旧上下文、双手不匹配、进程响应超时/取消、错误序号关闭自有模型进程；这些检查不能自动识别全部遮挡和离面运动。
+
+首轮扩展开发测试发现语法括号遗漏、浮点时间边界和过短的手部测试骨段，已分别修复语法、时间容差和测试样本后重跑。原测试的六项/十二项固定数量断言随新注册表更新，原行为测试没有移除。
+
+尚未完成新增动作的真人可见性检查、独立人工量角误差、患者动作适用性、USB 热插拔或真实视频 30 分钟连续运行。腕/踝/手指必须保持“实验性二维观察”；“已评估”只说明有可追溯观察数据，不表示临床验证通过。
+
+---
+
 ## 2026-09-08 · 应用 v0.2 评估与训练扩展
 
 当前验证环境为 Windows x64、项目 `.venv`、Python 3.13.12。以下是本次实际执行结果；后面的 2026-09-06 记录保留为历史，不代表本次测试状态。

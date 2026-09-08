@@ -19,8 +19,8 @@ CONTEXTS = {'SELF_USE': '自主使用', 'CONTROLLED_DEMO': '受控演示', 'TEST
 JOINTS = ('nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear', 'left_shoulder',
           'right_shoulder', 'left_elbow', 'right_elbow', 'left_wrist', 'right_wrist',
           'left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle')
-RULE_VERSION = 'rules-0.2.0'
-PREPROCESS_VERSION = 'causal-ema-0.1.0'
+RULE_VERSION = 'rules-0.3.0'
+PREPROCESS_VERSION = 'causal-ema-schema-0.3.0'
 
 
 def utc_now():
@@ -78,7 +78,8 @@ class PosePerson:
     track_key: str | None
     bbox: list[float]
     xy: list[list[float]]
-    conf: list[float]
+    conf: list[float | None]
+    attributes: dict = field(default_factory=dict)
 
 
 @dataclass
@@ -93,6 +94,8 @@ class PoseFrame:
     coordinate_space: str = 'raw_image_pixels'
     keypoint_order_version: str = 'coco17-anatomical-lr-v1'
     model_manifest_id: str = ''
+    backend: str = 'yolo'
+    target_kind: str = 'person'
 
 
 @dataclass(frozen=True)

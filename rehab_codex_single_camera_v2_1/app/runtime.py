@@ -13,6 +13,7 @@ from .camera_manager import CameraManager
 from .domain import digest, dumps, utc_now
 from .reports import export_session, render_report, render_body_profile, export_body_profile
 from .assessment import build_body_profile
+from .exercises import exercise_spec
 from .scene_controller import SceneController
 from .settings import ROOT, load_settings
 from .source_worker import put_latest
@@ -123,6 +124,14 @@ class Runtime:
             self._message('baseline', position=kw['position'], knee=median(knees), hip=median(hips),
                           provenance={'source_ref': c.source['ref'], 'frame_size': list(c.latest_pose.size),
                                       'side': c.setup['plan']['side'], 'view': c.setup['view']})
+        elif name == 'joint_baseline':
+            if (c.latest_packet is None or (c.source['kind'] == 'LIVE_CAMERA' and
+                    time.monotonic()-c.latest_packet.received_monotonic > 3)):
+                raise ValueError('预览画面过期，请重新预览后记录')
+            baseline = c.record_joint_baseline(self.preview_history, kw['position'])
+            self.preview_history = []
+            self._message('joint_baseline', baseline=baseline, context=c.context)
+            self._view(c.latest_packet, c.latest_pose)
         elif name == 'history':
             sessions = store.list_sessions()
             self._message('history', sessions=[{k: v for k, v in s.items() if k not in ('metrics', 'poses')} for s in sessions])
@@ -245,7 +254,8 @@ class Runtime:
                         self.connect_started_wall = None
                         if c.state == 'CONNECTING':
                             c.state = 'PREVIEW'
-                        self.vision.submit(packet)
+                        backend = exercise_spec(c.setup['plan']['exercise_id'])['backend'] if c.setup['scene_id'] == 'rehab' else 'yolo'
+                        self.vision.submit(packet, backend=backend, side=c.setup['plan']['side'])
                         if c.latest_pose is None:
                             self._view(packet)
                     elif packet is not None:

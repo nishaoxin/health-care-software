@@ -1,5 +1,7 @@
 # 可直接发给Codex的开始指令
 
+当前继续开发须先结合 `docs/JOINT_EXPANSION_V0_3.md`：用户已明确授权关节扩展及可选本地模型。本文件下方为原首周开工要求，不能据此取消已授权功能；不扩展到多路摄像头、云端或医学诊断。
+
 先阅读SOFTWARE_SPEC.md、AGENTS.md和CHANGELOG_V2_1.md；MIGRATION_V1_TO_V2.md仅用于理解历史范围收缩。
 当前采用v2.1单摄像头版本；不再执行v1多路并行和雷达首周任务。
 

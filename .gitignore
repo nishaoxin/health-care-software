@@ -1,10 +1,13 @@
 **/.venv/
+**/.venv-landmarks/
 **/__pycache__/
 **/.pytest_cache/
 **/*.py[cod]
 **/data/
 **/assets/models/*.pt
 **/assets/models/*.pth
+**/assets/models/*.task
+**/assets/models/*.download
 **/build/
 **/dist/
 **/*.spec

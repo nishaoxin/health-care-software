@@ -107,7 +107,8 @@ def _compact_body_profile(profile):
         status = fmt(STATUS_LABELS.get(item.get('status'), '未记录'))
         if item.get('session_status') == 'INTERRUPTED':
             status += '<br>中断结束'
-        cells = (f'{fmt(item.get("exercise_label"))} · {fmt(SIDES.get(item.get("side"), item.get("side")))}',
+        cells = (f'{fmt(item.get("exercise_label"))} · {fmt(SIDES.get(item.get("side"), item.get("side")))}'+
+                 ('<br>实验性观察' if item.get('experimental') else ''),
                  status,
                  angles, f'{_percent(item.get("valid_ratio"))} / {completed} 次',
                  _short_utc(item.get('end_utc')))
@@ -120,7 +121,8 @@ def _compact_body_profile(profile):
             '<th width="12%">状态</th><th width="20%">投影角度范围</th>'
             '<th width="21%">有效观察 / 完整次数</th><th width="24%">最近评估（UTC）</th></tr>'
             + ''.join(rows) + '</table>'
-            '<p class="muted">— 表示未测量；本次不可用时不沿用旧结果。完整证据请打开所选评估报告。</p>')
+            '<p class="muted">— 表示未测量；本次不可用时不沿用旧结果。完整证据请打开所选评估报告。</p>'+
+            _coverage_html(profile))
     style = ("body{font-family:'Microsoft YaHei UI',sans-serif;font-size:12px;color:#203c3d;"
              'margin:4px;padding:4px;line-height:1.3}p{margin:4px 0 8px}.muted{color:#627476}'
              'table{border-collapse:collapse;width:100%;background:white}'
@@ -160,8 +162,16 @@ def render_body_profile(profile, compact=False):
             '<table><tr><th>动作与侧别</th><th>评估状态</th><th>二维投影角度</th>'
             '<th>有效观察 / 次数</th><th>可见问题</th><th>原始评估记录</th><th>测量条件</th></tr>'
             + ''.join(rows) + '</table>'
-            f'<p class="muted">{fmt(COMPARISON_NOTE)}</p>')
+            f'<p class="muted">{fmt(COMPARISON_NOTE)}</p>'+_coverage_html(profile))
     return _document('身体评估汇总', body)
+
+
+def _coverage_html(profile):
+    rows = ''.join(f'<p><b>{fmt(item.get("label"))}</b><br>{fmt(item.get("reason"))}</p>'
+                   for item in profile.get('unsupported_coverage') or [])
+    return ('<h2>当前测量边界</h2><p>不要求完成全部项目；按已确认的适用范围选择。腕、踝和手指为实验性二维观察，'
+            '需清楚可见且运动处于成像平面。标记“已评估”仅表示保存了观察值，不表示临床验证通过。</p>'
+            '<h3>暂不输出关节角及原因</h3>'+rows) if rows else ''
 
 
 def _assessment_reference(session):
@@ -236,6 +246,14 @@ def render_report(s):
                    '<th>最小 °</th><th>最大 °</th><th>幅度 °</th><th>时长 s</th><th>观察情况</th><th>可见问题</th></tr>'
                    + (''.join(rows) or '<tr><td colspan="10">没有已记录的动作重复。</td></tr>') + '</table>')
         detail += _training_html(s)
+        if s.get('measurement_limitations'):
+            detail += '<h2>本动作的测量限制</h2><p>'+fmt(s['measurement_limitations'])+'</p>'
+        baseline = ((s.get('config_snapshot') or {}).get('plan') or {}).get('joint_baseline') or {}
+        if baseline:
+            detail += ('<h2>舒适起点记录</h2><p>起点原始投影角 '+fmt(baseline.get('rest_value'))+
+                       '°；记录时间 '+fmt(baseline.get('recorded_at'))+'。'+
+                       ('本动作报告相对该起点、按人工确认方向的角度变化；不是临床绝对ROM。' if spec.get('directional_calibration') else
+                        '起点仅用于动作分期，不是正常值或训练目标。')+'</p>')
     elif scene == 'activity':
         labels = {'SEATED': '可见坐位', 'STANDING': '可见站位', 'WALKING': '可见步行', 'VISIBLE_MOVING': '可见移动'}
         detail = '<h2>有效可见时长</h2><table><tr><th>状态</th><th>有效秒数</th></tr>'

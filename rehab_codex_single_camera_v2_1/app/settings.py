@@ -36,7 +36,7 @@ def default_plan(exercise='shoulder_abduction'):
         'ready_s': 1.0, 'dwell_s': .18, 'max_gap_s': .5,
         'rest_deg': {'knee_extension': 75., 'hip_abduction': 10.}.get(exercise, 20.),
         'raising_delta_deg': 10., 'issue_hold_s': .5, 'feedback_cooldown_s': 8.,
-        'calibration': {}, 'participant_id': 'participant-local',
+        'calibration': {}, 'joint_baseline': {}, 'participant_id': 'participant-local',
     })
     plan.update(_overrides('exercises.yaml', 'exercises', exercise))
     return plan

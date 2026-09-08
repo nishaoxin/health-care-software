@@ -13,11 +13,9 @@ import re
 from statistics import median
 
 from .domain import clean_json, digest
-from .exercises import exercise_spec
+from .exercises import exercise_spec, EXERCISE_IDS, UNSUPPORTED_COVERAGE
 
 
-EXERCISE_IDS = ('shoulder_abduction', 'shoulder_flexion', 'elbow_flexion',
-                'knee_extension', 'hip_abduction', 'sit_to_stand')
 STATUS_LABELS = {'ASSESSED': '已评估', 'NOT_ASSESSED': '未评估', 'UNAVAILABLE': '本次不可用'}
 COMPARISON_NOTE = '仅为已观察到的二维投影测量；模型、机位、动作、侧别或规则条件不同，不宜直接比较。'
 
@@ -53,7 +51,7 @@ def session_conditions(session):
     config = _config(session)
     keys = ('source_ref', 'profile_id', 'profile_version', 'time_basis', 'model_manifest_id',
             'schema_id', 'keypoint_order_version', 'coordinate_space', 'rule_version',
-            'preprocess_version', 'preprocessing_hash')
+            'preprocess_version', 'preprocessing_hash', 'pose_backend', 'target_kind')
     result = {key: session.get(key, config.get(key)) for key in keys}
     result.update(view=session.get('view', config.get('view')),
                   placement_revision=session.get('placement_revision', config.get('placement_revision')),
@@ -64,7 +62,7 @@ def session_conditions(session):
 
 def _angle_bounds(primary_metric):
     # Hip abduction is signed; an observed adduction/stance offset may be negative.
-    return (-180, 180) if primary_metric == 'hip_abduction_deg' else (0, 180)
+    return (-180, 180) if primary_metric == 'hip_abduction_deg' or primary_metric.endswith('_excursion_deg') else (0, 180)
 
 
 def _valid_range(value, primary_metric):
@@ -177,7 +175,7 @@ def _issues(session):
 
 
 def build_body_profile(sessions, participant_id, source_kind='LIVE_CAMERA', usage_context='SELF_USE') -> dict:
-    """Produce all six exercises × two sides, scoped to one person/source/use.
+    """Produce the current exercise registry × two sides for one person/source/use.
 
     ``participant_id`` is an explicit local identifier, never a pose track ID.
     Consumers must use ``participant_label`` for display. Missing IDs match no one.
@@ -209,7 +207,8 @@ def build_body_profile(sessions, participant_id, source_kind='LIVE_CAMERA', usag
                     'session_id': None, 'session_status': None, 'stop_reason': None,
                     'start_utc': None, 'end_utc': None, 'conditions': {},
                     'valid_ratio': None, 'completed': None, 'partial': None, 'invalid': None,
-                    'motion_range': None, 'motion_range_source': None, 'issues': []}
+                    'motion_range': None, 'motion_range_source': None, 'issues': [],
+                    'experimental': spec['experimental'], 'measurement_note': spec['guide']}
             entry = selected.get((exercise_id, side))
             if entry is not None:
                 session = entry[1]
@@ -234,7 +233,8 @@ def build_body_profile(sessions, participant_id, source_kind='LIVE_CAMERA', usag
                        'participant_label': anonymous_participant(participant_id),
                        'source_kind': source_kind, 'usage_context': usage_context,
                        'total_items': len(items), 'assessed_count': sum(i['status'] == 'ASSESSED' for i in items),
-                       'items': items, 'comparison_note': COMPARISON_NOTE})
+                       'items': items, 'comparison_note': COMPARISON_NOTE,
+                       'unsupported_coverage': [{'label': label, 'reason': reason} for label, reason in UNSUPPORTED_COVERAGE]})
 
 
 def build_training_reference(profile, exercise_id, side) -> dict:
