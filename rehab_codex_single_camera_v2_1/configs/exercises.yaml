@@ -1,7 +1,7 @@
-# Application rules v0.1.0. Engineering starting values, not clinical norms.
+# Application rules v0.2.0. Engineering starting values, not clinical norms.
 # Plan UI values override these only before a newly confirmed session.
 schema_version: 2
-rule_version: rules-0.1.0
+rule_version: rules-0.2.0
 exercises:
   shoulder_abduction:
     ready_s: 1.0
@@ -21,3 +21,36 @@ exercises:
     target_angle_deg: null
     lowering_tempo_min_s: null
     lowering_tempo_max_s: null
+  shoulder_flexion:
+    ready_s: 1.0
+    dwell_s: 0.18
+    max_gap_s: 0.5
+    rest_deg: 20.0
+    raising_delta_deg: 10.0
+    target_angle_deg: null
+    allowed_elbow_flexion_deg: null
+    allowed_trunk_tilt_deg: null
+  elbow_flexion:
+    ready_s: 1.0
+    dwell_s: 0.18
+    max_gap_s: 0.5
+    rest_deg: 20.0
+    raising_delta_deg: 10.0
+    target_angle_deg: null
+  knee_extension:
+    # Engineering hysteresis in knee FLEXION degrees: extension decreases it.
+    # This seated round trip does not use the sit-to-stand hip-height baseline.
+    ready_s: 1.0
+    dwell_s: 0.18
+    max_gap_s: 0.5
+    rest_deg: 75.0
+    raising_delta_deg: 10.0
+    target_angle_deg: null
+  hip_abduction:
+    # Signed pelvis-relative 2D projection, not clinical ROM.
+    ready_s: 1.0
+    dwell_s: 0.18
+    max_gap_s: 0.5
+    rest_deg: 10.0
+    raising_delta_deg: 10.0
+    target_angle_deg: null

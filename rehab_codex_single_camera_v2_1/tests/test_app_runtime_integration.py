@@ -13,6 +13,29 @@ from app.settings import ROOT, default_setup
 
 
 class RuntimeTimeoutTests(unittest.TestCase):
+    def test_body_profile_command_is_read_only_and_does_not_open_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runtime = Runtime(Path(directory)/'data')
+            try:
+                self.assertTrue(runtime.ready.wait(5))
+                runtime.command('body_profile', participant_id='user-001', source_kind='LIVE_CAMERA', usage_context='SELF_USE')
+                deadline, response = time.monotonic()+5, None
+                while time.monotonic() < deadline:
+                    message = runtime.messages.get(timeout=5)
+                    if message['kind'] == 'body_profile':
+                        response = message
+                        break
+                self.assertIsNotNone(response)
+                self.assertEqual(response['profile']['assessed_count'], 0)
+                self.assertEqual(len(response['profile']['items']), 12)
+                self.assertIn('投影角度范围', response['html'])
+                self.assertEqual(runtime.store.list_sessions(), [])
+                self.assertIsNone(runtime.camera.worker)
+            finally:
+                runtime.command('shutdown')
+                runtime.thread.join(10)
+                self.assertFalse(runtime.thread.is_alive())
+
     def test_slow_initial_connection_does_not_use_stream_stale_timeout(self):
         settings = {'connect_timeout_s': 15, 'stale_after_s': 3}
         self.assertIsNone(input_timeout_reason('CONNECTING', 10, 0, None, settings))

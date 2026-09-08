@@ -11,6 +11,8 @@ from .domain import Context, PacketGate, RULE_VERSION, PREPROCESS_VERSION, JOINT
 from .geometry import valid_roi
 from .quality import PoseAnalyzer
 from .rehab import RehabEngine
+from .exercises import exercise_spec
+from .assessment import build_body_profile, build_training_reference
 
 
 class SceneController:
@@ -96,8 +98,10 @@ class SceneController:
         setup = copy.deepcopy(setup)
         if (setup['scene_id'] != self.context.scene_id or setup['plan']['side'] != self.setup['plan']['side']
                 or setup['plan']['exercise_id'] != self.setup['plan']['exercise_id'] or setup['view'] != self.setup['view']
+                or setup['plan'].get('participant_id') != self.setup['plan'].get('participant_id')
+                or setup['plan'].get('submode') != self.setup['plan'].get('submode')
                 or setup.get('mirror') != self.setup.get('mirror')):
-            raise ValueError('场景、动作、侧别或机位已经改变，请重新预览')
+            raise ValueError('用户、模式、场景、动作、侧别或机位已经改变，请重新预览')
         if not setup.get('participant_confirmed'):
             raise ValueError('请人工确认参与者和机位')
         scene, exercise = setup['scene_id'], setup['plan']['exercise_id']
@@ -109,7 +113,7 @@ class SceneController:
         if scene == 'activity' and not setup.get('activity_permission'):
             raise ValueError('活动任务需要人工确认活动许可')
         if scene == 'rehab':
-            expected_view = 'frontal' if exercise == 'shoulder_abduction' else 'sagittal'
+            expected_view = exercise_spec(exercise)['view']
             if setup['view'] != expected_view:
                 raise ValueError('此动作需要'+('正面' if expected_view == 'frontal' else '侧面')+'机位')
             if exercise == 'sit_to_stand':
@@ -138,15 +142,37 @@ class SceneController:
             raise ValueError('需要有效预览和本次机位确认后才能开始')
         if self.latest_pose is None or self.latest_observation is None or self.latest_observation.status != 'VALID':
             raise ValueError('尚未取得有效的单人姿态，请检查模型与站位')
-        necessary = ('raise_deg',) if self.setup['plan']['exercise_id'] == 'shoulder_abduction' else ('knee_flexion_deg', 'hip_y')
-        if self.setup['scene_id'] == 'rehab' and any(self.latest_observation.value(k) is None for k in necessary):
-            raise ValueError('动作必要关节不可见，请调整机位后再开始')
+        plan = copy.deepcopy(self.setup['plan'])
+        if not str(plan.get('participant_id', '')).strip():
+            raise ValueError('请先选择当前用户')
+        if self.setup['scene_id'] == 'rehab':
+            necessary = exercise_spec(plan['exercise_id'])['required_metrics']
+            if any(self.latest_observation.value(k) is None for k in necessary):
+                raise ValueError('动作必要关节不可见，请调整机位后再开始')
+            if plan.get('submode') not in ('assessment', 'training'):
+                raise ValueError('请明确选择身体评估或训练指导')
+            if plan['submode'] == 'training':
+                if not plan.get('training_plan_confirmed'):
+                    raise ValueError('请先人工设置并确认本次训练计划')
+                profile = build_body_profile(self.storage.list_sessions(), plan['participant_id'],
+                                             self.source['kind'], self.source['usage_context'])
+                reference = build_training_reference(profile, plan['exercise_id'], plan['side'])
+                selected = plan.get('assessment_reference') or {}
+                if reference.get('status') != 'ASSESSED' or not selected.get('session_id'):
+                    raise ValueError('请先完成此用户、动作与侧别的有效评估，再从身体信息进入训练')
+                if reference.get('session_id') != selected.get('session_id'):
+                    raise ValueError('评估记录已更新或已删除，请回到身体信息重新选择')
+                # Rebuild from saved evidence; never trust a UI-supplied measurement or goal.
+                plan['assessment_reference'] = copy.deepcopy(reference)
+            else:
+                plan.pop('assessment_reference', None)
+                plan['training_plan_confirmed'] = False
+        self.setup['plan'] = copy.deepcopy(plan)
         if self.setup['plan']['needs_companion'] and not self.setup.get('companion_confirmed'):
             raise ValueError('训练计划要求陪同，请确认陪同者在场')
         run_id = uuid4().hex
         context = self._context(run_id)
         packet = self.latest_packet
-        plan = copy.deepcopy(self.setup['plan'])
         self.setup['preprocessing'] = {k: self.vision_config.get(k) for k in ('imgsz', 'keypoint_conf_min', 'filter_tau_s', 'invalid_gap_s', 'device_at_start')}
         self.session = {'id': run_id, 'run_id': run_id, 'status': 'RUNNING', 'scene_id': self.setup['scene_id'],
                         'source_ref': self.source['ref'], 'source_kind': self.source['kind'],
@@ -169,6 +195,8 @@ class SceneController:
                         'actual_capture': {'size': list(packet.image.shape[1::-1]), 'reported_fps': packet.reported_fps,
                                            'received_fps': packet.received_fps},
                         'repetitions': [], 'events': [], 'metrics': [], 'summary': {}}
+        if plan.get('assessment_reference'):
+            self.session['assessment_reference'] = copy.deepcopy(plan['assessment_reference'])
         if self.setup['poses_consent']:
             self.session['poses'] = []
         scene = self.setup['scene_id']

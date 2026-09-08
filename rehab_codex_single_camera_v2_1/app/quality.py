@@ -74,10 +74,27 @@ class PoseAnalyzer:
             dx, dy = (ls[0]+rs[0]-lh[0]-rh[0])/2, (ls[1]+rs[1]-lh[1]-rh[1])/2
             return None if math.hypot(dx, dy) < 1e-8 else math.degrees(math.atan2(abs(dx), abs(dy)))
 
+        def hip_abduction(hip, other_hip, knee):
+            # Pelvis-relative signed projection. Outward is positive; shoulders
+            # do not participate, so trunk tilt cannot masquerade as a hip angle.
+            outward = (hip[0]-other_hip[0], hip[1]-other_hip[1])
+            thigh = (knee[0]-hip[0], knee[1]-hip[1])
+            width, length = math.hypot(*outward), math.hypot(*thigh)
+            if width < 1. or length < 1. or abs(outward[0]) < 1.:
+                return None
+            outward = tuple(v/width for v in outward)
+            down = (-outward[1], outward[0])
+            if down[1] < 0:
+                down = tuple(-v for v in down)
+            return math.degrees(math.atan2(
+                sum(thigh[i]*outward[i] for i in (0, 1)),
+                sum(thigh[i]*down[i] for i in (0, 1))))
+
         metrics = {
             'raise_deg': measured([hi, sh, el], angle_deg),
             'elbow_flexion_deg': measured([sh, el, wr], flexion),
             'knee_flexion_deg': measured([hi, kn, an], flexion),
+            'hip_abduction_deg': measured([hi, 12 if self.side == 'left' else 11, kn], hip_abduction),
             'trunk_tilt_deg': measured([5, 6, 11, 12], tilt),
             'hip_y': measured([hi], lambda a: a[1]/h),
             'left_knee': measured([11, 13, 15], flexion),

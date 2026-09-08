@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import sys
 from pathlib import Path
+from .exercises import exercise_spec
 
 ROOT = Path(getattr(sys, '_MEIPASS', Path(__file__).resolve().parents[1]))
 
@@ -23,6 +24,7 @@ def load_settings():
 
 
 def default_plan(exercise='shoulder_abduction'):
+    spec = exercise_spec(exercise)
     plan = copy.deepcopy({
         'exercise_id': exercise, 'side': 'left', 'submode': 'assessment',
         'target_reps': 5, 'target_sets': 1, 'target_angle_deg': None,
@@ -30,8 +32,9 @@ def default_plan(exercise='shoulder_abduction'):
         'lowering_tempo_min_s': None, 'lowering_tempo_max_s': None,
         'use_of_hands': 'not_recorded', 'needs_companion': False, 'sound_enabled': False,
         'stop_instruction': '如有疼痛、头晕或不适，立即停止并寻求适当帮助。',
-        'view': 'frontal' if exercise == 'shoulder_abduction' else 'sagittal',
-        'ready_s': 1.0, 'dwell_s': .18, 'max_gap_s': .5, 'rest_deg': 20.,
+        'view': spec['view'],
+        'ready_s': 1.0, 'dwell_s': .18, 'max_gap_s': .5,
+        'rest_deg': {'knee_extension': 75., 'hip_abduction': 10.}.get(exercise, 20.),
         'raising_delta_deg': 10., 'issue_hold_s': .5, 'feedback_cooldown_s': 8.,
         'calibration': {}, 'participant_id': 'participant-local',
     })
@@ -41,7 +44,7 @@ def default_plan(exercise='shoulder_abduction'):
 
 def default_setup(scene='rehab', exercise='shoulder_abduction'):
     setup = {'scene_id': scene, 'plan': default_plan(exercise), 'rois': {},
-            'view': 'frontal' if exercise == 'shoulder_abduction' else 'sagittal',
+            'view': exercise_spec(exercise)['view'],
             'mirror': False, 'placement_revision': 1, 'profile_id': '',
             'participant_confirmed': False, 'setup_confirmed_at': None,
             'activity_permission': False, 'real_bed': False, 'needs_assistance': False,

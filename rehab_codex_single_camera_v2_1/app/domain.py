@@ -9,16 +9,17 @@ from typing import Any
 from uuid import uuid4
 
 from camera_reference import DeviceDescriptor, resolve_saved_device, saved_device_reference
+from .exercises import EXERCISE_IDS, exercise_spec
 
 SCENES = {'rehab': '康复评估与训练', 'activity': '日常活动管理',
           'bedroom_demo': '卧室照护演示', 'safety_demo': '安全报警演示'}
-EXERCISES = {'shoulder_abduction': '肩外展', 'sit_to_stand': '居家坐站'}
+EXERCISES = {key: exercise_spec(key)['label'] for key in EXERCISE_IDS}
 SOURCES = {'LIVE_CAMERA': '实时摄像头', 'REPLAY_FILE': '录像回放', 'SYNTHETIC': '合成测试'}
 CONTEXTS = {'SELF_USE': '自主使用', 'CONTROLLED_DEMO': '受控演示', 'TEST': '软件测试'}
 JOINTS = ('nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear', 'left_shoulder',
           'right_shoulder', 'left_elbow', 'right_elbow', 'left_wrist', 'right_wrist',
           'left_hip', 'right_hip', 'left_knee', 'right_knee', 'left_ankle', 'right_ankle')
-RULE_VERSION = 'rules-0.1.0'
+RULE_VERSION = 'rules-0.2.0'
 PREPROCESS_VERSION = 'causal-ema-0.1.0'
 
 

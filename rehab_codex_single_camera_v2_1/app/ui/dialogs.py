@@ -8,6 +8,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLabel, QCombo
     QPushButton, QHBoxLayout, QListWidget, QInputDialog, QMessageBox)
 
 from ..reports import LABELS
+from ..exercises import exercise_spec
 
 
 def nullable_spin(value, maximum=180, suffix=' °'):
@@ -32,6 +33,8 @@ class PlanDialog(QDialog):
         layout.addWidget(intro)
         form = QFormLayout()
         self.participant = QLineEdit(plan['participant_id'])
+        self.participant.setReadOnly(True)
+        self.participant.setToolTip('请在主界面“当前用户”处切换，以免混入其他用户记录。')
         self.reps, self.sets = QSpinBox(), QSpinBox()
         self.reps.setRange(1, 999)
         self.reps.setValue(plan['target_reps'])
@@ -53,17 +56,24 @@ class PlanDialog(QDialog):
         form.addRow('匿名参与者编号', self.participant)
         form.addRow('每组目标次数', self.reps)
         form.addRow('计划组数', self.sets)
-        form.addRow('抬举目标角度' if plan['exercise_id'] == 'shoulder_abduction' else '站位膝屈曲目标上限', self.target)
-        if plan['exercise_id'] == 'shoulder_abduction':
+        spec = exercise_spec(plan['exercise_id'])
+        direction = '上限' if spec['target_direction'] == 'decrease' else '目标'
+        form.addRow(spec['metric_label']+' '+direction, self.target)
+        if plan['exercise_id'] in ('shoulder_abduction', 'shoulder_flexion'):
             form.addRow('允许可见屈肘上限', self.elbow)
+        if spec['joint'] == 'shoulder':
             form.addRow('允许躯干侧倾上限', self.tilt)
-        else:
+        if plan['exercise_id'] == 'sit_to_stand':
             form.addRow('下降节奏最短时间', self.tempo_min)
             form.addRow('下降节奏最长时间', self.tempo_max)
             form.addRow('扶物 / 双手使用', self.hands)
         form.addRow(self.companion)
         form.addRow(self.sound)
         layout.addLayout(form)
+        if spec['joint'] != 'shoulder' and plan['exercise_id'] != 'sit_to_stand':
+            note = QLabel('本动作支持可见角度、往返计数和人工目标提示；暂不识别代偿、坐位保持或支撑稳定性。')
+            note.setWordWrap(True)
+            layout.addWidget(note)
         layout.addWidget(QLabel('如有疼痛、头晕或不适，请立即停止。'))
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
         buttons.button(QDialogButtonBox.StandardButton.Save).setText('保存计划')
@@ -86,6 +96,7 @@ class PlanDialog(QDialog):
                          target_angle_deg=optional(self.target), allowed_elbow_flexion_deg=optional(self.elbow),
                          allowed_trunk_tilt_deg=optional(self.tilt), lowering_tempo_min_s=low, lowering_tempo_max_s=high,
                          use_of_hands=self.hands.currentData(), needs_companion=self.companion.isChecked(), sound_enabled=self.sound.isChecked())
+        self.plan['training_plan_confirmed'] = self.plan.get('submode') == 'training'
         self.accept()
 
 

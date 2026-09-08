@@ -11,7 +11,8 @@ import time
 from .audio import AudioGate
 from .camera_manager import CameraManager
 from .domain import digest, dumps, utc_now
-from .reports import export_session, render_report
+from .reports import export_session, render_report, render_body_profile, export_body_profile
+from .assessment import build_body_profile
 from .scene_controller import SceneController
 from .settings import ROOT, load_settings
 from .source_worker import put_latest
@@ -125,6 +126,14 @@ class Runtime:
         elif name == 'history':
             sessions = store.list_sessions()
             self._message('history', sessions=[{k: v for k, v in s.items() if k not in ('metrics', 'poses')} for s in sessions])
+        elif name in ('body_profile', 'export_body_profile'):
+            profile = build_body_profile(store.list_sessions(), kw['participant_id'],
+                                         kw['source_kind'], kw['usage_context'])
+            if name == 'body_profile':
+                self._message('body_profile', profile=profile, html=render_body_profile(profile, compact=True))
+            else:
+                output = export_body_profile(profile, kw['directory'])
+                self._message('notice', text=f'身体信息已导出：{output}')
         elif name == 'report':
             s = store.get_session(kw['id'])
             if s is None:
