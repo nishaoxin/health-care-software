@@ -141,6 +141,7 @@ class DesktopTests(unittest.TestCase):
         self.window.canvas.grab()  # Exercise actual Qt paint path without a camera.
 
     def test_body_summary_waits_for_successful_save_even_when_retrying(self):
+        self.window._choose_catalog_exercise('shoulder_abduction')
         self.window.state = 'ONLINE'
         self.window._finish_task()
         self.assertEqual(self.runtime.calls[-1][0], 'stop')

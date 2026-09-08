@@ -4,7 +4,7 @@ import math
 
 from PySide6.QtCore import Qt, Signal, QRectF, QPointF
 from PySide6.QtGui import QColor, QPainter, QPen, QFont, QImage
-from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QLabel
+from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QLabel, QToolButton
 
 from ..geometry import display_to_raw_normalized
 from ..landmark_schemas import skeleton_edges
@@ -15,13 +15,48 @@ ROI_LABELS = {'chair': '座椅', 'bed': '床', 'bed_edge': '床边', 'exit': '�
               'floor_watch': '地面关注区', 'sofa': '沙发排除区'}
 
 
+class NoticeLabel(QLabel):
+    def setText(self, text):
+        super().setText(text)
+        self.setVisible(bool(text))
+
+    def clear(self):
+        self.setText('')
+
+
+class Disclosure(QWidget):
+    """Keyboard-accessible optional details without removing safety controls."""
+    def __init__(self, title, parent=None, *, expanded=False):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(5)
+        self.toggle = QToolButton()
+        self.toggle.setText(title)
+        self.toggle.setCheckable(True)
+        self.toggle.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        self.toggle.setChecked(expanded)
+        layout.addWidget(self.toggle)
+        self.content = QWidget()
+        self.box = QVBoxLayout(self.content)
+        self.box.setContentsMargins(6, 2, 6, 8)
+        self.box.setSpacing(9)
+        layout.addWidget(self.content)
+        self.toggle.toggled.connect(self._set_expanded)
+        self._set_expanded(expanded)
+
+    def _set_expanded(self, expanded):
+        self.content.setVisible(expanded)
+        self.toggle.setArrowType(Qt.ArrowType.DownArrow if expanded else Qt.ArrowType.RightArrow)
+
+
 class VideoCanvas(QWidget):
     roi_changed = Signal(str, list)
 
     def __init__(self):
         super().__init__()
         self.setObjectName('videoCanvas')
-        self.setMinimumSize(450, 280)
+        self.setMinimumSize(360, 200)
         self.image = None
         self.pose = None
         self.mirror = False
@@ -29,7 +64,7 @@ class VideoCanvas(QWidget):
         self.edit_roi = None
         self.drag_start = self.drag_end = None
         self.caption = '摄像头尚未打开'
-        self.subcaption = '选择一个视频来源，预览并确认机位后开始'
+        self.subcaption = '选择摄像头，点击“打开预览”'
 
     def set_frame(self, packet, pose=None):
         if packet is None:
@@ -82,25 +117,29 @@ class VideoCanvas(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        p.fillRect(self.rect(), QColor('#142e33'))
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QColor('#192f28'))
+        p.drawRoundedRect(self.rect(), 12, 12)
         if self.image is None:
-            cx, cy = self.width()/2, self.height()/2-40
-            p.setPen(QPen(QColor('#31575a'), 1))
-            for radius in (66, 94):
+            cx, cy = self.width()/2, self.height()*.35
+            radius = min(64, self.height()*.22)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.setPen(QPen(QColor('#355044'), 1))
+            for radius in (radius*.72, radius):
                 p.drawEllipse(QPointF(cx, cy), radius, radius)
-            pen = QPen(QColor('#99c6b9'), 3)
+            pen = QPen(QColor('#9eb89a'), 2.5)
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             p.setPen(pen)
-            p.drawRoundedRect(QRectF(cx-30, cy-20, 52, 40), 8, 8)
-            p.drawLine(QPointF(cx+22, cy-9), QPointF(cx+38, cy-18))
-            p.drawLine(QPointF(cx+38, cy-18), QPointF(cx+38, cy+18))
-            p.drawLine(QPointF(cx+38, cy+18), QPointF(cx+22, cy+9))
-            p.setFont(QFont('Microsoft YaHei UI', 15, QFont.Weight.DemiBold))
+            p.drawRoundedRect(QRectF(cx-24, cy-15, 40, 30), 6, 6)
+            p.drawLine(QPointF(cx+16, cy-7), QPointF(cx+29, cy-14))
+            p.drawLine(QPointF(cx+29, cy-14), QPointF(cx+29, cy+14))
+            p.drawLine(QPointF(cx+29, cy+14), QPointF(cx+16, cy+7))
+            p.setFont(QFont('Microsoft YaHei UI', 13, QFont.Weight.DemiBold))
             p.setPen(QColor('#edf5f1'))
-            p.drawText(QRectF(20, cy+105, self.width()-40, 32), Qt.AlignmentFlag.AlignCenter, self.caption)
+            p.drawText(QRectF(20, self.height()*.64, self.width()-40, 28), Qt.AlignmentFlag.AlignCenter, self.caption)
             p.setFont(QFont('Microsoft YaHei UI', 10))
             p.setPen(QColor('#aac0bc'))
-            p.drawText(QRectF(20, cy+144, self.width()-40, 48), Qt.AlignmentFlag.AlignHCenter | Qt.TextFlag.TextWordWrap, self.subcaption)
+            p.drawText(QRectF(20, self.height()*.80, self.width()-40, self.height()*.18), Qt.AlignmentFlag.AlignHCenter | Qt.TextFlag.TextWordWrap, self.subcaption)
         else:
             rect = self.image_rect()
             p.drawImage(rect, self.image.mirrored(True, False) if self.mirror else self.image)
@@ -141,9 +180,11 @@ class MetricCard(QFrame):
         super().__init__()
         self.setObjectName('metricCard')
         box = QVBoxLayout(self)
-        box.setContentsMargins(18, 12, 18, 12)
+        box.setContentsMargins(16, 10, 16, 10)
+        box.setSpacing(4)
         self.caption = QLabel(label)
         self.caption.setObjectName('muted')
+        self.caption.setWordWrap(True)
         self.value = QLabel('—')
         self.value.setObjectName('metricValue')
         self.unit = unit
@@ -155,5 +196,6 @@ class MetricCard(QFrame):
 
     def configure(self, label, unit=''):
         self.caption.setText(label)
+        self.caption.setToolTip(label)
         self.unit = unit
         self.show_value(None)

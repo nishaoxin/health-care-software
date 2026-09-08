@@ -8,66 +8,27 @@ import queue
 from uuid import uuid4
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (QMainWindow, QWidget, QFrame, QVBoxLayout, QHBoxLayout,
     QGridLayout, QFormLayout, QLabel, QPushButton, QComboBox, QLineEdit, QCheckBox,
-    QDoubleSpinBox, QScrollArea, QStackedWidget, QTableWidget, QTableWidgetItem,
-    QHeaderView, QAbstractItemView, QFileDialog, QMessageBox, QPlainTextEdit, QDialog,
+    QDoubleSpinBox, QScrollArea, QTableWidget, QTableWidgetItem,
+    QHeaderView, QAbstractItemView, QFileDialog, QMessageBox, QDialog,
     QInputDialog, QTextBrowser)
 
 from ..domain import SCENES, EXERCISES, SOURCES, CONTEXTS, digest, dumps
 from ..geometry import compatible_reports
 from ..settings import ROOT, default_setup, default_plan
 from ..exercises import exercise_spec
+from ..exercise_instructions import exercise_instructions
 from ..assessment import build_training_reference
 from ..runtime import Runtime
 from .dialogs import PlanDialog, ReportDialog, EventsDialog
-from .widgets import VideoCanvas, MetricCard, ROI_LABELS
+from .widgets import ROI_LABELS, Disclosure
 
-STYLE = '''
-QMainWindow, QWidget { background:#f3f6f2; color:#213d3c; font-family:'Microsoft YaHei UI'; font-size:12px; }
-QFrame#sidebar { background:#183c3d; border:0; }
-QFrame#sidebar QLabel { background:transparent; color:#d7e8df; }
-QLabel#brand { color:white; font-size:21px; font-weight:700; }
-QLabel#sectionTitle { font-size:17px; font-weight:650; }
-QLabel#pageTitle { font-size:26px; font-weight:700; }
-QLabel#muted { color:#6d7e79; }
-QLabel#badge { color:#1c6e60; background:#e1eee3; border-radius:12px; padding:6px 12px; }
-QFrame#card, QFrame#metricCard { background:#ffffff; border:1px solid #dee6de; border-radius:12px; }
-QFrame#card QLabel, QFrame#metricCard QLabel { background:transparent; }
-QLabel#metricValue { font-size:27px; font-weight:600; color:#254b42; }
-QPushButton { background:white; border:1px solid #cedad0; border-radius:7px; padding:9px 13px; min-height:18px; }
-QPushButton:hover { background:#e9f3e9; border-color:#8daf97; }
-QPushButton:pressed { background:#dbe9df; }
-QPushButton:disabled { color:#95a19a; background:#eef1ed; border-color:#e3e7e1; }
-QPushButton#primary { background:#236957; color:white; border:1px solid #236957; font-weight:600; }
-QPushButton#primary:hover { background:#195645; }
-QPushButton#primary:disabled { background:#bbcfc2; border-color:#bbcfc2; }
-QPushButton#danger { color:#985848; background:#fff5ef; border-color:#e2cbc0; }
-QPushButton#nav { color:#c6dcd0; background:transparent; border:0; text-align:left; padding:15px 12px; }
-QPushButton#nav:checked { background:#2b5250; color:white; border-left:3px solid #c7dba2; border-radius:5px; }
-QPushButton#nav:hover { background:#24494a; }
-QComboBox, QLineEdit, QDoubleSpinBox, QSpinBox { border:1px solid #d4ded4; border-radius:6px; background:white; padding:7px; min-height:19px; selection-background-color:#ccdfcf; }
-QComboBox::drop-down { border:0; width:22px; }
-QComboBox::down-arrow { image:url(__ASSETS__/chevron.svg); width:12px; height:12px; }
-QComboBox QAbstractItemView { background:white; selection-background-color:#dcebe0; color:#244436; }
-QCheckBox { spacing:7px; background:transparent; }
-QCheckBox::indicator { width:16px; height:16px; border:1px solid #9eb4a4; border-radius:3px; background:white; }
-QCheckBox::indicator:checked { background:#236957; border-color:#236957; image:url(__ASSETS__/check.svg); }
-QCheckBox::indicator:disabled { border-color:#d0d9d1; background:#eef3ed; }
-QLabel#feedback { background:#e5eee0; color:#38553f; padding:12px; border-radius:8px; }
-QLabel#notice { color:#6c5136; background:#f7ecd8; padding:8px 12px; border-radius:6px; }
-QTableWidget { background:white; alternate-background-color:#f5f8f3; border:1px solid #d9e4d9; gridline-color:#e6ebe3; selection-background-color:#dfecdf; selection-color:#213d3c; }
-QHeaderView::section { background:#eaf0e7; color:#4a6256; border:0; padding:10px; }
-QScrollArea { border:0; background:transparent; }
-QScrollBar:vertical { width:7px; background:transparent; }
-QScrollBar::handle:vertical { background:#ccdacd; border-radius:3px; min-height:30px; }
-QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height:0; }
-QPlainTextEdit, QTextBrowser { background:white; border:1px solid #d9e4d9; border-radius:6px; padding:8px; }
-'''.replace('__ASSETS__', (ROOT/'assets/ui').as_posix())
+from .theme import STYLE
+from .workspace import build_workspace
 
-STATUS = {'UNSELECTED': '未打开', 'CONNECTING': '正在连接', 'PREVIEW': '预览 · 尚未分析',
-          'ONLINE': '分析中', 'OFFLINE': '输入离线', 'PRIVACY_PAUSED': '隐私暂停 · 采集已停止',
+STATUS = {'UNSELECTED': '相机未打开', 'CONNECTING': '正在连接', 'PREVIEW': '预览中',
+          'ONLINE': '记录中', 'OFFLINE': '输入已断开', 'PRIVACY_PAUSED': '采集已停止',
           'ERROR': '输入异常', 'SAVE_FAILED': '报告待保存'}
 PHASES = {'WAIT_READY': '等待准备', 'REST': '准备姿势', 'RAISING': '动作出程',
           'PEAK_OR_HOLD': '幅度观察 / 保持', 'LOWERING': '正在回位', 'SEATED_READY': '坐位准备',
@@ -94,7 +55,7 @@ def card():
 class MainWindow(QMainWindow):
     def __init__(self, runtime=None, data_dir=None):
         super().__init__()
-        self.setWindowTitle('居家康复助手 · 单摄像头本地版')
+        self.setWindowTitle('康复助手')
         self.resize(1360, 900)
         self.setMinimumSize(1100, 730)
         self.setStyleSheet(STYLE)
@@ -118,206 +79,103 @@ class MainWindow(QMainWindow):
         self._build()
         self.constructing = False
         self._sync_scene()
+        self._show_catalog(initial=True)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._poll)
         self.timer.start(30)
 
     def _build(self):
-        central = QWidget()
-        self.setCentralWidget(central)
-        root = QHBoxLayout(central)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
-        sidebar = QFrame()
-        sidebar.setObjectName('sidebar')
-        sidebar.setFixedWidth(194)
-        nav = QVBoxLayout(sidebar)
-        nav.setContentsMargins(18, 28, 18, 24)
-        brand = QLabel('居家康复助手')
-        brand.setObjectName('brand')
-        nav.addWidget(brand)
-        nav.addWidget(QLabel('HOME REHAB  /  本地版'))
-        nav.addSpacing(38)
-        nav.addWidget(QLabel('康复流程与观察'))
-        nav.addSpacing(10)
-        self.scene_buttons = {}
-        for scene, title in SCENES.items():
-            if scene == 'rehab':
-                title = '身体评估'
-            button = QPushButton(title)
-            button.setObjectName('nav')
-            button.setCheckable(True)
-            button.clicked.connect(lambda checked=False, s=scene: self._select_rehab('assessment') if s == 'rehab' else self._select_scene(s))
-            nav.addWidget(button)
-            self.scene_buttons[scene] = button
-            if scene == 'rehab':
-                self.training_nav = QPushButton('训练指导')
-                self.training_nav.setObjectName('nav')
-                self.training_nav.setCheckable(True)
-                self.training_nav.clicked.connect(lambda: self._select_rehab('training'))
-                nav.addWidget(self.training_nav)
-                self.body_nav = QPushButton('用户身体信息')
-                self.body_nav.setObjectName('nav')
-                self.body_nav.setCheckable(True)
-                self.body_nav.clicked.connect(self._show_body)
-                nav.addWidget(self.body_nav)
-        nav.addSpacing(20)
-        self.history_nav = QPushButton('历史报告')
-        self.history_nav.setObjectName('nav')
-        self.history_nav.clicked.connect(self._history)
-        nav.addWidget(self.history_nav)
-        event_button = QPushButton('事件查看与处理')
-        event_button.setObjectName('nav')
-        event_button.clicked.connect(self._events)
-        nav.addWidget(event_button)
-        nav.addStretch()
-        self.coverage = QLabel('当前未开始监测\n\n每次仅运行一个场景\n其余场景均未监测')
-        self.coverage.setWordWrap(True)
-        nav.addWidget(self.coverage)
-        nav.addSpacing(20)
-        nav.addWidget(QLabel('v0.3  ·  本地关节观察'))
-        root.addWidget(sidebar)
-        body = QVBoxLayout()
-        body.setContentsMargins(24, 20, 24, 18)
-        body.setSpacing(12)
-        heading = QHBoxLayout()
-        titlebox = QVBoxLayout()
-        self.title = QLabel('康复评估与训练')
-        self.title.setObjectName('pageTitle')
-        titlebox.addWidget(self.title)
-        self.subtitle = QLabel('看见每一次动作，记录可见的变化。')
-        self.subtitle.setObjectName('muted')
-        titlebox.addWidget(self.subtitle)
-        heading.addLayout(titlebox, 1)
-        self.status_badge = QLabel('未打开')
-        self.status_badge.setObjectName('badge')
-        heading.addWidget(self.status_badge)
-        body.addLayout(heading)
-        person_row = QHBoxLayout()
-        person_row.addWidget(QLabel('当前用户'))
-        self.participant = QLineEdit(self.participant_id)
-        self.participant.setPlaceholderText('输入匿名编号，例如 user-001')
-        self.participant.setMaxLength(80)
-        self.participant.setMaximumWidth(240)
-        self.participant.returnPressed.connect(self._apply_participant)
-        self.participant.textChanged.connect(lambda: self._buttons())
-        person_row.addWidget(self.participant)
-        self.participant_button = QPushButton('切换 / 新建用户')
-        self.participant_button.clicked.connect(self._apply_participant)
-        person_row.addWidget(self.participant_button)
-        self.person_hint = QLabel('评估和训练按此编号分别保存，请勿多人共用。')
-        self.person_hint.setObjectName('muted')
-        person_row.addWidget(self.person_hint, 1)
-        body.addLayout(person_row)
-        self.notice = QLabel('先选择输入并预览，确认机位和参与者后再开始。')
-        self.notice.setWordWrap(True)
-        self.notice.setObjectName('notice')
-        body.addWidget(self.notice)
-        self.pages = QStackedWidget()
-        self.work_page = QWidget()
-        work = QVBoxLayout(self.work_page)
-        work.setContentsMargins(0, 0, 0, 0)
-        work.setSpacing(12)
-        self._source_card(work)
-        split = QHBoxLayout()
-        split.setSpacing(16)
-        monitor = QVBoxLayout()
-        monitor.setSpacing(10)
-        row = QHBoxLayout()
-        self.source_badge = QLabel('视频预览')
-        self.source_badge.setObjectName('muted')
-        row.addWidget(self.source_badge, 1)
-        self.frame_info = QLabel('等待输入')
-        self.frame_info.setObjectName('muted')
-        row.addWidget(self.frame_info)
-        monitor.addLayout(row)
-        self.canvas = VideoCanvas()
-        self.canvas.roi_changed.connect(self._roi_changed)
-        monitor.addWidget(self.canvas, 1)
-        metrics = QHBoxLayout()
-        self.count_card = MetricCard('完整完成', ' 次')
-        self.angle_card = MetricCard('二维投影角', '°')
-        self.valid_card = MetricCard('有效观察', '%')
-        for item in (self.count_card, self.angle_card, self.valid_card):
-            metrics.addWidget(item)
-        monitor.addLayout(metrics)
-        self.feedback = QLabel('准备开始：选择输入 → 预览 → 确认机位 → 开始任务')
-        self.feedback.setObjectName('feedback')
-        self.feedback.setWordWrap(True)
-        monitor.addWidget(self.feedback)
-        self.debug_toggle = QCheckBox('调试详情：阶段、关节置信度与拒测原因')
-        self.debug_toggle.toggled.connect(lambda checked: self.debug.setVisible(checked))
-        monitor.addWidget(self.debug_toggle)
-        self.debug = QPlainTextEdit()
-        self.debug.setReadOnly(True)
-        self.debug.setMaximumHeight(125)
-        self.debug.setVisible(False)
-        monitor.addWidget(self.debug)
-        split.addLayout(monitor, 1)
-        panel = self._setup_panel()
-        panel.setFixedWidth(290)
-        split.addWidget(panel)
-        work.addLayout(split, 1)
-        actions = QHBoxLayout()
-        self.preview_button = QPushButton('1  预览输入')
-        self.preview_button.setObjectName('previewButton')
-        self.preview_button.clicked.connect(self._preview)
-        self.confirm_button = QPushButton('2  确认机位')
-        self.confirm_button.clicked.connect(self._confirm)
-        self.start_button = QPushButton('3  开始任务')
-        self.start_button.setObjectName('primary')
-        self.start_button.clicked.connect(lambda: self._send('start'))
-        self.stop_button = QPushButton('停止并保存')
-        self.stop_button.clicked.connect(self._finish_task)
-        self.privacy_button = QPushButton('隐私暂停')
-        self.privacy_button.setObjectName('danger')
-        self.privacy_button.clicked.connect(lambda: self._send('privacy', reason='privacy_pause'))
-        self.retry_button = QPushButton('重试保存')
-        self.retry_button.clicked.connect(lambda: self._send('retry_save'))
-        self.retry_button.setVisible(False)
-        self.backup_button = QPushButton('备份未保存结果')
-        self.backup_button.clicked.connect(self._backup_pending)
-        self.backup_button.setVisible(False)
-        self.discard_button = QPushButton('明确丢弃')
-        self.discard_button.clicked.connect(self._discard_pending)
-        self.discard_button.setVisible(False)
-        for button in (self.preview_button, self.confirm_button, self.start_button, self.stop_button, self.privacy_button, self.retry_button, self.backup_button, self.discard_button):
-            actions.addWidget(button)
-        work.addLayout(actions)
-        self.pages.addWidget(self.work_page)
-        self._history_page()
-        self._body_page()
-        body.addWidget(self.pages, 1)
-        root.addLayout(body, 1)
+        build_workspace(self)
+
+    def _idle_copy(self):
+        live = self.source_kind.currentData() == 'LIVE_CAMERA'
+        return {
+            'SAVE_FAILED': ('报告尚未保存', '请重试保存，或先备份本次结果', '本次结果待保存，暂不能开始新任务。'),
+            'OFFLINE': ('输入已断开', '检查连接后重新预览', '输入已中断。重新预览和确认后才能开始新任务。'),
+            'ERROR': ('输入异常', '检查设备或视频文件后重新预览', '输入不可用，请检查提示的原因。'),
+            'PRIVACY_PAUSED': ('采集已停止', '点击“打开预览”重新准备', '采集已停止，未继续记录。'),
+            'CONNECTING': ('正在打开输入', '正在连接设备' if live else '正在读取视频', '正在打开输入，请稍候。'),
+        }.get(self.state, ('摄像头尚未打开' if live else '视频尚未打开',
+                          '选择摄像头，点击“打开预览”' if live else '选择视频，点击“打开预览”',
+                          '打开预览，按右侧步骤完成准备。'))
+
+    def _mark_navigation(self):
+        page = self.pages.currentIndex()
+        training = self.scene == 'rehab' and self.submode.currentData() == 'training'
+        for key, button in self.scene_buttons.items():
+            button.setChecked((page == 3 and key == 'rehab') or
+                              (page == 0 and key == self.scene and not (key == 'rehab' and training)))
+        self.training_nav.setChecked(page == 0 and training)
+        self.body_nav.setChecked(page == 2)
+        self.history_nav.setChecked(page == 1)
+
+    def _show_catalog(self, checked=False, *, initial=False):
+        if not initial and (self.state in ('ONLINE', 'SAVE_FAILED') or self.busy):
+            self.notice.setText('请先结束并保存本次任务，再选择评估动作。')
+            return
+        if not initial:
+            self._select_rehab('assessment')
+            self._invalidate()
+        self.pages.setCurrentIndex(3)
+        self.title.setText('身体评估')
+        self.subtitle.setText('选择部位和动作，完成后查看身体档案。')
+        self.notice.clear()
+        self._mark_navigation()
         self._buttons()
+
+    def _choose_catalog_exercise(self, exercise_id):
+        if self.busy or self.state in ('ONLINE', 'SAVE_FAILED'):
+            self.notice.setText('请等待本次任务保存完成。')
+            return
+        exercise_spec(exercise_id)  # Reject unknown IDs, never select row zero.
+        self._select_rehab('assessment')
+        self.joint_group.setCurrentIndex(self.joint_group.findData('all'))
+        self.exercise.setCurrentIndex(self.exercise.findData(exercise_id))
+        self.pages.setCurrentIndex(0)
+        self._sync_scene()
+        self.setup_panel.verticalScrollBar().setValue(0)
+        self.monitor_scroll.verticalScrollBar().setValue(0)
+        self.notice.clear()
 
     def _source_card(self, parent):
         frame = card()
         grid = QGridLayout(frame)
-        grid.setContentsMargins(14, 12, 14, 12)
+        grid.setContentsMargins(14, 10, 14, 10)
         self.source_kind = combo({'LIVE_CAMERA': '实时摄像头', 'REPLAY_FILE': '本地录像回放'})
         self.source_kind.currentIndexChanged.connect(self._source_changed)
         self.backend = combo({700: 'DSHOW', 1400: 'MSMF'})
         self.backend.currentIndexChanged.connect(self._backend_changed)
         self.device = QComboBox()
-        self.device.addItem('请选择设备 · 不默认打开相机', None)
+        self.device.addItem('选择摄像头', None)
         self.device.currentIndexChanged.connect(self._device_changed)
-        self.refresh = QPushButton('刷新设备')
+        self.refresh = QPushButton('刷新')
         self.refresh.clicked.connect(lambda: self._send('enumerate', backend=self.backend.currentData()))
         self.usage = combo({'SELF_USE': '自主使用', 'CONTROLLED_DEMO': '受控演示', 'TEST': '软件测试'})
         self.usage.currentIndexChanged.connect(self._usage_changed)
-        grid.addWidget(QLabel('视频来源'), 0, 0)
+        grid.addWidget(QLabel('输入'), 0, 0)
         grid.addWidget(self.source_kind, 0, 1)
-        grid.addWidget(self.backend, 0, 2)
-        grid.addWidget(self.device, 0, 3)
-        grid.addWidget(self.refresh, 0, 4)
-        grid.addWidget(self.usage, 0, 5)
-        grid.setColumnStretch(3, 1)
+        grid.addWidget(self.device, 0, 2)
+        grid.addWidget(self.refresh, 0, 3)
+        grid.setColumnStretch(2, 1)
+        self.source_options = Disclosure('输入设置')
+        advanced = QHBoxLayout()
+        advanced.addWidget(QLabel('相机接口'))
+        advanced.addWidget(self.backend)
+        advanced.addSpacing(12)
+        advanced.addWidget(QLabel('使用情境'))
+        advanced.addWidget(self.usage)
+        advanced.addStretch()
+        self.source_options.box.addLayout(advanced)
+        # The header sits beside the device; optional fields occupy another row.
+        grid.addWidget(self.source_options.toggle, 0, 4)
+        grid.addWidget(self.source_options.content, 2, 0, 1, 5)
+        self.source_options.setParent(frame)
+        self.source_options.hide()
         self.replay_row = QWidget()
         replay = QHBoxLayout(self.replay_row)
         replay.setContentsMargins(0, 0, 0, 0)
         self.file = QLineEdit()
-        self.file.setPlaceholderText('选择已获许可的本地视频；回放始终保留来源标签')
+        self.file.setPlaceholderText('选择本地视频文件')
         self.file.setReadOnly(True)
         browse = QPushButton('选择视频')
         browse.clicked.connect(self._browse)
@@ -335,7 +193,7 @@ class MainWindow(QMainWindow):
         replay.addWidget(self.speed)
         replay.addWidget(self.seek)
         replay.addWidget(self.preview_segment_button)
-        grid.addWidget(self.replay_row, 1, 0, 1, 6)
+        grid.addWidget(self.replay_row, 1, 0, 1, 5)
         self.replay_row.setVisible(False)
         parent.addWidget(frame)
 
@@ -345,8 +203,8 @@ class MainWindow(QMainWindow):
         panel = card()
         box = QVBoxLayout(panel)
         box.setContentsMargins(16, 14, 16, 16)
-        box.setSpacing(12)
-        title = QLabel('本次任务')
+        box.setSpacing(10)
+        title = QLabel('拍摄准备')
         title.setObjectName('sectionTitle')
         box.addWidget(title)
         self.rehab_controls = QWidget()
@@ -364,30 +222,49 @@ class MainWindow(QMainWindow):
         self.submode.hide()  # Distinct sidebar sections now own this value.
         self.side = combo({'left': '左侧（本人左侧）', 'right': '右侧（本人右侧）'})
         self.side.currentIndexChanged.connect(self._placement_changed)
-        form.addRow('部位', self.joint_group)
-        form.addRow('动作', self.exercise)
+        # Selection now belongs to the catalog. Keep the existing selectors as
+        # the single action state so runtime switching contracts stay unchanged.
+        self.joint_group.setParent(self.rehab_controls)
+        self.joint_group.hide()
+        self.exercise.setParent(self.rehab_controls)
+        self.exercise.hide()
         form.addRow('测试侧', self.side)
         box.addWidget(self.rehab_controls)
         self.view = combo({'frontal': '正面机位', 'sagittal': '侧面机位', 'fixed': '固定观察机位'})
         self.view.currentIndexChanged.connect(self._placement_changed)
         box.addWidget(self.view)
+        self.camera_instruction = QLabel()
+        self.camera_instruction.setWordWrap(True)
+        self.camera_instruction.setObjectName('muted')
+        box.addWidget(self.camera_instruction)
+        self.movement_details = Disclosure('动作步骤', expanded=True)
+        self.movement_steps = QLabel()
+        self.movement_steps.setWordWrap(True)
+        self.movement_details.box.addWidget(self.movement_steps)
+        box.addWidget(self.movement_details)
+        self.measurement_details = Disclosure('测量说明')
         self.action_guide = QLabel()
         self.action_guide.setWordWrap(True)
-        box.addWidget(self.action_guide)
+        self.action_guide.setObjectName('muted')
+        self.measurement_details.box.addWidget(self.action_guide)
         self.reference_text = QLabel()
         self.reference_text.setWordWrap(True)
         self.reference_text.setObjectName('feedback')
         box.addWidget(self.reference_text)
+        self.reference_button = QPushButton('选择评估记录')
+        self.reference_button.clicked.connect(self._show_body)
+        box.addWidget(self.reference_button)
         self.plan_text = QLabel()
         self.plan_text.setWordWrap(True)
         box.addWidget(self.plan_text)
         self.plan_button = QPushButton('设置个人目标与计划')
+        self.plan_button.setObjectName('primary')
         self.plan_button.clicked.connect(self._plan)
         box.addWidget(self.plan_button)
         self.baselines = QWidget()
         baselinebox = QVBoxLayout(self.baselines)
         baselinebox.setContentsMargins(0, 0, 0, 0)
-        baselinebox.addWidget(QLabel('舒适姿势基线 · 只在预览中记录'))
+        baselinebox.addWidget(QLabel('记录起点'))
         for label, position in (('记录当前坐位', 'seated'), ('记录当前站位', 'standing')):
             button = QPushButton(label)
             button.clicked.connect(lambda checked=False, p=position: self._send('baseline', position=p))
@@ -448,27 +325,35 @@ class MainWindow(QMainWindow):
             bed.addWidget(w)
             w.toggled.connect(self._invalidate)
         box.addWidget(self.bed_controls)
-        self.mirror = QCheckBox('镜像预览（不交换解剖左右）')
+        self.mirror = QCheckBox('镜像预览')
+        self.mirror.setToolTip('只改变显示方向，左侧和右侧始终指本人左右。')
         self.mirror.toggled.connect(self._mirror_changed)
-        box.addWidget(self.mirror)
         self.manual = QCheckBox('已确认单人、机位与舒适动作')
         self.manual.setObjectName('manualConfirmation')
         self.manual.toggled.connect(self._confirmation_changed)
         box.addWidget(self.manual)
-        self.companion = QCheckBox('陪同者已在场（计划要求时）')
+        self.companion = QCheckBox('陪同者已在场')
         self.companion.toggled.connect(self._confirmation_changed)
         box.addWidget(self.companion)
-        self.poses = QCheckBox('同意保存本次逐帧骨架供调试')
+        self.poses = QCheckBox('保存本次骨架调试数据')
         self.poses.setToolTip('只影响本次会话。未勾选时只保存指标报告。')
         self.poses.toggled.connect(self._confirmation_changed)
-        box.addWidget(self.poses)
-        note = QLabel('默认不录制原始视频和截图。\n动作示范素材：待配置。\n如有疼痛、头晕或不适，请立即停止。')
-        note.setObjectName('muted')
+        note = QLabel('疼痛、头晕或不适时，请立即停止。')
+        note.setObjectName('safetyNote')
         note.setWordWrap(True)
         box.addWidget(note)
+        box.addWidget(self.measurement_details)
+        self.more_setup = Disclosure('更多设置')
+        self.more_setup.box.addWidget(self.mirror)
+        self.more_setup.box.addWidget(self.poses)
+        saving_note = QLabel('未选择时仅保存指标报告。默认不录制视频和截图。')
+        saving_note.setObjectName('muted')
+        saving_note.setWordWrap(True)
+        self.more_setup.box.addWidget(saving_note)
         load = QPushButton('载入已保存机位')
         load.clicked.connect(lambda: self._send('profile'))
-        box.addWidget(load)
+        self.more_setup.box.addWidget(load)
+        box.addWidget(self.more_setup)
         box.addStretch()
         scroll.setWidget(panel)
         return scroll
@@ -501,36 +386,60 @@ class MainWindow(QMainWindow):
         self.pages.addWidget(page)
 
     def _body_page(self):
+        from .body_overview import BodyOverview
         page = QWidget()
         box = QVBoxLayout(page)
         box.setContentsMargins(0, 0, 0, 0)
+        box.setSpacing(14)
         self.body_scope = QLabel()
+        self.body_scope.setObjectName('muted')
         self.body_scope.setWordWrap(True)
         box.addWidget(self.body_scope)
+        self.body_overview = BodyOverview()
+        self.body_overview.item_selected.connect(self._body_item_selected)
+        box.addWidget(self.body_overview, 1)
+        # A real full-detail view is retained for measurement conditions and
+        # unsupported coverage. Daily navigation uses the native overview.
+        self.body_detail_dialog = QDialog(self)
+        self.body_detail_dialog.setWindowTitle('评估明细与测量条件')
+        self.body_detail_dialog.resize(1050, 740)
+        detail_box = QVBoxLayout(self.body_detail_dialog)
         self.body_browser = QTextBrowser()
         self.body_browser.setOpenExternalLinks(False)
-        self.body_browser.setHtml('<h2>用户身体信息</h2><p>完成一次身体评估后，在这里查看汇总。</p>')
-        box.addWidget(self.body_browser, 1)
-        row = QHBoxLayout()
-        row.addWidget(QLabel('选择已有评估'))
-        self.body_action = QComboBox()
-        self.body_action.setMinimumWidth(260)
-        row.addWidget(self.body_action, 1)
-        self.body_train = QPushButton('进入训练指导')
+        self.body_browser.setHtml('<h2>尚无评估记录</h2>')
+        detail_box.addWidget(self.body_browser)
+        self.body_action = QComboBox(page)
+        self.body_action.hide()
+        self.body_train = QPushButton('进入训练')
         self.body_train.setObjectName('primary')
         self.body_train.setEnabled(False)
         self.body_train.clicked.connect(self._train_from_body)
-        row.addWidget(self.body_train)
-        box.addLayout(row)
         actions = QHBoxLayout()
-        for label, callback in (('继续身体评估', lambda: self._select_rehab('assessment')),
-                                ('打开所选评估报告', self._open_body_report),
-                                ('刷新汇总', self._show_body), ('导出身体信息', self._export_body)):
+        for label, callback in (('继续评估', self._show_catalog),
+                                ('查看报告', self._open_body_report),
+                                ('完整明细', self.body_detail_dialog.show),
+                                ('刷新', self._show_body),
+                                ('导出档案', self._export_body)):
             button = QPushButton(label)
             button.clicked.connect(callback)
             actions.addWidget(button)
+        actions.addStretch()
+        actions.addWidget(self.body_train)
         box.addLayout(actions)
         self.pages.addWidget(page)
+
+    def _body_item_selected(self, item):
+        if not hasattr(self, 'body_action'):
+            return
+        index = -1
+        if item and item.get('status') == 'ASSESSED':
+            for row in range(self.body_action.count()):
+                option = self.body_action.itemData(row)
+                if (option['exercise_id'], option['side']) == (item['exercise_id'], item['side']):
+                    index = row
+                    break
+        self.body_action.setCurrentIndex(index)
+        self._buttons()
 
     def _body_scope_key(self):
         return dict(participant_id=self.participant_id, source_kind=self.source_kind.currentData(),
@@ -575,8 +484,9 @@ class MainWindow(QMainWindow):
             self.setup['plan'] = default_plan(self.exercise.currentData())
             self.setup['plan'].update(participant_id=self.participant_id, submode=mode)
         self._select_scene('rehab')
+        self.movement_details.toggle.setChecked(mode != 'training')
         self.notice.setText('评估：按自己的舒适幅度完成动作，不追求统一正常值。' if mode == 'assessment'
-                            else '训练：请先从“用户身体信息”选择评估，再人工确认本次训练计划。')
+                            else '训练：请从身体档案选择评估，再确认训练计划。')
 
     def _finish_task(self):
         if self.scene == 'rehab' and self.submode.currentData() == 'assessment' and self.state == 'ONLINE':
@@ -588,21 +498,24 @@ class MainWindow(QMainWindow):
             self.notice.setText('请先完成并保存当前任务，再查看身体信息。')
             return
         self._invalidate()
+        self.notice.clear()
         self._request_body()
 
     def _request_body(self):
         self.pages.setCurrentIndex(2)
-        self.title.setText('用户身体信息')
-        self.subtitle.setText('按用户、动作与侧别汇总最新已结束的评估；不代表医学诊断。')
+        self.title.setText('身体档案')
+        self.subtitle.setText('查看各部位的评估记录，选择项目进入训练。')
         self.body_scope.setText(f"当前用户：{self.participant_id}　｜　{SOURCES.get(self.source_kind.currentData(), '')} / {CONTEXTS.get(self.usage.currentData(), '')}　｜　其他来源与情境不合并")
         for button in self.scene_buttons.values():
             button.setChecked(False)
         self.training_nav.setChecked(False)
         self.body_nav.setChecked(True)
+        self._mark_navigation()
         self.body_profile = None
         self.body_action.clear()
         self.body_train.setEnabled(False)
         self.body_browser.setHtml('<h2>正在汇总本地评估记录…</h2>')
+        self.body_overview.set_loading()
         self._send('body_profile', **self._body_scope_key())
 
     def _train_from_body(self):
@@ -622,7 +535,7 @@ class MainWindow(QMainWindow):
                                   side=item['side'],
                                   assessment_reference=copy.deepcopy(reference), training_plan_confirmed=False)
         self._sync_scene()
-        self.notice.setText('已带入评估记录。请先设置并确认训练计划，然后重新预览和确认机位；幅度目标不会自动填写。')
+        self.notice.setText('已选择评估。请确认训练计划，再打开预览。')
 
     def _export_body(self):
         if not self.body_profile or self.busy:
@@ -633,8 +546,8 @@ class MainWindow(QMainWindow):
             self._send('export_body_profile', directory=str(output), **self._body_scope_key())
 
     def _open_body_report(self):
-        item = self.body_action.currentData()
-        if item and not self.busy:
+        item = self.body_overview.current_item()
+        if item and item.get('session_id') and not self.busy:
             self._send('report', id=item['session_id'])
 
     def _send(self, name, **kw):
@@ -749,7 +662,7 @@ class MainWindow(QMainWindow):
         self.title.setText(('训练指导' if training else '身体评估') if self.scene == 'rehab' else SCENES[self.scene])
         self.rehab_controls.setVisible(self.scene == 'rehab')
         self.plan_button.setVisible(training)
-        self.plan_text.setVisible(self.scene == 'rehab')
+        self.plan_text.setVisible(training)
         self.baselines.setVisible(self.scene == 'rehab' and self.exercise.currentData() == 'sit_to_stand')
         self.region_controls.setVisible(self.scene != 'rehab')
         self.activity_controls.setVisible(self.scene == 'activity')
@@ -767,43 +680,68 @@ class MainWindow(QMainWindow):
             self.usage.blockSignals(False)
         plan = self.setup['plan']
         spec = exercise_spec(plan['exercise_id'])
+        instructions = exercise_instructions(plan['exercise_id'])
+        self.task_title.setText(spec['label'] if self.scene == 'rehab' else SCENES[self.scene])
+        self.task_meta.setText(('左侧' if plan['side'] == 'left' else '右侧')+' · '+instructions['view_label']+
+                              (' · 实验性二维观察' if spec['experimental'] else ' · 二维动作观察')
+                              if self.scene == 'rehab' else '仅观察当前场景')
+        self.catalog_button.setVisible(self.scene == 'rehab' and not training)
+        self.camera_instruction.setText(instructions['camera'])
+        self.camera_instruction.setVisible(self.scene == 'rehab')
+        self.movement_steps.setText(instructions['position']+'\n\n1  '+instructions['start']+'\n\n2  '+instructions['move']+'\n\n3  '+instructions['return'])
+        self.movement_details.setVisible(self.scene == 'rehab')
+        self.measurement_details.setVisible(self.scene == 'rehab')
+        self.companion.setVisible(bool(plan.get('needs_companion')) or self.scene != 'rehab')
         self.joint_baselines.setVisible(self.scene == 'rehab' and plan['exercise_id'] != 'sit_to_stand')
         self.joint_direction_button.setVisible(spec['directional_calibration'])
         baseline = plan.get('joint_baseline') or {}
         self.joint_baseline_text.setText(
             ('起点已记录' if baseline else '起点未记录')+
             (' · 方向已记录' if baseline.get('direction_sign') else ' · 方向未记录' if spec['directional_calibration'] else '')+
-            ('\n本动作须在预览中记录；舒适起点不是医学标准。' if spec['baseline_required'] else
-             '\n可选：活动受限时记录自己的舒适起点，无需强行伸直。'))
+            ('\n请在预览中记录。' if spec['baseline_required'] else '\n可选；用于记录自己的起始姿势。'))
         if spec['experimental']:
-            self.manual.setText('已确认测试侧、测量平面和关节清楚可见')
-        goal = '未设置幅度目标 · 仅测量' if plan['target_angle_deg'] is None else f"个人角度目标：{plan['target_angle_deg']:g}°"
+            self.manual.setText('已确认侧别、方向及关节可见')
+        self.manual.setToolTip('请核对本人左右侧、动作要求的拍摄平面，以及需要的关节是否清楚可见。')
+        goal = '角度目标：未设置' if plan['target_angle_deg'] is None else f"角度目标：{plan['target_angle_deg']:g}°"
         if training:
-            confirmation = '已人工确认计划' if plan.get('training_plan_confirmed') else '请先人工确认训练计划'
-            self.plan_text.setText(f"{plan['target_reps']} 次 × {plan['target_sets']} 组\n{goal}\n{confirmation}；达到次数后人工停止。")
+            confirmation = '计划已确认' if plan.get('training_plan_confirmed') else '计划待确认'
+            self.plan_text.setText(f"{plan['target_reps']} 次 × {plan['target_sets']} 组\n{goal}\n{confirmation} · 完成后手动结束")
         else:
             self.plan_text.setText('评估模式：记录可见幅度、完整动作和观察质量。\n结束后汇总身体信息，不自动诊断或生成处方。')
-        self.plan_button.setText('修改已确认的训练计划' if plan.get('training_plan_confirmed') else '设置并确认训练计划')
+        self.plan_button.setText('修改训练计划' if plan.get('training_plan_confirmed') else '确认训练计划')
         self.action_guide.setVisible(self.scene == 'rehab')
-        self.action_guide.setText(('实验性二维观察 · 非临床ROM\n' if spec['experimental'] else '')+spec['guide']+
-            ('\n橙色手部点：模型未提供逐点置信度，不表示测量可靠。' if spec['backend'] in ('mediapipe_hands', 'mediapipe_wrist') else ''))
+        self.action_guide.setText(instructions['measurement_label']+'\n\n'+instructions['count']+'\n\n'+instructions['boundary']+
+            ('\n\n橙色手部点：模型未提供逐点置信度。' if spec['backend'] in ('mediapipe_hands', 'mediapipe_wrist') else '')+
+            '\n\n起点和方向校准用于动作分期，不是正常值或训练目标。')
         self.reference_text.setVisible(training)
+        self.reference_button.setVisible(training)
         reference = plan.get('assessment_reference') or {}
-        self.reference_text.setText(('已引用评估：'+reference.get('exercise_label', spec['label'])+' · '+('左侧' if reference.get('side') == 'left' else '右侧')+'\n'+reference.get('start_utc', '')[:19]+' UTC\n仅供观察参考，不自动转换为训练目标。')
-                                    if reference.get('session_id') else '尚未引用评估\n请到“用户身体信息”选择对应动作和侧别，再进入训练。')
-        self.start_button.setText('3  开始训练' if training else '3  开始评估' if self.scene == 'rehab' else '3  开始任务')
-        self.stop_button.setText('完成评估并汇总' if self.scene == 'rehab' and not training else '结束训练并保存' if training else '停止并保存')
+        self.reference_text.setText(('评估：'+reference.get('exercise_label', spec['label'])+' · '+('左侧' if reference.get('side') == 'left' else '右侧')+'\n'+reference.get('start_utc', '').replace('T', ' ')[:16]+' UTC')
+                                    if reference.get('session_id') else '还没有选择评估记录。')
+        self.source_badge.setText(SOURCES.get(self.source_kind.currentData(), '输入未选择')+' · '+CONTEXTS.get(self.usage.currentData(), ''))
+        if self.state not in ('ONLINE', 'PREVIEW'):
+            self.canvas.caption, self.canvas.subcaption, feedback = self._idle_copy()
+            self.feedback.setText(feedback)
+            self.canvas.update()
+        self.start_button.setText('开始训练' if training else '开始评估' if self.scene == 'rehab' else '开始观察')
+        self.stop_button.setText('完成评估' if self.scene == 'rehab' and not training else '结束训练' if training else '停止并保存')
         cal = plan.get('calibration', {})
         self.baseline_text.setText('坐位：'+('已记录' if 'seated_knee' in cal else '未记录')+' / 站位：'+('已记录' if 'standing_knee' in cal else '未记录'))
-        self.subtitle.setText({'rehab': '已有评估 → 人工确认计划 → 实时动作指导' if training else '选择关节动作 → 完成评估 → 汇总用户身体信息', 'activity': '只累计画面内有证据的活动时段。',
+        self.subtitle.setText({'rehab': '按已确认的计划完成训练。' if training else '检查拍摄位置，在舒适范围内完成动作。', 'activity': '只累计画面内有证据的活动时段。',
                               'bedroom_demo': '受控区域演示 · 只报告已观察到的过程。', 'safety_demo': '受控低位演示 · 疑似事件需要人工确认。'}[self.scene])
         self.roi_info.setText('已圈定：'+('、'.join(ROI_LABELS.get(k, k) for k in self.setup['rois']) or '无'))
-        labels = {'rehab': [('完整完成', ' 次'), (spec['metric_label'], '°')],
+        labels = {'rehab': [('完成次数', ' 次'), ('二维投影角', '°')],
                   'activity': [('累计可见坐位', ' 秒'), ('连续可见坐位', ' 秒')],
                   'bedroom_demo': [('已记录状态变化', ' 次'), ('有效可见时长', ' 秒')],
                   'safety_demo': [('本次疑似事件', ' 条'), ('持续低位观察', ' 秒')]}[self.scene]
         self.count_card.configure(*labels[0])
         self.angle_card.configure(*labels[1])
+        if self.scene == 'rehab':
+            self.angle_card.caption.setToolTip(spec['metric_label'])
+        self._mark_navigation()
+        if self.pages.currentIndex() == 3:
+            self.title.setText('身体评估')
+            self.subtitle.setText('选择部位和动作，完成后查看身体档案。')
         self._buttons()
 
     def _mirror_changed(self):
@@ -940,13 +878,16 @@ class MainWindow(QMainWindow):
                 button.setEnabled(available and self.state == 'PREVIEW')
             editable = available and self.state not in ('ONLINE', 'SAVE_FAILED')
             for w in (self.participant, self.participant_button, self.joint_group, self.exercise, self.side, self.view,
-                      self.plan_button, self.source_kind, self.device, self.backend, self.refresh, self.mirror):
+                      self.plan_button, self.reference_button, self.source_kind, self.device, self.backend, self.refresh, self.mirror):
                 w.setEnabled(editable)
             self.usage.setEnabled(editable and self.scene not in ('bedroom_demo', 'safety_demo'))
             for w in (*self.scene_buttons.values(), self.training_nav, self.body_nav):
                 w.setEnabled(available and self.state != 'SAVE_FAILED')
+            self.history_nav.setEnabled(available and self.state != 'SAVE_FAILED')
+            self.catalog_button.setEnabled(editable)
+            self.catalog.setEnabled(editable)
             if hasattr(self, 'body_train'):
-                self.body_train.setEnabled(available and self.body_action.count() > 0)
+                self.body_train.setEnabled(available and bool(self.body_action.currentData()))
             self.poses.setEnabled(self.state != 'ONLINE' and available)
             self.manual.setEnabled(self.state != 'ONLINE' and available)
             self.roi_select.setEnabled(self.state == 'PREVIEW' and available)
@@ -989,9 +930,14 @@ class MainWindow(QMainWindow):
             previous = self.device.currentData()
             self.device.blockSignals(True)
             self.device.clear()
-            self.device.addItem('请选择设备 · 不默认打开相机', None)
+            self.device.addItem('选择摄像头', None)
+            names = Counter(d['name'] for d in m['devices'])
             for d in m['devices']:
-                self.device.addItem(f"{d['name']} · 当前索引 {d['index']} · {digest(d.get('path', ''))[:5]}", d)
+                title = d['name']
+                if names[title] > 1:
+                    title += f" · {d['index']} / {digest(d.get('path', ''))[:5]}"
+                self.device.addItem(title, d)
+                self.device.setItemData(self.device.count()-1, f"{d['name']} · 索引 {d['index']} · 接口 {d['backend']}", Qt.ItemDataRole.ToolTipRole)
             if previous:
                 matching = [i for i in range(1, self.device.count()) if self.device.itemData(i).get('path') == previous.get('path') and self.device.itemData(i).get('backend') == previous.get('backend')]
                 if previous.get('path') and len(matching) == 1:
@@ -999,12 +945,15 @@ class MainWindow(QMainWindow):
             self.device.blockSignals(False)
             if not m['devices']:
                 self.notice.setText('此后端未枚举到相机。可人工切换后端重新枚举，或选择本地录像。')
-            else:
-                self.notice.setText(f"发现 {len(m['devices'])} 个设备条目；刷新仅枚举，尚未打开相机。")
+            elif self.pages.currentIndex() == 0:
+                self.notice.setText('请选择摄像头，然后打开预览。')
         elif kind == 'confirmed':
             self.setup = m['setup']
             self._confirmed = True
-            self.notice.setText('本次机位已确认。点击开始后才正式记录；训练模式还需有效评估和人工确认计划。')
+            plan = self.setup['plan']
+            training_pending = self.submode.currentData() == 'training' and not (
+                plan.get('training_plan_confirmed') and (plan.get('assessment_reference') or {}).get('status') == 'ASSESSED')
+            self.notice.setText('机位已确认。请先选择评估记录并确认训练计划。' if training_pending else '准备已确认，可以开始。')
         elif kind == 'joint_baseline':
             baseline = m['baseline']
             origin = baseline['provenance']
@@ -1026,7 +975,7 @@ class MainWindow(QMainWindow):
             self.setup['plan']['calibration']['provenance'] = m['provenance']
             self._sync_scene()
         elif kind == 'saved':
-            self.notice.setText('本次报告已保存，可在“历史报告”中重新查看。')
+            self.notice.setText('已保存，可在历史记录中查看。')
             if self._summarize_after_save:
                 scope = self._summarize_after_save
                 self._summarize_after_save = None
@@ -1042,8 +991,9 @@ class MainWindow(QMainWindow):
             for item in profile['items']:
                 if item['status'] == 'ASSESSED':
                     self.body_action.addItem(item['exercise_label']+' · '+('左侧' if item['side'] == 'left' else '右侧'), item)
+            self.body_overview.set_profile(profile)
             self._buttons()
-            self.notice.setText('身体信息已汇总。可继续评估其他动作或侧别，也可选择已有评估进入训练。' if self.body_action.count() else '尚无可用评估。请先在身体评估中开始记录、保持必要关节可见，再完成并保存。')
+            self.notice.setText('评估已汇总。选择项目后可进入训练。' if self.body_action.count() else '还没有可用的评估。请先选择动作完成评估。')
         elif kind == 'history':
             self.sessions = m['sessions']
             self.table.setRowCount(len(self.sessions))
@@ -1108,10 +1058,18 @@ class MainWindow(QMainWindow):
             self.last_generation = context.generation
         self.state = data['state']
         self._confirmed = data['confirmed']
-        self.status_badge.setText(STATUS.get(self.state, self.state))
-        self.coverage.setText(('当前活动：'+SCENES[self.scene] if self.state == 'ONLINE' else '当前未开始监测')+'\n\n其余三个场景未监测\n每次仅运行一路输入')
+        status = STATUS.get(self.state, self.state)
+        if self.state == 'UNSELECTED' and self.source_kind.currentData() == 'REPLAY_FILE':
+            status = '视频未打开'
+        self.status_badge.setText(status)
+        tone = 'error' if self.state in ('ERROR', 'SAVE_FAILED', 'OFFLINE') else 'active' if self.state == 'ONLINE' else 'preview' if self.state == 'PREVIEW' else ''
+        if self.status_badge.property('tone') != tone:
+            self.status_badge.setProperty('tone', tone)
+            self.status_badge.style().unpolish(self.status_badge)
+            self.status_badge.style().polish(self.status_badge)
+        self.coverage.setText(('正在观察：'+SCENES[self.scene] if self.state == 'ONLINE' else '当前未开始观察')+'\n其他场景未监测')
         packet, pose = data.get('packet'), data.get('pose')
-        if packet:
+        if packet and self.state in ('PREVIEW', 'ONLINE'):
             self.canvas.set_frame(packet, pose)
             self.source_badge.setText(SOURCES.get(packet.context.source_kind, '')+' / '+CONTEXTS.get(packet.context.usage_context, '')+(' · 演示阈值' if self.demo.isChecked() and self.scene == 'activity' else ''))
             h, w = packet.image.shape[:2]
@@ -1119,8 +1077,8 @@ class MainWindow(QMainWindow):
             self.frame_info.setText(f'{w} × {h}  ·  '+('速率测量中' if fps is None else f'接收 {fps:.1f} fps')+(f' · 推理 {pose.inference_ms:.0f} ms' if pose else ''))
         elif self.state not in ('PREVIEW', 'ONLINE'):
             self.canvas.set_frame(None)
-            self.canvas.caption = STATUS.get(self.state, '输入未打开')
-            self.canvas.subcaption = '点击预览重新打开；确认机位后再开始新的任务' if self.state == 'PRIVACY_PAUSED' else '选择一个视频来源，预览并确认机位后开始'
+            self.frame_info.clear()
+            self.canvas.caption, self.canvas.subcaption, _ = self._idle_copy()
             self.canvas.update()
         summary = data.get('summary', {})
         metrics = summary.get('metrics', {})
@@ -1153,14 +1111,16 @@ class MainWindow(QMainWindow):
         elif self.state not in ('ONLINE',):
             for c in (self.count_card, self.angle_card, self.valid_card):
                 c.show_value(None)
-            self.feedback.setText('预览尚未计数、计时。请确认单人站位与可见关节。' if self.state == 'PREVIEW' else '本次任务结束后，可在历史报告中查看结果。' if data.get('last_saved_id') else '准备开始：选择输入 → 预览 → 确认机位 → 开始任务')
+            self.feedback.setText('预览中。检查关节是否清楚入镜，再确认准备。' if self.state == 'PREVIEW' else self._idle_copy()[2])
         if data.get('error'):
             self.notice.setText(data['error'])
+        if self.state in ('OFFLINE', 'ERROR', 'SAVE_FAILED', 'PRIVACY_PAUSED'):
+            self.feedback.setText(self._idle_copy()[2])
         observed = data.get('observation_status')
-        if observed in ('NO_PERSON_DETECTED', 'MULTI_PERSON', 'UNKNOWN'):
-            self.feedback.setText({'NO_PERSON_DETECTED': '未检测到人 · 当前画面没有足够人体证据，不等于确认房间无人。',
-                                   'MULTI_PERSON': '检测到多人 · 请重新确认单一参与者，暂不归属个人动作。',
-                                   'UNKNOWN': '人物或动作未知 · 当前证据不足，暂不评价。'}[observed])
+        if self.state in ('PREVIEW', 'ONLINE') and observed in ('NO_PERSON_DETECTED', 'MULTI_PERSON', 'UNKNOWN'):
+            self.feedback.setText({'NO_PERSON_DETECTED': '未检测到人，请调整拍摄位置。',
+                                   'MULTI_PERSON': '检测到多人，请只保留一位参与者。',
+                                   'UNKNOWN': '暂时无法测量，请检查遮挡和拍摄位置。'}[observed])
             if pose and pose.target_kind == 'hand':
                 self.feedback.setText({'NO_PERSON_DETECTED': '未检测到测试手 · 请让单只测试手清楚入镜。',
                                        'MULTI_PERSON': '检测到多只手 · 无法确认归属，请仅保留测试手。',
@@ -1170,8 +1130,11 @@ class MainWindow(QMainWindow):
         self._buttons()
 
     def _history(self):
-        self.title.setText('历史报告')
+        self.title.setText('历史记录')
+        self.subtitle.setText('查看、导出或对照已保存的评估和训练。')
         self.pages.setCurrentIndex(1)
+        self._mark_navigation()
+        self.notice.clear()
         self._send('history')
 
     def _selected(self):
