@@ -142,7 +142,13 @@ class VideoCanvas(QWidget):
             p.drawText(QRectF(20, self.height()*.80, self.width()-40, self.height()*.18), Qt.AlignmentFlag.AlignHCenter | Qt.TextFlag.TextWordWrap, self.subcaption)
         else:
             rect = self.image_rect()
-            p.drawImage(rect, self.image.mirrored(True, False) if self.mirror else self.image)
+            # Reflect only the painter, not the raw frame or anatomical labels.
+            p.save()
+            if self.mirror:
+                p.translate(rect.center().x()*2, 0)
+                p.scale(-1, 1)
+            p.drawImage(rect, self.image)
+            p.restore()
             if self.pose:
                 w, h = self.pose.size
                 for person in self.pose.people:

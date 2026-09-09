@@ -1,7 +1,7 @@
 """Desktop shell and layout. All actions use MainWindow's existing run gates."""
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QWidget, QFrame, QLabel, QPushButton, QLineEdit, QComboBox,
-    QVBoxLayout, QHBoxLayout, QStackedWidget, QPlainTextEdit, QScrollArea, QTabWidget)
+    QVBoxLayout, QHBoxLayout, QStackedWidget, QPlainTextEdit, QScrollArea, QTabWidget, QCheckBox)
 
 from .catalog import ExerciseCatalog
 from .training import TrainingControls
@@ -67,7 +67,7 @@ def build_workspace(w):
     w.coverage.setWordWrap(True)
     nav.addWidget(w.coverage)
     nav.addSpacing(12)
-    version = QLabel('本地康复  ·  0.8')
+    version = QLabel('本地康复  ·  0.9')
     version.setObjectName('muted')
     nav.addWidget(version)
     root.addWidget(sidebar)
@@ -223,6 +223,13 @@ def build_workspace(w):
 
     actions = QHBoxLayout()
     actions.setSpacing(10)
+    w.distance_button = QPushButton('大字指导')
+    w.distance_button.clicked.connect(w._open_distance_coach)
+    actions.addWidget(w.distance_button)
+    w.auto_distance = QCheckBox('开始后自动放大')
+    w.auto_distance.setChecked(True)
+    w.auto_distance.setToolTip('正式开始评估或训练后进入大字界面；不自动开启相机或开始任务。')
+    w.more_setup.box.insertWidget(0, w.auto_distance)
     w.next_step_hint = QLabel()
     w.next_step_hint.setObjectName('muted')
     actions.addWidget(w.next_step_hint, 1)

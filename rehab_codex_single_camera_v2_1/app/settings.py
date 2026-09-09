@@ -46,7 +46,7 @@ def default_plan(exercise='shoulder_abduction'):
 def default_setup(scene='rehab', exercise='shoulder_abduction'):
     setup = {'scene_id': scene, 'plan': default_plan(exercise), 'rois': {},
             'view': exercise_spec(exercise)['view'],
-            'mirror': False, 'placement_revision': 1, 'profile_id': '',
+            'mirror': True, 'placement_revision': 1, 'profile_id': '',
             'participant_confirmed': False, 'setup_confirmed_at': None,
             'activity_permission': False, 'real_bed': False, 'needs_assistance': False,
             'night_confirmed': False, 'demo_thresholds': False,

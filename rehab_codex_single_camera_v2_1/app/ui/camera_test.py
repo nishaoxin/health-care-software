@@ -1,5 +1,5 @@
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox
 
 from .widgets import VideoCanvas
 
@@ -7,7 +7,7 @@ from .widgets import VideoCanvas
 class CameraTestDialog(QDialog):
     stop_requested = Signal()
 
-    def __init__(self, device_name, parent=None):
+    def __init__(self, device_name, parent=None, *, mirror=True):
         super().__init__(parent)
         self.setWindowTitle('摄像头测试')
         self.setWindowModality(Qt.WindowModality.WindowModal)
@@ -25,6 +25,7 @@ class CameraTestDialog(QDialog):
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
         self.canvas = VideoCanvas()
+        self.canvas.mirror = mirror
         self.canvas.caption = '正在连接摄像头'
         self.canvas.subcaption = '首次连接可能需要几秒'
         layout.addWidget(self.canvas, 1)
@@ -32,6 +33,10 @@ class CameraTestDialog(QDialog):
         self.details.setObjectName('muted')
         layout.addWidget(self.details)
         footer = QHBoxLayout()
+        self.mirror_toggle = QCheckBox('镜像预览')
+        self.mirror_toggle.setChecked(mirror)
+        self.mirror_toggle.toggled.connect(self._set_mirror)
+        footer.addWidget(self.mirror_toggle)
         self.frame_info = QLabel()
         self.frame_info.setObjectName('muted')
         footer.addWidget(self.frame_info, 1)
@@ -40,6 +45,10 @@ class CameraTestDialog(QDialog):
         self.stop_button.clicked.connect(self.request_stop)
         footer.addWidget(self.stop_button)
         layout.addLayout(footer)
+
+    def _set_mirror(self, checked):
+        self.canvas.mirror = checked
+        self.canvas.update()
 
     def render(self, data):
         if self.stopping:

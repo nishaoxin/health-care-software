@@ -1,16 +1,18 @@
 """Patient-facing step viewer. It consumes observations, never controls counting."""
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QImageReader, QPixmap
-from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton
+from PySide6.QtWidgets import QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy
 
 from ..exercise_guides import guide_steps
 from ..exercise_instructions import exercise_instructions
 
 
 class ExerciseGuide(QFrame):
-    def __init__(self, parent=None, *, root=None):
+    def __init__(self, parent=None, *, root=None, distance=False):
         super().__init__(parent)
         self.root = root
+        self.distance = distance
+        self.info = None
         self.identity = None
         self.steps = ()
         self.step_index = 0
@@ -46,13 +48,17 @@ class ExerciseGuide(QFrame):
         self.picture.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.picture.setWordWrap(True)
         self.picture.setMinimumWidth(0)
-        self.picture.setFixedHeight(128)
+        if distance:
+            self.picture.setMinimumHeight(140)
+            self.picture.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding)
+        else:
+            self.picture.setFixedHeight(128)
         self.instruction = QLabel()
         self.instruction.setObjectName('guideInstruction')
         self.instruction.setWordWrap(True)
         self.instruction.setTextFormat(Qt.TextFormat.PlainText)
         box.addWidget(self.instruction)
-        box.addWidget(self.picture)
+        box.addWidget(self.picture, 1 if distance else 0)
         controls = QHBoxLayout()
         self.previous_button = QPushButton('上一步')
         self.next_button = QPushButton('下一步')
@@ -66,7 +72,23 @@ class ExerciseGuide(QFrame):
         self.status.setObjectName('muted')
         self.status.setWordWrap(True)
         box.addWidget(self.status)
-        box.addStretch()
+        if distance:
+            for button in (*self.step_buttons, self.previous_button, self.next_button):
+                button.hide()
+            self.set_distance_font(36)
+        else:
+            box.addStretch()
+
+    def set_distance_font(self, pixels):
+        if not self.distance:
+            return
+        pixels = max(32, min(48, int(pixels)))
+        self.setStyleSheet(f'''
+            QLabel#guideInstruction {{ font-size:{pixels}px; color:#292135; font-weight:700; }}
+            QLabel#guidePicture {{ font-size:22px; }}
+            QLabel#sectionTitle {{ font-size:22px; }}
+            QLabel#tag, QLabel#muted {{ font-size:20px; }}
+        ''')
 
     def set_exercise(self, exercise_id, side):
         identity = (exercise_id, side)
@@ -76,6 +98,7 @@ class ExerciseGuide(QFrame):
         self.identity = identity
         self.side_label.setText('本人左侧' if side == 'left' else '本人右侧')
         info = exercise_instructions(exercise_id)
+        self.info = info
         self.setAccessibleName(info['label'] + '动作图解')
         self.select_step(0)
         self.status.setText('仅浏览 · 尚未开始')
@@ -89,7 +112,7 @@ class ExerciseGuide(QFrame):
         self.previous_button.setEnabled(index > 0)
         self.next_button.setEnabled(index < 2)
         step = self.steps[index]
-        self.instruction.setText(step['text'])
+        self.instruction.setText(self.info[step['key']] if self.distance else step['text'])
         self.picture.setAccessibleName(step['alt'])
         self.picture.setToolTip(step['alt'])
         self.image_available = False
@@ -119,7 +142,7 @@ class ExerciseGuide(QFrame):
     def _fit_picture(self):
         if self.image_available:
             self.picture.setPixmap(self._pixmap.scaled(
-                max(1, self.picture.width() - 16), 112,
+                max(1, self.picture.width() - 16), max(1, self.picture.height() - 16),
                 Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
 
     def resizeEvent(self, event):

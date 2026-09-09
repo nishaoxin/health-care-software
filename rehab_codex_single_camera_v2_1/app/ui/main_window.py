@@ -32,6 +32,7 @@ from .participants import ParticipantDialog, ParticipantSummary
 from .training import TrainingFeedbackDialog, STAGES as TRAINING_STAGES
 from .assessment_batches import AssessmentBatchDialog
 from .camera_test import CameraTestDialog
+from .distance_coach import DistanceCoach
 
 STATUS = {'UNSELECTED': '相机未打开', 'CONNECTING': '正在连接', 'PREVIEW': '预览中',
           'ONLINE': '记录中', 'OFFLINE': '输入已断开', 'PRIVACY_PAUSED': '采集已停止',
@@ -95,6 +96,9 @@ class MainWindow(QMainWindow):
         self._camera_notice_text = ''
         self._camera_testing = False
         self.camera_test_dialog = None
+        self.distance_coach = None
+        self._last_coach_view = None
+        self._live_mirror, self._replay_mirror = True, False
         self._build()
         self.catalog.checklist_requested.connect(self._open_assessment_batch)
         self.constructing = False
@@ -381,6 +385,8 @@ class MainWindow(QMainWindow):
         box.addWidget(self.bed_controls)
         self.mirror = QCheckBox('镜像预览')
         self.mirror.setToolTip('只改变显示方向，左侧和右侧始终指本人左右。')
+        self.mirror.setChecked(self._live_mirror)
+        self.canvas.mirror = self._live_mirror
         self.mirror.toggled.connect(self._mirror_changed)
         self.manual = QCheckBox('已确认单人、机位与舒适动作')
         self.manual.setObjectName('manualConfirmation')
@@ -753,6 +759,8 @@ class MainWindow(QMainWindow):
     def _invalidate(self, *args):
         if self.constructing:
             return
+        self._close_distance_coach()
+        self._last_coach_view = None
         self.manual.setChecked(False)
         self._confirmed = False
         self.start_button.setEnabled(False)
@@ -775,6 +783,11 @@ class MainWindow(QMainWindow):
         self._invalidate()
         self._clear_training_reference()
         live = self.source_kind.currentData() == 'LIVE_CAMERA'
+        self.mirror.blockSignals(True)
+        self.mirror.setChecked(self._live_mirror if live else self._replay_mirror)
+        self.mirror.blockSignals(False)
+        self.canvas.mirror = self.mirror.isChecked()
+        self.canvas.update()
         for w in (self.device, self.refresh, self.backend):
             w.setVisible(live)
         self.replay_row.setVisible(not live)
@@ -995,8 +1008,45 @@ class MainWindow(QMainWindow):
 
     def _mirror_changed(self):
         self._invalidate()
+        if self.source_kind.currentData() == 'LIVE_CAMERA':
+            self._live_mirror = self.mirror.isChecked()
+        else:
+            self._replay_mirror = self.mirror.isChecked()
         self.canvas.mirror = self.mirror.isChecked()
         self.canvas.update()
+
+    def _test_mirror_changed(self, checked):
+        # Raw camera testing has no active clinical setup; share this display
+        # preference without reopening or stopping its capture.
+        self._live_mirror = checked
+        self.mirror.blockSignals(True)
+        self.mirror.setChecked(checked)
+        self.mirror.blockSignals(False)
+        self.canvas.mirror = checked
+        self.canvas.update()
+
+    def _open_distance_coach(self):
+        if self.scene != 'rehab' or self.pages.currentIndex() != 0 or self.busy or self._camera_testing or self.state == 'SAVE_FAILED':
+            return
+        if self.distance_coach is None:
+            self.distance_coach = DistanceCoach(self)
+            self.distance_coach.finish_requested.connect(self._finish_task)
+            self.distance_coach.privacy_requested.connect(lambda: self._send('privacy', reason='privacy_pause'))
+            self.distance_coach.control_requested.connect(
+                lambda action, confirmed: self._send('training_control', action=action, setup_confirmed=confirmed))
+        self._render_distance_coach()
+        self.distance_coach.showFullScreen()
+
+    def _render_distance_coach(self):
+        if self.distance_coach is not None:
+            data = self._last_coach_view or dict(state=self.state, summary={})
+            self.distance_coach.render(data, self.setup['plan'], mirror=self.mirror.isChecked(),
+                                       source_kind=self.source_kind.currentData(), usage_context=self.usage.currentData(),
+                                       available=self.busy == 0 and not self._camera_testing)
+
+    def _close_distance_coach(self):
+        if self.distance_coach is not None:
+            self.distance_coach.reject()
 
     def _browse(self):
         path, _ = QFileDialog.getOpenFileName(self, '选择本地视频', '', '视频 (*.mp4 *.avi *.mov *.mkv *.wmv);;所有文件 (*)')
@@ -1072,7 +1122,8 @@ class MainWindow(QMainWindow):
         self._camera_testing = True
         self._accept_context_frames = True
         self.last_generation = -1
-        self.camera_test_dialog = CameraTestDialog(self.device.currentText(), self)
+        self.camera_test_dialog = CameraTestDialog(self.device.currentText(), self, mirror=self._live_mirror)
+        self.camera_test_dialog.mirror_toggle.toggled.connect(self._test_mirror_changed)
         self.camera_test_dialog.stop_requested.connect(lambda: self._send('stop_camera_test'))
         self.camera_test_dialog.show()
         self._send('camera_test', source=source)
@@ -1128,6 +1179,12 @@ class MainWindow(QMainWindow):
         if not hasattr(self, 'preview_button'):
             return
         available = self.busy == 0 and not self._camera_testing
+        self.distance_button.setVisible(self.scene == 'rehab')
+        self.distance_button.setEnabled(available and self.state != 'SAVE_FAILED')
+        self.auto_distance.setVisible(self.scene == 'rehab')
+        self.auto_distance.setEnabled(available and self.state != 'ONLINE')
+        if self.distance_coach is not None:
+            self.distance_coach.set_controls(available)
         self.camera_test_button.setVisible(self.source_kind.currentData() == 'LIVE_CAMERA')
         self.camera_test_button.setEnabled(available and self.state not in ('ONLINE', 'SAVE_FAILED'))
         test_style = 'primary' if self.pages.currentIndex() == 3 else ''
@@ -1256,6 +1313,9 @@ class MainWindow(QMainWindow):
             self._send('enumerate', backend=self.backend.currentData())
         elif kind in ('error', 'fatal'):
             self.notice.setText(m['text'])
+            if self.distance_coach and self.distance_coach.isVisible():
+                self.distance_coach.show_hold('请暂停动作\n查看下方提示')
+                self.distance_coach.set_feedback(m['text'])
             if self._camera_testing and self.camera_test_dialog:
                 self.camera_test_dialog.show_error(m['text'])
             self._closing = False
@@ -1367,6 +1427,9 @@ class MainWindow(QMainWindow):
             self.setup['plan']['calibration']['provenance'] = m['provenance']
             self._sync_scene()
         elif kind == 'saved':
+            if self._feedback_after_save or self._summarize_after_save:
+                self._close_distance_coach()
+                self._last_coach_view = None
             self.notice.setText('已保存，可在历史记录中查看。')
             if self._feedback_after_save:
                 participant_id = self._feedback_after_save
@@ -1580,6 +1643,16 @@ class MainWindow(QMainWindow):
                 self.feedback.setText('腕部暂不能测量 · 请让所选侧肘、腕和整只手入镜，另一只手移出画面，并稳定保持。')
         self._buttons()
 
+        if self.scene == 'rehab':
+            self._last_coach_view = data
+            if self.state == 'SAVE_FAILED':
+                self._close_distance_coach()
+            elif self.distance_coach is not None and self.distance_coach.isVisible():
+                self._render_distance_coach()
+            if (self.state == 'ONLINE' and previous_state != 'ONLINE' and context and context.run_id
+                    and self.auto_distance.isChecked()):
+                self._open_distance_coach()
+
     def _history(self):
         self.title.setText('历史记录')
         self.subtitle.setText('查看、导出或对照已保存的评估和训练。')
@@ -1646,6 +1719,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self._allow_close:
+            self._close_distance_coach()
             if self.camera_test_dialog:
                 self.camera_test_dialog.finish_close()
             self.timer.stop()
