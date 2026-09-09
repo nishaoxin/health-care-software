@@ -183,6 +183,8 @@ class DistanceCoach(QDialog):
             self.set_feedback('报告待保存，请返回普通界面处理。' if self.state == 'SAVE_FAILED' else '重新预览和确认后再开始。')
         elif self.state != 'ONLINE':
             self.show_hold('尚未开始\n请先完成准备确认')
+            if self.state == 'PREVIEW':
+                self.set_feedback(data.get('measurement_hint') or '请在普通界面记录起点，再确认准备。')
         elif stage in ('PAUSED', 'RESTING', 'COMPLETE', 'FINISHED'):
             self.show_hold({'PAUSED': '训练已暂停\n请先休息', 'RESTING': '组间休息\n准备好后再继续',
                             'COMPLETE': '本次训练已完成\n请结束并保存', 'FINISHED': '训练已结束'}[stage])
@@ -194,7 +196,7 @@ class DistanceCoach(QDialog):
             self.show_hold('请暂停动作\n等待训练状态确认')
         elif not valid:
             self.show_hold('暂时看不清\n请暂停动作')
-            self.set_feedback({'NO_PERSON_DETECTED': '请让测试部位清楚入镜。', 'MULTI_PERSON': '请仅保留一位参与者或一只测试手。'}
+            self.set_feedback(data.get('measurement_hint') or {'NO_PERSON_DETECTED': '请让测试部位清楚入镜。', 'MULTI_PERSON': '请仅保留一位参与者或一只测试手。'}
                                   .get(data.get('observation_status'), '请检查遮挡和拍摄位置。'))
         elif self.training_mode and summary.get('current_issues') and summary.get('message'):
             self.show_hold(summary['message'])

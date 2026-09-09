@@ -14,6 +14,7 @@ from .domain import digest, dumps, utc_now
 from .reports import export_session, render_report, render_body_profile, export_body_profile
 from .assessment import build_body_profile
 from .exercises import exercise_spec
+from .measurement_guidance import measurement_hint
 from .scene_controller import SceneController
 from .settings import ROOT, load_settings, default_setup
 from .source_worker import put_latest
@@ -57,11 +58,15 @@ class Runtime:
     def _view(self, packet=None, pose=None, error=None):
         c = self.controller
         testing = getattr(self, 'camera_test', False)
+        hint = None
+        if not testing and pose and c.latest_observation and c.state in ('PREVIEW', 'ONLINE') and c.setup['scene_id'] == 'rehab':
+            hint = measurement_hint(c.latest_observation, c.setup['plan'], pose.schema_id, preview=c.state == 'PREVIEW')
         put_latest(self.views, {'state': c.state, 'context': c.context, 'summary': {} if testing else c.summary(),
                                'confirmed': False if testing else c.confirmed, 'packet': packet, 'pose': None if testing else pose,
                                'camera_test': testing, 'camera_test_frames': getattr(self, 'camera_test_frames', 0),
                                'error': error, 'last_saved_id': c.last_saved_id,
                                'pending': c.pending is not None,
+                               'measurement_hint': hint,
                                'observation_status': c.latest_observation.status if pose and c.latest_observation else None})
 
     def _message(self, kind, **data):

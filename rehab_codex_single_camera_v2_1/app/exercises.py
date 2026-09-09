@@ -89,6 +89,11 @@ def _add(exercise_id, label, joint, view, metric, metric_label, guide,
 _add('shoulder_adduction', '肩内收回位', 'shoulder', 'frontal', 'raise_deg',
      '肩内收二维投影抬举角（内收时减小）',
      '正面，髋、肩、肘清楚可见；从舒适侧抬臂姿势向身体收回，再返回起始位置。仅测抬臂平面内内收，不测横向内收。', direction='decrease')
+_SPECS['shoulder_adduction'].update(
+    ready_hint='请先回到已记录的侧抬臂起点，保持约 1 秒；不是垂臂起点',
+    outbound_hint='从侧抬臂起点向身体缓慢收回手臂，角度减小',
+    return_hint='向侧方抬回已记录的侧抬臂起点，回位后计 1 次',
+    measurement_contract='shoulder-adduction-start-2')
 _add('elbow_extension', '肘伸展', 'elbow', 'sagittal', 'elbow_flexion_deg',
      '肘屈曲二维投影角（伸展时减小）', '侧面，肩、肘、腕入镜；先记录舒适屈肘姿势，缓慢伸肘后回位。', direction='decrease')
 _add('knee_flexion', '膝屈曲', 'knee', 'sagittal', 'knee_flexion_deg',

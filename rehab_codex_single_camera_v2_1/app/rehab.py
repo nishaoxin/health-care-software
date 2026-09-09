@@ -6,6 +6,7 @@ from collections import deque
 from statistics import median
 from .domain import clean_json
 from .exercises import exercise_spec
+from .joint_calibration import validate_start_value
 
 
 class _AngleEvidence:
@@ -56,6 +57,7 @@ class RehabEngine:
                 raise ValueError('舒适起点不是有效测量')
             if self.spec['directional_calibration'] and baseline.get('direction_sign') not in (-1, 1):
                 raise ValueError('本动作需要先记录活动方向')
+            validate_start_value(self.plan, value)
         self.direction = 1 if self.spec['target_direction'] == 'increase' else -1
         self.motion_evidence = _AngleEvidence()
         self.rest_samples = deque(maxlen=3)
@@ -71,6 +73,7 @@ class RehabEngine:
         self.issue_starts = {}
         self.latest_metrics = {}
         self.message = self.spec['ready_hint']
+        self.position_hint = None
 
     @property
     def completed(self):
@@ -258,6 +261,7 @@ class RehabEngine:
 
     def _joint_cycle(self, o):
         t, angle = o.time_s, o.value(self.primary_metric)
+        self.position_hint = None
         rest, dwell = self.plan['rest_deg'], self.plan['dwell_s']
         # RAISING means outbound for all joint tasks; knee extension decreases
         # the flexion metric and does not enter the sit-to-stand state machine.
@@ -294,6 +298,15 @@ class RehabEngine:
                     self.phase, self.message = 'LOWERING', '正在观察回位'
                 elif self.phase == 'RAISING' and t-self.current['start_time_s'] > .5:
                     self.phase, self.message = 'PEAK_OR_HOLD', '正在测量本次幅度与停留'
+        if self.exercise == 'shoulder_adduction':
+            if self.phase == 'WAIT_READY':
+                self.position_hint = f'请回到侧抬臂起点 {rest:.0f}°，保持约 1 秒；当前 {angle:.0f}°'
+            elif self.phase == 'REST' and angle > rest+5.:
+                self.position_hint = '当前在向外抬臂；先回到已记录的侧抬臂起点，再向身体内收。'
+            elif self.phase in ('RAISING', 'PEAK_OR_HOLD', 'LOWERING'):
+                self.message = '正在观察内收与回位；回到侧抬臂起点后计 1 次。'
+            if self.position_hint:
+                self.message = self.position_hint
 
     def _sitstand(self, o):
         t, knee, hip = o.time_s, o.value('knee_flexion_deg'), o.value('hip_y')
@@ -349,6 +362,8 @@ class RehabEngine:
     def _training_message(self):
         if not self.previous_valid or self.phase == 'FINISHED':
             return self.message
+        if self.position_hint:
+            return self.position_hint
         if self.phase == 'WAIT_READY':
             return self.message
         angle = self.latest_metrics.get(self.primary_metric, {}).get('value')

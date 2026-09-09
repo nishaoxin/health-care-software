@@ -55,7 +55,7 @@ def exercise_instructions(exercise_id: str) -> dict:
         'ankle': '从测试侧拍摄，小腿、踝、足跟和足尖完整入镜。',
         'finger': '单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。',
         'neck': ('正对镜头，双眼与双肩清楚入镜。' if spec['view'] == 'frontal' else
-                 '测试侧朝向镜头，同侧眼、耳、肩、髋清楚入镜。'),
+                 '测试侧朝向镜头，同侧眼、耳、肩、髋清楚入镜；不要求另一侧肩膀可见。'),
         'trunk': ('正对镜头，双肩、双髋完整入镜。' if spec['view'] == 'frontal' else
                   '测试侧朝向镜头，同侧肩、髋完整入镜。'),
     }[joint]
@@ -101,6 +101,8 @@ def exercise_instructions(exercise_id: str) -> dict:
         start, move, back = _MOVEMENTS[exercise_id]
     if joint == 'shoulder':
         camera = ('正对镜头' if spec['view'] == 'frontal' else '测试侧朝向镜头')+'，髋、肩、肘完整入镜。'
+        if exercise_id == 'shoulder_adduction':
+            camera += ' 先侧抬臂记录起点，再向身体收回；不是横向抱胸。'
     elif joint == 'hip':
         camera = '正对镜头，双髋与测试侧膝入镜。' if spec['view'] == 'frontal' else '测试侧朝向镜头，肩、髋、膝入镜。'
     elif joint == 'wrist':

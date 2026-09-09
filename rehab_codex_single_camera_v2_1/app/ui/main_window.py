@@ -945,11 +945,16 @@ class MainWindow(QMainWindow):
         self.optional_baseline.setVisible(optional)
         self.joint_baselines.setVisible(joint_task)
         self.joint_direction_button.setVisible(spec['directional_calibration'])
+        self.joint_rest_button.setText('记录侧抬臂起点' if plan['exercise_id'] == 'shoulder_adduction' else '记录舒适起始姿势')
         baseline = plan.get('joint_baseline') or {}
         self.joint_baseline_text.setText(
             ('起点已记录' if baseline else '起点未记录')+
             (' · 方向已记录' if baseline.get('direction_sign') else ' · 方向未记录' if spec['directional_calibration'] else '')+
             '')
+        if plan['exercise_id'] == 'shoulder_adduction':
+            value = baseline.get('rest_value')
+            self.joint_baseline_text.setText(f'侧抬臂起点：{value:.0f}° · 内收时角度减小' if isinstance(value, (int, float)) else
+                                             '先舒适侧抬臂，再记录；不是垂臂起点')
         if spec['experimental']:
             self.manual.setText('已确认侧别、方向及关节可见')
         self.manual.setToolTip('请核对本人左右侧、动作要求的拍摄平面，以及需要的关节是否清楚可见。')
@@ -1132,6 +1137,15 @@ class MainWindow(QMainWindow):
         self._send('confirm', setup=self._read_setup())
 
     def _record_joint_baseline(self, position):
+        if position == 'rest' and self.exercise.currentData() == 'shoulder_adduction':
+            answer = QMessageBox.question(self, '确认肩内收起点',
+                '请先把测试手臂向侧方抬到舒适位置并保持。\n'
+                '不是垂臂，也不是横向抱胸；不要求抬到水平。\n'
+                '将记录此侧抬臂姿势：向身体收回，再抬回此处才计 1 次。\n'
+                '已经侧抬臂并准备好记录了吗？',
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+            if answer != QMessageBox.StandardButton.Yes:
+                return
         if position == 'direction':
             label = exercise_spec(self.exercise.currentData())['label']
             answer = QMessageBox.question(self, '确认试动作方向',
@@ -1419,6 +1433,8 @@ class MainWindow(QMainWindow):
             self._sync_scene()
             self.notice.setText('已记录舒适起点与活动方向；请回到起点，再确认机位。' if baseline.get('direction_sign') else
                                 '舒适起点已记录。需要方向校准时，请做小幅试动作后记录方向；不要追求最大范围。')
+            if self.exercise.currentData() == 'shoulder_adduction':
+                self.notice.setText(f"侧抬臂起点已记录：{baseline['rest_value']:.0f}°。开始后先保持此姿势约 1 秒；向身体收回，再抬回此处计 1 次。")
         elif kind == 'baseline':
             self._confirmed = False
             self.runtime.command('unconfirm')
@@ -1641,6 +1657,9 @@ class MainWindow(QMainWindow):
                                        'UNKNOWN': '手部证据不足 · 请检查遮挡、距离和关节轮廓。'}[observed])
             elif pose and pose.backend == 'mediapipe_wrist' and observed == 'UNKNOWN':
                 self.feedback.setText('腕部暂不能测量 · 请让所选侧肘、腕和整只手入镜，另一只手移出画面，并稳定保持。')
+        if (data.get('measurement_hint') and not data.get('error') and self.state in ('PREVIEW', 'ONLINE')
+                and self.scene == 'rehab' and training_stage not in ('PAUSED', 'RESTING', 'COMPLETE', 'FINISHED')):
+            self.feedback.setText(data['measurement_hint'])
         self._buttons()
 
         if self.scene == 'rehab':

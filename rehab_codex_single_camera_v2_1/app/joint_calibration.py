@@ -7,6 +7,16 @@ from statistics import median
 from .quality import angle_delta
 
 
+def validate_start_value(plan, value):
+    if plan['exercise_id'] == 'shoulder_adduction':
+        # Engineering feasibility: the outbound threshold must fit below the
+        # start angle and outside the existing +/-5 degree return band. This
+        # is not a prescribed arm-raising angle or a clinical normal range.
+        if value <= plan['raising_delta_deg'] + 5.:
+            raise ValueError('当前起点接近垂臂，无法区分内收与回位；请先舒适侧抬臂再记录起点。'
+                             '若舒适幅度不足，不要勉强扩大动作。')
+
+
 def stable_preview_value(history, metric, *, now_time, track_key, circular=False):
     # Require a continuous suffix. Filtering out missing samples would falsely
     # make an occluded/unstable posture look like a one-second hold.

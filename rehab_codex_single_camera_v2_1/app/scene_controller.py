@@ -16,7 +16,8 @@ from .training import TrainingEngine
 from .exercises import exercise_spec
 from .assessment import build_body_profile, build_training_reference
 from .landmark_schemas import joint_names, BACKEND_SCHEMAS
-from .joint_calibration import stable_preview_value, provenance
+from .joint_calibration import stable_preview_value, provenance, validate_start_value
+from .measurement_guidance import measurement_hint
 from .quality import angle_delta
 
 
@@ -109,11 +110,17 @@ class SceneController:
         if plan['exercise_id'] == 'sit_to_stand':
             raise ValueError('坐站请使用舒适坐位和站位基线')
         metric = spec.get('raw_metric', spec['metric'])
+        current_metric = self.latest_observation.metrics.get(metric)
+        if current_metric is None or not current_metric.valid:
+            hint = measurement_hint(self.latest_observation, plan, self.latest_pose.schema_id, preview=True)
+            if hint:
+                raise ValueError(hint)
         value = stable_preview_value(history, metric, now_time=self.latest_pose.time_s,
                                      track_key=self.latest_observation.track_key,
                                      circular=spec['directional_calibration'])
         current_provenance = provenance(self)
         if position == 'rest':
+            validate_start_value(plan, value)
             baseline = {'rest_value': value, 'raw_metric': metric, 'provenance': current_provenance,
                         'measurement_kind': 'observed_comfort_start', 'recorded_at': utc_now()}
         elif position == 'direction' and spec['directional_calibration']:
@@ -142,6 +149,8 @@ class SceneController:
             raise ValueError('请在本次预览重新记录舒适起始姿势；不能沿用其他人或旧机位的基线')
         if spec['directional_calibration'] and baseline.get('direction_sign') not in (-1, 1):
             raise ValueError('请先按所选动作方向做舒适的小幅试动作，并点击“记录活动方向”')
+        if baseline:
+            validate_start_value(plan, baseline['rest_value'])
 
     def confirm(self, setup):
         if self.state != 'PREVIEW' or self.latest_packet is None:
@@ -203,7 +212,8 @@ class SceneController:
             self._check_joint_baseline(plan)
             necessary = exercise_spec(plan['exercise_id'])['required_metrics']
             if any(self.latest_observation.value(k) is None for k in necessary):
-                raise ValueError('动作必要关节不可见，请调整机位后再开始')
+                raise ValueError(measurement_hint(self.latest_observation, plan, self.latest_pose.schema_id)
+                                 or '动作必要关节不可见，请调整机位后再开始')
             if plan.get('submode') not in ('assessment', 'training'):
                 raise ValueError('请明确选择身体评估或训练指导')
             if plan['submode'] == 'training':
