@@ -31,6 +31,7 @@ from .workspace import build_workspace
 from .participants import ParticipantDialog, ParticipantSummary
 from .training import TrainingFeedbackDialog, STAGES as TRAINING_STAGES
 from .assessment_batches import AssessmentBatchDialog
+from .camera_test import CameraTestDialog
 
 STATUS = {'UNSELECTED': '相机未打开', 'CONNECTING': '正在连接', 'PREVIEW': '预览中',
           'ONLINE': '记录中', 'OFFLINE': '输入已断开', 'PRIVACY_PAUSED': '采集已停止',
@@ -92,6 +93,8 @@ class MainWindow(QMainWindow):
         self._allow_single_camera = True
         self._camera_selection_touched = False
         self._camera_notice_text = ''
+        self._camera_testing = False
+        self.camera_test_dialog = None
         self._build()
         self.catalog.checklist_requested.connect(self._open_assessment_batch)
         self.constructing = False
@@ -127,7 +130,7 @@ class MainWindow(QMainWindow):
         self.history_nav.setChecked(page == 1)
 
     def _show_catalog(self, checked=False, *, initial=False):
-        if not initial and (self.state in ('ONLINE', 'SAVE_FAILED') or self.busy):
+        if not initial and (self.state in ('ONLINE', 'SAVE_FAILED') or self.busy or self._camera_testing):
             self.notice.setText('请先结束并保存本次任务，再选择评估动作。')
             return
         if not initial:
@@ -141,7 +144,7 @@ class MainWindow(QMainWindow):
         self._buttons()
 
     def _choose_catalog_exercise(self, exercise_id):
-        if self.busy or self.state in ('ONLINE', 'SAVE_FAILED'):
+        if self.busy or self._camera_testing or self.state in ('ONLINE', 'SAVE_FAILED'):
             self.notice.setText('请等待本次任务保存完成。')
             return
         exercise_spec(exercise_id)  # Reject unknown IDs, never select row zero.
@@ -158,7 +161,7 @@ class MainWindow(QMainWindow):
         self.notice.clear()
 
     def _show_training_hub(self):
-        if self.state in ('ONLINE', 'SAVE_FAILED') or self.busy:
+        if self.state in ('ONLINE', 'SAVE_FAILED') or self.busy or self._camera_testing:
             self.notice.setText('请先结束并保存当前任务，再进入训练中心。')
             return
         self._invalidate()
@@ -199,6 +202,10 @@ class MainWindow(QMainWindow):
         grid.addWidget(self.source_kind, 0, 1)
         grid.addWidget(self.device, 0, 2)
         grid.addWidget(self.refresh, 0, 3)
+        self.camera_test_button = QPushButton('打开摄像头并测试')
+        self.camera_test_button.setObjectName('primary')
+        self.camera_test_button.clicked.connect(self._start_camera_test)
+        grid.addWidget(self.camera_test_button, 0, 4)
         grid.setColumnStretch(2, 1)
         self.source_options = Disclosure('输入设置')
         advanced = QHBoxLayout()
@@ -210,8 +217,8 @@ class MainWindow(QMainWindow):
         advanced.addStretch()
         self.source_options.box.addLayout(advanced)
         # The header sits beside the device; optional fields occupy another row.
-        grid.addWidget(self.source_options.toggle, 0, 4)
-        grid.addWidget(self.source_options.content, 2, 0, 1, 5)
+        grid.addWidget(self.source_options.toggle, 0, 5)
+        grid.addWidget(self.source_options.content, 2, 0, 1, 6)
         self.source_options.setParent(frame)
         self.source_options.hide()
         self.replay_row = QWidget()
@@ -1028,6 +1035,8 @@ class MainWindow(QMainWindow):
         return {'kind': kind, 'file': str(path), 'ref': ref, 'recording_id': ref, 'usage_context': self.usage.currentData()}
 
     def _preview(self):
+        if self._camera_testing:
+            return
         self.setup_tabs.setCurrentIndex(1)
         if self.participant.text().strip() != self.participant_id:
             self.notice.setText('用户编号尚未应用，请先点击“切换 / 新建用户”。')
@@ -1047,6 +1056,26 @@ class MainWindow(QMainWindow):
         self.last_generation = -1
         self._accept_context_frames = True
         self._send('open', source=source, setup=self._read_setup(), options={'speed': self.speed.currentData(), 'seek_s': self.seek.value()})
+
+    def _start_camera_test(self):
+        if self.busy or self._camera_testing or self.state in ('ONLINE', 'SAVE_FAILED'):
+            return
+        try:
+            source = self._source()
+            if source['kind'] != 'LIVE_CAMERA':
+                raise ValueError('请先切换到实时摄像头')
+        except ValueError as exc:
+            self.notice.setText(str(exc))
+            return
+        self._invalidate()
+        self.notice.clear()
+        self._camera_testing = True
+        self._accept_context_frames = True
+        self.last_generation = -1
+        self.camera_test_dialog = CameraTestDialog(self.device.currentText(), self)
+        self.camera_test_dialog.stop_requested.connect(lambda: self._send('stop_camera_test'))
+        self.camera_test_dialog.show()
+        self._send('camera_test', source=source)
 
     def _confirm(self):
         self._send('confirm', setup=self._read_setup())
@@ -1098,7 +1127,14 @@ class MainWindow(QMainWindow):
     def _buttons(self):
         if not hasattr(self, 'preview_button'):
             return
-        available = self.busy == 0
+        available = self.busy == 0 and not self._camera_testing
+        self.camera_test_button.setVisible(self.source_kind.currentData() == 'LIVE_CAMERA')
+        self.camera_test_button.setEnabled(available and self.state not in ('ONLINE', 'SAVE_FAILED'))
+        test_style = 'primary' if self.pages.currentIndex() == 3 else ''
+        if self.camera_test_button.objectName() != test_style:
+            self.camera_test_button.setObjectName(test_style)
+            self.camera_test_button.style().unpolish(self.camera_test_button)
+            self.camera_test_button.style().polish(self.camera_test_button)
         self.training_panel.set_execution(self._training_execution, self.state == 'ONLINE', available)
         self.preview_button.setEnabled(available and self.state not in ('ONLINE', 'SAVE_FAILED'))
         self.confirm_button.setEnabled(available and self.state == 'PREVIEW')
@@ -1220,6 +1256,8 @@ class MainWindow(QMainWindow):
             self._send('enumerate', backend=self.backend.currentData())
         elif kind in ('error', 'fatal'):
             self.notice.setText(m['text'])
+            if self._camera_testing and self.camera_test_dialog:
+                self.camera_test_dialog.show_error(m['text'])
             self._closing = False
             if m.get('command') == 'save_participant' and self.participant_dialog:
                 self.participant_dialog.error.setText(m['text'])
@@ -1231,6 +1269,20 @@ class MainWindow(QMainWindow):
                 self.preview_button.setEnabled(False)
         elif kind == 'notice':
             self.notice.setText(m['text'])
+        elif kind == 'camera_test_stopped':
+            if not self._camera_testing:
+                return
+            if self.camera_test_dialog:
+                self.camera_test_dialog.finish_close()
+                self.camera_test_dialog.deleteLater()
+                self.camera_test_dialog = None
+            self._camera_testing = False
+            self._accept_context_frames = False
+            self._confirmed = False
+            self.state = 'UNSELECTED' if self.state != 'SAVE_FAILED' else self.state
+            self.status_badge.setText(STATUS[self.state])
+            self.coverage.setText('当前未开始观察\n其他场景未监测')
+            self._buttons()
         elif kind == 'participants':
             self.participant_records = {p['participant_id']: p for p in m['participants']}
             self._refresh_participant_controls()
@@ -1420,12 +1472,24 @@ class MainWindow(QMainWindow):
         context = data.get('context')
         if context and not self._accept_context_frames:
             return
-        if context and context.scene_id != self.scene:
+        if context and context.scene_id != self.scene and not data.get('camera_test'):
             return
         if context and context.generation < self.last_generation:
             return
         if context:
             self.last_generation = context.generation
+        if self._camera_testing:
+            if data.get('camera_test'):
+                self.state = data['state']
+                self._confirmed = False
+                self.status_badge.setText('摄像头测试')
+                self.coverage.setText('仅测试画面 · 未开始评估\n其他场景未监测')
+                if self.camera_test_dialog:
+                    self.camera_test_dialog.render(data)
+                self._buttons()
+            return
+        if data.get('camera_test'):
+            return
         previous_state = self.state
         self.state = data['state']
         if self.scene == 'rehab' and self.state == 'ONLINE' and previous_state != 'ONLINE':
@@ -1582,6 +1646,8 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event):
         if self._allow_close:
+            if self.camera_test_dialog:
+                self.camera_test_dialog.finish_close()
             self.timer.stop()
             event.accept()
             return

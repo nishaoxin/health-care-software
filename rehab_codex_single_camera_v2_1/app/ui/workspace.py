@@ -67,7 +67,7 @@ def build_workspace(w):
     w.coverage.setWordWrap(True)
     nav.addWidget(w.coverage)
     nav.addSpacing(12)
-    version = QLabel('本地康复  ·  0.7')
+    version = QLabel('本地康复  ·  0.8')
     version.setObjectName('muted')
     nav.addWidget(version)
     root.addWidget(sidebar)

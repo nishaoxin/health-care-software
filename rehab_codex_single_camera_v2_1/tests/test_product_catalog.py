@@ -50,6 +50,8 @@ def test_catalog_filters_searches_and_emits_real_action(qt_app):
     catalog.resize(1000, 650)
     catalog.show()
     qt_app.processEvents()
+    assert catalog.visible_ids == []
+    catalog.select_joint('all')
     assert set(catalog.visible_ids) == set(EXERCISE_IDS)
     catalog.select_joint('wrist')
     assert len(catalog.visible_ids) == 4

@@ -1,5 +1,27 @@
 # Windows 工程首版验收记录
 
+## 2026-09-09 · 人体导航与独立摄像头测试 0.8
+
+最终互不重叠批次共 **955 项与 4 个子测试通过**。本轮绕过此前重型模型/真实回放组合，不将其作为 UI 检查前提；所有列出的命令均已正常退出。
+
+| 批次 | 文件选择 | 最终结果 |
+| --- | --- | --- |
+| 界面、图解与导航 | `rg --files tests -g 'test*.py'` 路径匹配 `(ui\|product\|guide\|hub)` | 241 项，53.98 秒 |
+| 业务、摄像头测试命令与存储 | 路径不匹配 `(ui\|product\|guide\|hub\|integration\|landmarks)` | 533 项与 4 子测试，28.17 秒 |
+| 关键点协议、超时与摄像头测试运行循环 | `test_app_landmarks.py test_app_runtime_integration.py::RuntimeTimeoutTests test_camera_test_integration.py -k 'not official_local_models_really_load'` | 181 项，3 项未选择，1.27 秒 |
+
+均由项目 `.venv/Scripts/python.exe -m pytest ... -q` 执行。开发期间专项和重复运行不另加总。
+
+- 新增九组部位的图标/名称点击、默认不铺动作、搜索、键盘、三种尺寸触点不重叠、素材缺失文字可用；保留全部 53 项及原有清单、评估、训练引用。
+- 新增原始画面测试命令覆盖：按身份重解析当前设备索引、拒绝录像及缺失设备、活动/待保存拒绝、测试期间禁用临床操作、重复/旧上下文/过期帧不进入显示或刷新看门狗、无模型提交/计数/会话写入、关闭释放、释放失败重试、测试后重新准备及迟到关闭不干扰新任务。
+- `test_camera_test_integration.py` 用真实 Runtime 命令循环、SQLite 和注入的内存输入，验证收到多帧、输入错误、无帧超时和关闭退出。不是打开摄像头的硬件实测。
+- `scripts/qa_body_camera_ui.py` 生成 13 张当前原生截图；`scripts/qa_sport_ui.py --output qa-output/body-camera-v08/regression` 生成 21 张旧流程回归截图。包含 1100×730、1360×900、1600×1000、连接/错误/返回原部位。截图设备均明确命名为布局测试，不采集真实画面。
+- 对照旧 0.7 同尺寸目录与本轮真实首页截图：去掉默认全部卡片，人体图和摄像头入口首屏可见；小窗口修正腕/手指标记重叠；工作区将顶部测试改为次要按钮，仍突出正式预览及准备步骤。
+- 实际入口 `app.main --data-dir qa-output/body-camera-v08/startup-data --screenshot qa-output/body-camera-v08/startup.png` 正常启动并退出，新目录默认选中 Integrated Camera；这是只读枚举，没有打开摄像头。
+- `scripts/qa_training.py` 正常完成：合成骨架→真实引擎/训练控制→组间休息/暂停恢复→SQLite→反馈与重开报告。
+- `compileall`、`git diff --check` 通过。没有改动正式用户数据库、模型/环境或动作示范图。新增人体菜单插图的来源和最终生成提示词随资产提交。
+- 未验证真实摄像头采集、USB 热插拔、真人准确度、长期运行、读屏、高 DPI/大字体和真实老年用户可用性，不声称这些已通过。
+
 ## 2026-09-09 · 简洁界面与共享摄像头 0.7
 
 三个互不重叠的最终批次共 **905 项与 4 个子测试通过**。没有重复加载真实模型/回放作为 UI 验收前置；不声称全量实机或真人验证。

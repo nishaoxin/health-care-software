@@ -15,7 +15,7 @@ from .reports import export_session, render_report, render_body_profile, export_
 from .assessment import build_body_profile
 from .exercises import exercise_spec
 from .scene_controller import SceneController
-from .settings import ROOT, load_settings
+from .settings import ROOT, load_settings, default_setup
 from .source_worker import put_latest
 from .storage import Storage
 from .vision import VisionWorker
@@ -46,6 +46,8 @@ class Runtime:
         self.last_sound_count = 0
         self.last_sound_event = None
         self.capture_settings = {}
+        self.camera_test = False
+        self.camera_test_frames = 0
         self.thread = threading.Thread(target=self._run, name='application-runtime', daemon=True)
         self.thread.start()
 
@@ -54,8 +56,10 @@ class Runtime:
 
     def _view(self, packet=None, pose=None, error=None):
         c = self.controller
-        put_latest(self.views, {'state': c.state, 'context': c.context, 'summary': c.summary(),
-                               'confirmed': c.confirmed, 'packet': packet, 'pose': pose,
+        testing = getattr(self, 'camera_test', False)
+        put_latest(self.views, {'state': c.state, 'context': c.context, 'summary': {} if testing else c.summary(),
+                               'confirmed': False if testing else c.confirmed, 'packet': packet, 'pose': None if testing else pose,
+                               'camera_test': testing, 'camera_test_frames': getattr(self, 'camera_test_frames', 0),
                                'error': error, 'last_saved_id': c.last_saved_id,
                                'pending': c.pending is not None,
                                'observation_status': c.latest_observation.status if pose and c.latest_observation else None})
@@ -72,17 +76,29 @@ class Runtime:
 
     def _execute(self, name, kw):
         c, store = self.controller, self.store
+        if getattr(self, 'camera_test', False) and name not in (
+                'stop_camera_test', 'stop', 'privacy', 'switch', 'shutdown', 'enumerate', 'remember_camera',
+                'history', 'participants', 'body_profile', 'report', 'profile', 'events', 'training_review',
+                'export', 'export_body_profile', 'unconfirm'):
+            raise ValueError('请先关闭摄像头测试，再开始评估或训练')
         if name == 'enumerate':
             devices = self.camera.enumerate(kw['backend'])
             self._message('devices', backend=kw['backend'], devices=[asdict(d) for d in devices])
         elif name == 'remember_camera':
             self._remember_camera(kw['device'])
-        elif name == 'open':
+        elif name in ('open', 'camera_test'):
+            if name == 'camera_test':
+                if c.session is not None or c.pending is not None or c.state in ('ONLINE', 'SAVE_FAILED'):
+                    raise ValueError('请先结束并保存本次任务，再测试摄像头')
+                if kw['source']['kind'] != 'LIVE_CAMERA':
+                    raise ValueError('摄像头测试仅支持实时摄像头')
+                self.camera_test = True
+                self.camera_test_frames = 0
             self.audio.reset()
             self.vision.clear()
             options = {k: self.capture_settings.get('request_'+k, default) for k, default in (('width', 1280), ('height', 720), ('fps', 30))}
             options.update(kw.get('options') or {})
-            c.open(kw['source'], kw['setup'], options)
+            c.open(kw['source'], default_setup() if name == 'camera_test' else kw['setup'], options)
             self.preview_history = []
             self.connect_started_wall = time.monotonic()
             self.last_frame_wall = None
@@ -107,11 +123,19 @@ class Runtime:
             self.last_sound_count = 0
             self.last_sound_event = None
             self._view()
-        elif name in ('stop', 'privacy', 'switch'):
+        elif name in ('stop', 'privacy', 'switch', 'stop_camera_test'):
+            # A late duplicate close must never stop a subsequent clinical run.
+            if name == 'stop_camera_test' and not getattr(self, 'camera_test', False):
+                self._message('camera_test_stopped')
+                return
             self.audio.reset()
             self.vision.clear()
             had_session = c.session is not None
             c.stop(kw.get('reason', name), privacy=name == 'privacy')
+            if getattr(self, 'camera_test', False):
+                self.camera_test = False
+                self.camera_test_frames = 0
+                self._message('camera_test_stopped')
             self.preview_history = []
             self.connect_started_wall = None
             self.last_frame_wall = None
@@ -246,6 +270,33 @@ class Runtime:
             # masquerade as a failed clinical report save.
             self._message('notice', text='本次摄像头可继续使用，但未能记住选择；下次启动可能需要重选。')
 
+    def _receive_packet(self, packet, worker):
+        c = self.controller
+        if packet.context != c.context:
+            worker.acknowledge(packet.seq)
+            return
+        if getattr(self, 'camera_test', False):
+            worker.acknowledge(packet.seq)
+            if (c.state not in ('CONNECTING', 'PREVIEW') or
+                    not 0 <= time.monotonic()-packet.received_monotonic <= 3 or not c.gate.admit(packet)):
+                return
+            self.camera_test_frames += 1
+            c.latest_packet = packet
+            c.latest_pose = c.latest_observation = None
+            c.confirmed = False
+        self.last_frame_wall = time.monotonic()
+        self.connect_started_wall = None
+        if c.state == 'CONNECTING':
+            c.state = 'PREVIEW'
+        if getattr(self, 'camera_test', False):
+            # Raw preview deliberately does not submit to a model or an assessment engine.
+            self._view(packet)
+        else:
+            backend = exercise_spec(c.setup['plan']['exercise_id'])['backend'] if c.setup['scene_id'] == 'rehab' else 'yolo'
+            self.vision.submit(packet, backend=backend, side=c.setup['plan']['side'])
+            if c.latest_pose is None:
+                self._view(packet)
+
     def _run(self):
         self.store = None
         self.camera = CameraManager()
@@ -311,17 +362,8 @@ class Runtime:
                                           '回放结束，已保存本次任务。' if had_session else '回放已结束；预览没有生成任务报告。')
                         continue
                     packet = worker.read_latest()
-                    if packet is not None and packet.context == c.context:
-                        self.last_frame_wall = time.monotonic()
-                        self.connect_started_wall = None
-                        if c.state == 'CONNECTING':
-                            c.state = 'PREVIEW'
-                        backend = exercise_spec(c.setup['plan']['exercise_id'])['backend'] if c.setup['scene_id'] == 'rehab' else 'yolo'
-                        self.vision.submit(packet, backend=backend, side=c.setup['plan']['side'])
-                        if c.latest_pose is None:
-                            self._view(packet)
-                    elif packet is not None:
-                        worker.acknowledge(packet.seq)
+                    if packet is not None:
+                        self._receive_packet(packet, worker)
                     timeout_reason = (input_timeout_reason(c.state, time.monotonic(), self.connect_started_wall,
                                                            self.last_frame_wall, self.capture_settings)
                                       if c.context and c.context.source_kind == 'LIVE_CAMERA' else None)
@@ -348,7 +390,7 @@ class Runtime:
                     continue
                 if self.camera.worker is not None:
                     self.camera.worker.acknowledge(packet.seq)
-                if packet.context != c.context:
+                if packet.context != c.context or getattr(self, 'camera_test', False):
                     continue
                 if error:
                     self._inference_failed(packet, error)

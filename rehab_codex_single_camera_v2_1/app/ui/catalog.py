@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 
 from ..exercises import EXERCISE_IDS
 from ..exercise_instructions import JOINT_LABELS, exercise_instructions
+from .body_map import BodyMap
 
 
 class JointGlyph(QWidget):
@@ -58,7 +59,8 @@ class ExerciseCard(QFrame):
         self.exercise_id = exercise_id
         info = exercise_instructions(exercise_id)
         self.setObjectName('exerciseCard')
-        self.setMinimumHeight(160)
+        self.setMinimumHeight(150)
+        self.setMaximumHeight(170)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
         box = QVBoxLayout(self)
         box.setContentsMargins(18, 16, 18, 14)
@@ -102,14 +104,14 @@ class ExerciseCatalog(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.joint = 'all'
+        self.joint = None
         self.visible_ids = []
         self._columns = 0
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
         heading = QHBoxLayout()
-        title = QLabel('选择评估动作')
+        title = QLabel('今天想评估哪里？')
         title.setObjectName('sectionTitle')
         heading.addWidget(title, 1)
         self.checklist = QPushButton('本轮评估清单')
@@ -119,27 +121,36 @@ class ExerciseCatalog(QWidget):
         self.body_button.clicked.connect(self.body_requested.emit)
         heading.addWidget(self.body_button)
         layout.addLayout(heading)
-        self.filter_scroll = QScrollArea()
-        self.filter_scroll.setWidgetResizable(True)
-        self.filter_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.filter_scroll.setFixedHeight(60)
-        filter_host = QWidget()
-        filter_host.setObjectName('scrollContent')
-        filters = QHBoxLayout(filter_host)
-        filters.setContentsMargins(0, 0, 0, 8)
-        filters.setSpacing(6)
-        self.group_buttons = {}
-        for joint, label in {'all': '全部', **JOINT_LABELS}.items():
-            button = QPushButton(label)
-            button.setObjectName('filter')
-            button.setCheckable(True)
-            button.setChecked(joint == 'all')
-            button.clicked.connect(lambda checked=False, j=joint: self.select_joint(j))
-            filters.addWidget(button)
-            self.group_buttons[joint] = button
-        filters.addStretch()
-        self.filter_scroll.setWidget(filter_host)
-        layout.addWidget(self.filter_scroll)
+        split = QHBoxLayout()
+        split.setSpacing(20)
+        body_panel = QFrame()
+        body_panel.setObjectName('card')
+        body_panel.setMaximumWidth(480)
+        body_box = QVBoxLayout(body_panel)
+        body_box.setContentsMargins(12, 12, 12, 10)
+        self.body_map = BodyMap()
+        self.body_map.joint_selected.connect(self.select_joint)
+        body_box.addWidget(self.body_map, 1)
+        hint = QLabel('点击图标或名称')
+        hint.setObjectName('muted')
+        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        body_box.addWidget(hint)
+        split.addWidget(body_panel, 5)
+        action_panel = QWidget()
+        action_box = QVBoxLayout(action_panel)
+        action_box.setContentsMargins(0, 0, 0, 0)
+        action_box.setSpacing(12)
+        action_heading = QHBoxLayout()
+        self.part_title = QLabel('选择身体部位')
+        self.part_title.setObjectName('sectionTitle')
+        action_heading.addWidget(self.part_title, 1)
+        all_button = QPushButton('全部动作')
+        all_button.setObjectName('filter')
+        all_button.setCheckable(True)
+        all_button.clicked.connect(lambda: self.select_joint('all'))
+        action_heading.addWidget(all_button)
+        self.group_buttons = {'all': all_button, **self.body_map.labels}
+        action_box.addLayout(action_heading)
         tools = QHBoxLayout()
         self.search = QLineEdit()
         self.search.setPlaceholderText('搜索动作 / 关节')
@@ -150,7 +161,7 @@ class ExerciseCatalog(QWidget):
         self.results = QLabel()
         self.results.setObjectName('muted')
         tools.addWidget(self.results)
-        layout.addLayout(tools)
+        action_box.addLayout(tools)
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -166,13 +177,15 @@ class ExerciseCatalog(QWidget):
             item.chosen.connect(self.exercise_selected)
             self.cards[eid] = item
         self.scroll.setWidget(self.content)
-        layout.addWidget(self.scroll, 1)
-        self.empty = QLabel('没有匹配的动作\n换一个关键词，或选择其他部位。')
+        action_box.addWidget(self.scroll, 1)
+        self.empty = QLabel()
         self.empty.setObjectName('muted')
         self.empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.empty.setMinimumHeight(100)
-        layout.addWidget(self.empty, 1)
-        note = QLabel('按需评估，无需做完全部动作。二维观察不替代专业评估。')
+        action_box.addWidget(self.empty, 1)
+        split.addWidget(action_panel, 6)
+        layout.addLayout(split, 1)
+        note = QLabel('按需选择部位 · 二维观察不替代专业评估')
         note.setObjectName('muted')
         note.setWordWrap(True)
         layout.addWidget(note)
@@ -184,6 +197,8 @@ class ExerciseCatalog(QWidget):
         self.joint = joint
         for key, button in self.group_buttons.items():
             button.setChecked(key == joint)
+        self.body_map.select_joint(joint)
+        self.search.clear()
         self._filter()
 
     def _filter(self):
@@ -193,17 +208,22 @@ class ExerciseCatalog(QWidget):
                        if exercise_instructions(eid)['joint'] == joint]
         for eid in ordered_ids:
             info = exercise_instructions(eid)
-            if (self.joint == 'all' or info['joint'] == self.joint) and all(
+            if (self.joint == 'all' or info['joint'] == self.joint or (self.joint is None and words)) and all(
                     word in (info['search_terms']+' '+info['move']).casefold() for word in words):
                 self.visible_ids.append(eid)
         self.results.setText(f'{len(self.visible_ids)} 项动作')
+        self.results.setVisible(self.joint is not None or bool(words))
+        self.part_title.setText(JOINT_LABELS.get(self.joint, '全部动作' if self.joint == 'all' else
+                                               '搜索结果' if words else '选择身体部位'))
+        self.empty.setText('先点击左侧的一个部位' if self.joint is None and not words else '没有匹配的动作，换个关键词试试')
+        self.empty.setWordWrap(True)
         self.empty.setVisible(not self.visible_ids)
         self.scroll.setVisible(bool(self.visible_ids))
         self._relayout()
         self.scroll.verticalScrollBar().setValue(0)
 
     def _relayout(self):
-        self._columns = 3 if self.width() >= 1050 else 2 if self.width() >= 650 else 1
+        self._columns = 2 if self.scroll.width() >= 620 else 1
         while self.grid.count():
             item = self.grid.takeAt(0)
             if item.widget():
@@ -217,6 +237,6 @@ class ExerciseCatalog(QWidget):
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
-        columns = 3 if self.width() >= 1050 else 2 if self.width() >= 650 else 1
+        columns = 2 if self.scroll.width() >= 620 else 1
         if columns != self._columns:
             self._relayout()
