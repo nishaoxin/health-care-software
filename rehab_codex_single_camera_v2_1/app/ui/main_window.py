@@ -117,7 +117,7 @@ class MainWindow(QMainWindow):
         for key, button in self.scene_buttons.items():
             button.setChecked((page == 3 and key == 'rehab') or
                               (page == 0 and key == self.scene and not (key == 'rehab' and training)))
-        self.training_nav.setChecked(page == 0 and training)
+        self.training_nav.setChecked(page == 4 or (page == 0 and training))
         self.body_nav.setChecked(page == 2)
         self.history_nav.setChecked(page == 1)
 
@@ -147,9 +147,33 @@ class MainWindow(QMainWindow):
         self.exercise.setCurrentIndex(self.exercise.findData(exercise_id))
         self.pages.setCurrentIndex(0)
         self._sync_scene()
+        self.setup_tabs.setCurrentIndex(0)
         self.setup_panel.verticalScrollBar().setValue(0)
         self.monitor_scroll.verticalScrollBar().setValue(0)
         self.notice.clear()
+
+    def _show_training_hub(self):
+        if self.state in ('ONLINE', 'SAVE_FAILED') or self.busy:
+            self.notice.setText('请先结束并保存当前任务，再进入训练中心。')
+            return
+        self._invalidate()
+        self.training_hub.set_plan(self.setup['plan'], self._body_scope_key())
+        self.pages.setCurrentWidget(self.training_hub)
+        self.title.setText('训练中心')
+        self.subtitle.setText('从评估出发，按已确认的安排练习。')
+        self.notice.clear()
+        self._mark_navigation()
+        self._buttons()
+
+    def _resume_training_preparation(self):
+        if self.state in ('ONLINE', 'SAVE_FAILED') or self.busy:
+            self.notice.setText('请先结束并保存当前任务。')
+            return
+        self.training_hub.set_plan(self.setup['plan'], self._body_scope_key())
+        if not self.training_hub.has_reference:
+            self.notice.setText('当前没有可引用的评估，请重新选择记录。')
+            return
+        self._select_rehab('training')
 
     def _source_card(self, parent):
         frame = card()
@@ -252,7 +276,7 @@ class MainWindow(QMainWindow):
         self.camera_instruction.setWordWrap(True)
         self.camera_instruction.setObjectName('muted')
         box.addWidget(self.camera_instruction)
-        self.movement_details = Disclosure('动作步骤', expanded=True)
+        self.movement_details = Disclosure('完整文字步骤', expanded=False)
         self.movement_steps = QLabel()
         self.movement_steps.setWordWrap(True)
         self.movement_details.box.addWidget(self.movement_steps)
@@ -623,7 +647,8 @@ class MainWindow(QMainWindow):
             self.setup['plan'] = default_plan(self.exercise.currentData())
             self.setup['plan'].update(participant_id=self.participant_id, submode=mode)
         self._select_scene('rehab')
-        self.movement_details.toggle.setChecked(mode != 'training')
+        self.setup_tabs.setCurrentIndex(1 if mode == 'training' else 0)
+        self.movement_details.toggle.setChecked(False)
         self.notice.setText('评估：按自己的舒适幅度完成动作，不追求统一正常值。' if mode == 'assessment'
                             else '训练：请从身体档案选择评估，再确认训练计划。')
 
@@ -723,6 +748,8 @@ class MainWindow(QMainWindow):
         self._accept_context_frames = False
         self._training_execution = {}
         self.setup['plan']['joint_baseline'] = {}
+        self.exercise_guide.select_step(0)
+        self.exercise_guide.follow_observation('UNSELECTED', None)
         for metric_card in (self.count_card, self.angle_card, self.valid_card):
             metric_card.show_value(None)
         if self.state in ('ONLINE', 'PREVIEW', 'CONNECTING', 'ERROR'):
@@ -850,6 +877,11 @@ class MainWindow(QMainWindow):
         self.catalog_button.setVisible(self.scene == 'rehab' and not training)
         self.camera_instruction.setText(instructions['camera'])
         self.camera_instruction.setVisible(self.scene == 'rehab')
+        self.exercise_guide.setVisible(self.scene == 'rehab')
+        self.exercise_guide.set_exercise(plan['exercise_id'], plan['side'])
+        self.setup_tabs.setTabVisible(0, self.scene == 'rehab')
+        if self.scene != 'rehab':
+            self.setup_tabs.setCurrentIndex(1)
         self.movement_steps.setText(instructions['position']+'\n\n1  '+instructions['start']+'\n\n2  '+instructions['move']+'\n\n3  '+instructions['return'])
         self.movement_details.setVisible(self.scene == 'rehab')
         self.measurement_details.setVisible(self.scene == 'rehab')
@@ -880,7 +912,10 @@ class MainWindow(QMainWindow):
         self.reference_text.setVisible(training)
         self.reference_button.setVisible(training)
         reference = plan.get('assessment_reference') or {}
-        self.reference_text.setText(('评估：'+reference.get('exercise_label', spec['label'])+' · '+('左侧' if reference.get('side') == 'left' else '右侧')+'\n'+reference.get('start_utc', '').replace('T', ' ')[:16]+' UTC')
+        reference_time = reference.get('start_utc')
+        reference_time_label = (reference_time.replace('T', ' ')[:16]+' UTC'
+                                if isinstance(reference_time, str) and reference_time else '评估时间未记录')
+        self.reference_text.setText(('评估：'+(reference.get('exercise_label') or spec['label'])+' · '+('左侧' if reference.get('side') == 'left' else '右侧')+'\n'+reference_time_label)
                                     if reference.get('session_id') else '还没有选择评估记录。')
         self.source_badge.setText(SOURCES.get(self.source_kind.currentData(), '输入未选择')+' · '+CONTEXTS.get(self.usage.currentData(), ''))
         if self.state not in ('ONLINE', 'PREVIEW'):
@@ -906,6 +941,10 @@ class MainWindow(QMainWindow):
         if self.pages.currentIndex() == 3:
             self.title.setText('身体评估')
             self.subtitle.setText('选择部位和动作，完成后查看身体档案。')
+        elif self.pages.currentWidget() is self.training_hub:
+            self.training_hub.set_plan(plan, self._body_scope_key())
+            self.title.setText('训练中心')
+            self.subtitle.setText('从评估出发，按已确认的安排练习。')
         self._buttons()
 
     def _mirror_changed(self):
@@ -950,6 +989,7 @@ class MainWindow(QMainWindow):
         return {'kind': kind, 'file': str(path), 'ref': ref, 'recording_id': ref, 'usage_context': self.usage.currentData()}
 
     def _preview(self):
+        self.setup_tabs.setCurrentIndex(1)
         if self.participant.text().strip() != self.participant_id:
             self.notice.setText('用户编号尚未应用，请先点击“切换 / 新建用户”。')
             return
@@ -1054,6 +1094,8 @@ class MainWindow(QMainWindow):
             self.history_nav.setEnabled(available and self.state != 'SAVE_FAILED')
             self.catalog_button.setEnabled(editable)
             self.catalog.setEnabled(editable)
+            if hasattr(self, 'training_hub'):
+                self.training_hub.setEnabled(editable)
             if hasattr(self, 'body_train'):
                 self.body_train.setEnabled(available and bool(self.body_action.currentData()))
             self.poses.setEnabled(self.state != 'ONLINE' and available)
@@ -1292,7 +1334,10 @@ class MainWindow(QMainWindow):
             return
         if context:
             self.last_generation = context.generation
+        previous_state = self.state
         self.state = data['state']
+        if self.scene == 'rehab' and self.state == 'ONLINE' and previous_state != 'ONLINE':
+            self.setup_tabs.setCurrentIndex(0)
         self._training_execution = (data.get('summary') or {}).get('training') or {}
         training_stage = self._training_execution.get('stage')
         self._confirmed = data['confirmed']
@@ -1361,6 +1406,11 @@ class MainWindow(QMainWindow):
         if self.state in ('OFFLINE', 'ERROR', 'SAVE_FAILED', 'PRIVACY_PAUSED'):
             self.feedback.setText(self._idle_copy()[2])
         observed = data.get('observation_status')
+        if self.scene == 'rehab':
+            primary = metrics.get(exercise_spec(self.exercise.currentData())['metric'], {})
+            self.exercise_guide.follow_observation(
+                self.state, summary.get('phase'), training_stage=training_stage,
+                valid=bool(primary.get('valid')) and observed == 'VALID')
         if (self.state in ('PREVIEW', 'ONLINE') and observed in ('NO_PERSON_DETECTED', 'MULTI_PERSON', 'UNKNOWN')
                 and training_stage not in ('PAUSED', 'RESTING', 'COMPLETE')):
             self.feedback.setText({'NO_PERSON_DETECTED': '未检测到人，请调整拍摄位置。',

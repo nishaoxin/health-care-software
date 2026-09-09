@@ -118,16 +118,16 @@ class VideoCanvas(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         p.setPen(Qt.PenStyle.NoPen)
-        p.setBrush(QColor('#192f28'))
+        p.setBrush(QColor('#292236'))
         p.drawRoundedRect(self.rect(), 12, 12)
         if self.image is None:
             cx, cy = self.width()/2, self.height()*.35
             radius = min(64, self.height()*.22)
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.setPen(QPen(QColor('#355044'), 1))
+            p.setPen(QPen(QColor('#4b3c5c'), 1))
             for radius in (radius*.72, radius):
                 p.drawEllipse(QPointF(cx, cy), radius, radius)
-            pen = QPen(QColor('#9eb89a'), 2.5)
+            pen = QPen(QColor('#baabd0'), 2.5)
             pen.setCapStyle(Qt.PenCapStyle.RoundCap)
             p.setPen(pen)
             p.drawRoundedRect(QRectF(cx-24, cy-15, 40, 30), 6, 6)
@@ -138,7 +138,7 @@ class VideoCanvas(QWidget):
             p.setPen(QColor('#edf5f1'))
             p.drawText(QRectF(20, self.height()*.64, self.width()-40, 28), Qt.AlignmentFlag.AlignCenter, self.caption)
             p.setFont(QFont('Microsoft YaHei UI', 10))
-            p.setPen(QColor('#aac0bc'))
+            p.setPen(QColor('#b8abc9'))
             p.drawText(QRectF(20, self.height()*.80, self.width()-40, self.height()*.18), Qt.AlignmentFlag.AlignHCenter | Qt.TextFlag.TextWordWrap, self.subcaption)
         else:
             rect = self.image_rect()

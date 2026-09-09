@@ -1,10 +1,12 @@
 """Desktop shell and layout. All actions use MainWindow's existing run gates."""
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QWidget, QFrame, QLabel, QPushButton, QLineEdit, QComboBox,
-    QVBoxLayout, QHBoxLayout, QStackedWidget, QPlainTextEdit, QScrollArea)
+    QVBoxLayout, QHBoxLayout, QStackedWidget, QPlainTextEdit, QScrollArea, QTabWidget)
 
 from .catalog import ExerciseCatalog
 from .training import TrainingControls
+from .training_hub import TrainingHub
+from .exercise_guide import ExerciseGuide
 from .widgets import VideoCanvas, MetricCard, Disclosure, NoticeLabel
 
 
@@ -16,7 +18,7 @@ def build_workspace(w):
     root.setSpacing(0)
     sidebar = QFrame()
     sidebar.setObjectName('sidebar')
-    sidebar.setFixedWidth(208)
+    sidebar.setFixedWidth(188)
     nav = QVBoxLayout(sidebar)
     nav.setContentsMargins(16, 26, 16, 22)
     nav.setSpacing(7)
@@ -46,7 +48,7 @@ def build_workspace(w):
         return button
 
     w.scene_buttons = {'rehab': nav_button('身体评估', w._show_catalog)}
-    w.training_nav = nav_button('训练指导', lambda: w._select_rehab('training'))
+    w.training_nav = nav_button('训练中心', w._show_training_hub)
     w.body_nav = nav_button('身体档案', w._show_body)
     w.history_nav = nav_button('历史记录', w._history)
     nav.addSpacing(22)
@@ -65,7 +67,7 @@ def build_workspace(w):
     w.coverage.setWordWrap(True)
     nav.addWidget(w.coverage)
     nav.addSpacing(12)
-    version = QLabel('本地版  ·  0.5')
+    version = QLabel('本地康复  ·  0.6')
     version.setObjectName('muted')
     nav.addWidget(version)
     root.addWidget(sidebar)
@@ -203,8 +205,17 @@ def build_workspace(w):
     left.addWidget(w.monitor_scroll, 1)
     split.addLayout(left, 1)
     w.setup_panel = w._setup_panel()
-    w.setup_panel.setFixedWidth(328)
-    split.addWidget(w.setup_panel)
+    w.setup_tabs = QTabWidget()
+    w.setup_tabs.setObjectName('coachTabs')
+    w.setup_tabs.setFixedWidth(344)
+    w.guide_scroll = QScrollArea()
+    w.guide_scroll.setWidgetResizable(True)
+    w.guide_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    w.exercise_guide = ExerciseGuide()
+    w.guide_scroll.setWidget(w.exercise_guide)
+    w.setup_tabs.addTab(w.guide_scroll, '动作图解')
+    w.setup_tabs.addTab(w.setup_panel, '拍摄与计划')
+    split.addWidget(w.setup_tabs)
     work.addLayout(split, 1)
 
     actions = QHBoxLayout()
@@ -237,7 +248,13 @@ def build_workspace(w):
     w._body_page()
     w.catalog = ExerciseCatalog()
     w.catalog.exercise_selected.connect(w._choose_catalog_exercise)
+    w.catalog.body_requested.connect(w._show_body)
     w.pages.addWidget(w.catalog)
+    w.training_hub = TrainingHub()
+    w.training_hub.assessment_requested.connect(w._show_catalog)
+    w.training_hub.records_requested.connect(w._show_body)
+    w.training_hub.resume_requested.connect(w._resume_training_preparation)
+    w.pages.addWidget(w.training_hub)
     body.addWidget(w.pages, 1)
     root.addLayout(body, 1)
     w._buttons()
