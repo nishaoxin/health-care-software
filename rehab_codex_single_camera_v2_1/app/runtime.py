@@ -74,7 +74,9 @@ class Runtime:
         c, store = self.controller, self.store
         if name == 'enumerate':
             devices = self.camera.enumerate(kw['backend'])
-            self._message('devices', devices=[asdict(d) for d in devices])
+            self._message('devices', backend=kw['backend'], devices=[asdict(d) for d in devices])
+        elif name == 'remember_camera':
+            self._remember_camera(kw['device'])
         elif name == 'open':
             self.audio.reset()
             self.vision.clear()
@@ -89,6 +91,8 @@ class Runtime:
             confirmed = c.confirm(kw['setup'])
             self._message('confirmed', setup=confirmed)
             self._view(c.latest_packet, c.latest_pose)
+            if c.source['kind'] == 'LIVE_CAMERA':
+                self._remember_camera(c.source['device_ref'])
         elif name == 'unconfirm':
             c.confirmed = False
             self._view(c.latest_packet, c.latest_pose)
@@ -234,6 +238,14 @@ class Runtime:
         else:
             raise ValueError('未知操作')
 
+    def _remember_camera(self, device):
+        try:
+            self.store.save_camera_preference(device)
+        except Exception:
+            # Preferences are optional; failure must not interrupt a live run or
+            # masquerade as a failed clinical report save.
+            self._message('notice', text='本次摄像头可继续使用，但未能记住选择；下次启动可能需要重选。')
+
     def _run(self):
         self.store = None
         self.camera = CameraManager()
@@ -247,7 +259,12 @@ class Runtime:
             self.controller = SceneController(self.store, self.camera, vision_config=settings['vision'])
             self.vision = VisionWorker(ROOT/settings['vision']['model_path'],
                                        imgsz=settings['vision']['imgsz'], device=settings['vision'].get('device', 'cpu'))
-            self._message('ready')
+            try:
+                preferred_camera = self.store.get_camera_preference()
+                preference_error = False
+            except Exception:
+                preferred_camera, preference_error = None, True
+            self._message('ready', preferred_camera=preferred_camera, camera_preference_error=preference_error)
             if recovered:
                 self._message('notice', text=f'发现 {recovered} 条上次非正常结束的任务，已标记中断；未补造缺失结果。')
             self._view()

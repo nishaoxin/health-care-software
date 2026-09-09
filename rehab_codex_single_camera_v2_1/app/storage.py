@@ -324,6 +324,18 @@ class Storage:
     def save_device(self, ref, descriptor):
         return self._call(lambda c: c.execute('INSERT OR REPLACE INTO devices VALUES (?,?)', (ref, dumps(descriptor))).rowcount)
 
+    def save_camera_preference(self, descriptor):
+        from .camera_selection import camera_preference
+        # A reserved device-binding row, not a scene profile or patient record.
+        # No schema migration and no stale capture index is persisted.
+        return self.save_device('preference:camera:v1', camera_preference(descriptor))
+
+    def get_camera_preference(self):
+        from .camera_selection import camera_preference
+        row = self._call(lambda c: c.execute('SELECT payload FROM devices WHERE id=?',
+                                            ('preference:camera:v1',)).fetchone())
+        return camera_preference(json.loads(row[0])) if row else None
+
     def audit(self, action, payload):
         return self._call(lambda c: c.execute('INSERT INTO audit(at_utc,action,payload) VALUES (?,?,?)',
                                               (utc_now(), action, dumps(payload))).rowcount)

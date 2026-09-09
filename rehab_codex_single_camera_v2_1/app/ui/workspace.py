@@ -67,7 +67,7 @@ def build_workspace(w):
     w.coverage.setWordWrap(True)
     nav.addWidget(w.coverage)
     nav.addSpacing(12)
-    version = QLabel('本地康复  ·  0.6')
+    version = QLabel('本地康复  ·  0.7')
     version.setObjectName('muted')
     nav.addWidget(version)
     root.addWidget(sidebar)
@@ -83,7 +83,7 @@ def build_workspace(w):
     titlebox.addWidget(w.title)
     w.subtitle = QLabel()
     w.subtitle.setObjectName('muted')
-    titlebox.addWidget(w.subtitle)
+    w.subtitle.hide()  # Keep detailed scene copy available internally, not repeated below every title.
     heading.addLayout(titlebox, 1)
     w.status_badge = QLabel('相机未打开')
     w.status_badge.setObjectName('badge')
@@ -118,7 +118,7 @@ def build_workspace(w):
     person_row.addStretch()
     w.person_hint = QLabel('记录按用户分别保存')
     w.person_hint.setObjectName('muted')
-    person_row.addWidget(w.person_hint)
+    w.person_hint.hide()
     body.addWidget(person)
     w._refresh_participant_controls()
     w.notice = NoticeLabel()
@@ -126,13 +126,13 @@ def build_workspace(w):
     w.notice.setWordWrap(True)
     w.notice.setVisible(False)
     body.addWidget(w.notice)
+    w._source_card(body)  # One global device selection, visible before entering any mode.
 
     w.pages = QStackedWidget()
     w.work_page = QWidget()
     work = QVBoxLayout(w.work_page)
     work.setContentsMargins(0, 0, 0, 0)
     work.setSpacing(12)
-    w._source_card(work)
     split = QHBoxLayout()
     split.setSpacing(16)
     monitor = QVBoxLayout()
@@ -177,11 +177,13 @@ def build_workspace(w):
     w.valid_card = MetricCard('有效观察', '%')
     for item in (w.count_card, w.angle_card, w.valid_card):
         metrics.addWidget(item, 1)
-    monitor.addLayout(metrics)
+    w.metrics_panel = QWidget()
+    w.metrics_panel.setLayout(metrics)
+    metrics.setContentsMargins(0, 0, 0, 0)
+    monitor.addWidget(w.metrics_panel)
     w.feedback = QLabel('打开相机，检查拍摄位置。')
     w.feedback.setObjectName('feedback')
     w.feedback.setWordWrap(True)
-    monitor.addWidget(w.feedback)
     # The debug checkbox remains an accessible disclosure; it is not in the
     # daily workflow. Full diagnostic evidence remains available when needed.
     w.debug_details = Disclosure('识别详情')
@@ -203,6 +205,7 @@ def build_workspace(w):
     left.setSpacing(10)
     left.addWidget(w.training_panel)
     left.addWidget(w.monitor_scroll, 1)
+    left.addWidget(w.feedback)  # Current guidance stays visible even when the camera area scrolls.
     split.addLayout(left, 1)
     w.setup_panel = w._setup_panel()
     w.setup_tabs = QTabWidget()
@@ -213,13 +216,16 @@ def build_workspace(w):
     w.guide_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     w.exercise_guide = ExerciseGuide()
     w.guide_scroll.setWidget(w.exercise_guide)
-    w.setup_tabs.addTab(w.guide_scroll, '动作图解')
-    w.setup_tabs.addTab(w.setup_panel, '拍摄与计划')
+    w.setup_tabs.addTab(w.guide_scroll, '怎么做')
+    w.setup_tabs.addTab(w.setup_panel, '准备设置')
     split.addWidget(w.setup_tabs)
     work.addLayout(split, 1)
 
     actions = QHBoxLayout()
     actions.setSpacing(10)
+    w.next_step_hint = QLabel()
+    w.next_step_hint.setObjectName('muted')
+    actions.addWidget(w.next_step_hint, 1)
     w.preview_button = QPushButton('打开预览')
     w.preview_button.clicked.connect(w._preview)
     w.confirm_button = QPushButton('确认准备')
@@ -241,6 +247,8 @@ def build_workspace(w):
     w.discard_button.clicked.connect(w._discard_pending)
     for button in (w.preview_button, w.confirm_button, w.start_button, w.stop_button,
                    w.privacy_button, w.retry_button, w.backup_button, w.discard_button):
+        button.setMinimumHeight(42)
+        button.setMinimumWidth(120)
         actions.addWidget(button)
     work.addLayout(actions)
     w.pages.addWidget(w.work_page)

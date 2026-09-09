@@ -4,6 +4,7 @@ os.environ['QT_QPA_PLATFORM'] = 'offscreen'
 from pathlib import Path
 import queue
 import sys
+import argparse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -25,9 +26,13 @@ app = QApplication([])
 app.setStyle('Fusion')
 for font in ('msyh.ttc', 'msyhbd.ttc'):
     QFontDatabase.addApplicationFont(str(Path(os.environ.get('WINDIR', 'C:/Windows')) / 'Fonts' / font))
-output = ROOT / 'qa-output' / 'sport-v06'
+parser = argparse.ArgumentParser()
+parser.add_argument('--output', type=Path, default=ROOT / 'qa-output' / 'sport-v06')
+output = parser.parse_args().output
 output.mkdir(parents=True, exist_ok=True)
 w = MainWindow(runtime=PassiveRuntime())
+w._handle_message({'kind': 'devices', 'backend': 700, 'devices': [
+    dict(name='测试摄像头（仅布局）', path='synthetic-layout-only', backend=700, index=9)]})
 w.show()
 
 
@@ -55,9 +60,18 @@ try:
         capture(f'action-guide-{width}')
         w.setup_tabs.setCurrentIndex(1)
         capture(f'preparation-{width}')
+    w.resize(1100, 730)
+    w.canvas.caption = '预览状态布局测试'
+    w.canvas.subcaption = '没有打开真实摄像头'
+    w._render_view(dict(state='PREVIEW', context=None, confirmed=False, summary={}))
+    capture('preview-confirm-1100')
+    w._render_view(dict(state='PREVIEW', context=None, confirmed=True, summary={}))
+    capture('preview-ready-1100')
+    w._render_view(dict(state='UNSELECTED', context=None, confirmed=False, summary={}))
     w.resize(1360, 900)
     w.source_kind.addItem('合成布局测试', 'SYNTHETIC')
     w.source_kind.setCurrentIndex(w.source_kind.findData('SYNTHETIC'))
+    w.replay_row.hide()  # This fixture has no video file.
     w.usage.setCurrentIndex(w.usage.findData('TEST'))
     w._poll()
     profile = build_body_profile([], **w._body_scope_key())
@@ -69,6 +83,8 @@ try:
     capture('training-with-unconfirmed-plan')
     w.training_hub.resume.click()
     w.setup_tabs.setCurrentIndex(0)
+    w.notice.clear()
+    w.canvas.caption, w.canvas.subcaption = '合成训练状态布局测试', '没有打开真实摄像头'
     w._render_view(dict(state='ONLINE', context=None, confirmed=True, observation_status='VALID',
                         summary={'phase': 'RAISING', 'completed': 2, 'valid_ratio': .9,
                                  'metrics': {'raise_deg': {'value': 42, 'valid': True}},

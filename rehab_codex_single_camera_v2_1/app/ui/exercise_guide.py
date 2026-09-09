@@ -21,7 +21,7 @@ class ExerciseGuide(QFrame):
         box.setContentsMargins(12, 12, 12, 12)
         box.setSpacing(10)
         top = QHBoxLayout()
-        title = QLabel('动作图解')
+        title = QLabel('动作提示')
         title.setObjectName('sectionTitle')
         top.addWidget(title)
         top.addStretch()
@@ -66,6 +66,7 @@ class ExerciseGuide(QFrame):
         self.status.setObjectName('muted')
         self.status.setWordWrap(True)
         box.addWidget(self.status)
+        box.addStretch()
 
     def set_exercise(self, exercise_id, side):
         identity = (exercise_id, side)
@@ -77,7 +78,7 @@ class ExerciseGuide(QFrame):
         info = exercise_instructions(exercise_id)
         self.setAccessibleName(info['label'] + '动作图解')
         self.select_step(0)
-        self.status.setText('可先浏览三步；阅读图解不会开始采集或计次。')
+        self.status.setText('仅浏览 · 尚未开始')
 
     def select_step(self, index):
         if not self.steps or not 0 <= index < len(self.steps):
@@ -94,7 +95,7 @@ class ExerciseGuide(QFrame):
         self.image_available = False
         self._pixmap = QPixmap()
         path = step['image_path']
-        message = '动作示意图待补充\n' + step['title']
+        message = '示意图待补充'
         try:
             if path.is_file():
                 reader = QImageReader(str(path))
@@ -106,9 +107,9 @@ class ExerciseGuide(QFrame):
                         self._pixmap = QPixmap.fromImage(image)
                         self.image_available = True
                 if not self.image_available:
-                    message = '示意图无法读取\n请参考下方文字步骤'
+                    message = '示意图无法读取，请参考文字'
         except OSError:
-            message = '示意图无法读取\n请参考下方文字步骤'
+            message = '示意图无法读取，请参考文字'
         self.picture.clear()
         if self.image_available:
             self._fit_picture()
@@ -127,10 +128,10 @@ class ExerciseGuide(QFrame):
 
     def follow_observation(self, state, phase, *, valid=False, training_stage=None):
         if state in ('OFFLINE', 'ERROR', 'SAVE_FAILED', 'PRIVACY_PAUSED'):
-            self.status.setText('采集已中断或停止；图解仅供阅读，请勿继续跟练。')
+            self.status.setText('采集已中断或停止，请暂停动作。')
             return
         if state != 'ONLINE':
-            self.status.setText('先阅读三步并完成拍摄准备；此处不自动开始动作。')
+            self.status.setText('仅浏览 · 尚未开始')
             return
         if training_stage and training_stage not in ('ACTIVE', 'RECOVERY'):
             self.status.setText({'PAUSED': '训练已暂停，请先休息。', 'RESTING': '组间休息中，请等待确认后继续。',
@@ -138,7 +139,7 @@ class ExerciseGuide(QFrame):
                                  'FINISHED': '训练已结束，图解仅供阅读。'}.get(training_stage, '请先完成准备确认。'))
             return
         if not valid:
-            self.status.setText('当前画面证据不足，已暂停自动步骤提示。')
+            self.status.setText('画面证据不足 · 自动提示已暂停')
             return
         index = {'REST': 0, 'WAIT_READY': 0, 'SEATED_READY': 0, 'RAISING': 1,
                  'RISING': 1, 'PEAK_OR_HOLD': 1, 'STANDING_REACHED': 1, 'LOWERING': 2}.get(phase)
@@ -147,4 +148,4 @@ class ExerciseGuide(QFrame):
             return
         if index != self.step_index:
             self.select_step(index)
-        self.status.setText('当前动作 · ' + self.steps[index]['title'] + '（按有效观察切换）')
+        self.status.setText('当前动作 · ' + self.steps[index]['title'])

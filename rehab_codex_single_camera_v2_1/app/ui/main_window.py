@@ -21,6 +21,7 @@ from ..exercises import exercise_spec
 from ..exercise_instructions import exercise_instructions
 from ..assessment import build_training_reference
 from ..participants import legacy_participant, new_participant
+from ..camera_selection import choose_camera
 from ..runtime import Runtime
 from .dialogs import PlanDialog, ReportDialog, EventsDialog
 from .widgets import ROI_LABELS, Disclosure
@@ -87,6 +88,10 @@ class MainWindow(QMainWindow):
         self.events_dialog = None
         self.last_generation = -1
         self._accept_context_frames = True
+        self._preferred_camera = None
+        self._allow_single_camera = True
+        self._camera_selection_touched = False
+        self._camera_notice_text = ''
         self._build()
         self.catalog.checklist_requested.connect(self._open_assessment_batch)
         self.constructing = False
@@ -108,7 +113,7 @@ class MainWindow(QMainWindow):
             'PRIVACY_PAUSED': ('采集已停止', '点击“打开预览”重新准备', '采集已停止，未继续记录。'),
             'CONNECTING': ('正在打开输入', '正在连接设备' if live else '正在读取视频', '正在打开输入，请稍候。'),
         }.get(self.state, ('摄像头尚未打开' if live else '视频尚未打开',
-                          '选择摄像头，点击“打开预览”' if live else '选择视频，点击“打开预览”',
+                          ('点击“打开预览”' if self.device.currentData() else '请在顶部选择摄像头') if live else '选择视频，点击“打开预览”',
                           '打开预览，按右侧步骤完成准备。'))
 
     def _mark_navigation(self):
@@ -242,9 +247,6 @@ class MainWindow(QMainWindow):
         box = QVBoxLayout(panel)
         box.setContentsMargins(16, 14, 16, 16)
         box.setSpacing(10)
-        title = QLabel('拍摄准备')
-        title.setObjectName('sectionTitle')
-        box.addWidget(title)
         self.rehab_controls = QWidget()
         form = QFormLayout(self.rehab_controls)
         form.setContentsMargins(0, 0, 0, 0)
@@ -280,7 +282,6 @@ class MainWindow(QMainWindow):
         self.movement_steps = QLabel()
         self.movement_steps.setWordWrap(True)
         self.movement_details.box.addWidget(self.movement_steps)
-        box.addWidget(self.movement_details)
         self.measurement_details = Disclosure('测量说明')
         self.action_guide = QLabel()
         self.action_guide.setWordWrap(True)
@@ -329,6 +330,8 @@ class MainWindow(QMainWindow):
         for widget in (self.joint_rest_button, self.joint_direction_button, self.joint_baseline_text):
             jointbox.addWidget(widget)
         box.addWidget(self.joint_baselines)
+        self.optional_baseline = Disclosure('起点记录（可选）')
+        box.addWidget(self.optional_baseline)
         self.region_controls = QWidget()
         region = QVBoxLayout(self.region_controls)
         region.setContentsMargins(0, 0, 0, 0)
@@ -397,6 +400,7 @@ class MainWindow(QMainWindow):
         load = QPushButton('载入已保存机位')
         load.clicked.connect(lambda: self._send('profile'))
         self.more_setup.box.addWidget(load)
+        self.more_setup.box.addWidget(self.movement_details)
         box.addWidget(self.more_setup)
         box.addStretch()
         scroll.setWidget(panel)
@@ -772,6 +776,7 @@ class MainWindow(QMainWindow):
         self.setup['plan']['calibration'] = {}
         self.canvas.rois = {}
         self._sync_scene()
+        self._refresh_body_scope()
 
     def _usage_changed(self):
         if self.constructing:
@@ -779,12 +784,31 @@ class MainWindow(QMainWindow):
         self._invalidate()
         self._clear_training_reference()
         self._sync_scene()
+        self._refresh_body_scope()
+
+    def _refresh_body_scope(self):
+        if self.body_profile and any(self.body_profile.get(k) != v for k, v in self._body_scope_key().items()):
+            self.body_profile = None
+            self.body_action.clear()
+            self.body_overview.set_loading()
+            self.body_browser.clear()
+            self.body_detail_dialog.hide()
+            if self.pages.currentIndex() == 2:
+                self._request_body()
 
     def _backend_changed(self):
         if self.constructing:
             return
         self._invalidate()
         self.setup['plan']['calibration'] = {}
+        self.setup['rois'] = {}
+        self.canvas.rois = {}
+        self._camera_selection_touched = True
+        self._allow_single_camera = False  # Changing backend requires explicit rebinding.
+        self.device.blockSignals(True)
+        self.device.clear()
+        self.device.addItem('请选择摄像头', None)
+        self.device.blockSignals(False)
         self._send('enumerate', backend=self.backend.currentData())
 
     def _device_changed(self):
@@ -794,6 +818,13 @@ class MainWindow(QMainWindow):
         self.setup['plan']['calibration'] = {}
         self.setup['rois'] = {}
         self.canvas.rois = {}
+        self._camera_selection_touched = True
+        self._allow_single_camera = False
+        self._preferred_camera = self.device.currentData()
+        if self._preferred_camera:
+            self.runtime.command('remember_camera', device=self._preferred_camera)
+            if self.notice.text() == self._camera_notice_text:
+                self.notice.clear()
         self._sync_scene()
 
     def _placement_changed(self):
@@ -886,13 +917,19 @@ class MainWindow(QMainWindow):
         self.movement_details.setVisible(self.scene == 'rehab')
         self.measurement_details.setVisible(self.scene == 'rehab')
         self.companion.setVisible(bool(plan.get('needs_companion')) or self.scene != 'rehab')
-        self.joint_baselines.setVisible(self.scene == 'rehab' and plan['exercise_id'] != 'sit_to_stand')
+        joint_task = self.scene == 'rehab' and plan['exercise_id'] != 'sit_to_stand'
+        optional = joint_task and not spec['baseline_required']
+        target_layout = self.optional_baseline.box if optional else self.setup_panel.widget().layout()
+        if target_layout.indexOf(self.joint_baselines) < 0:
+            target_layout.insertWidget(0 if optional else target_layout.indexOf(self.optional_baseline), self.joint_baselines)
+        self.optional_baseline.setVisible(optional)
+        self.joint_baselines.setVisible(joint_task)
         self.joint_direction_button.setVisible(spec['directional_calibration'])
         baseline = plan.get('joint_baseline') or {}
         self.joint_baseline_text.setText(
             ('起点已记录' if baseline else '起点未记录')+
             (' · 方向已记录' if baseline.get('direction_sign') else ' · 方向未记录' if spec['directional_calibration'] else '')+
-            ('\n请在预览中记录。' if spec['baseline_required'] else '\n可选；用于记录自己的起始姿势。'))
+            '')
         if spec['experimental']:
             self.manual.setText('已确认侧别、方向及关节可见')
         self.manual.setToolTip('请核对本人左右侧、动作要求的拍摄平面，以及需要的关节是否清楚可见。')
@@ -941,6 +978,8 @@ class MainWindow(QMainWindow):
         if self.pages.currentIndex() == 3:
             self.title.setText('身体评估')
             self.subtitle.setText('选择部位和动作，完成后查看身体档案。')
+        elif self.pages.currentIndex() in (1, 2):
+            self.title.setText('历史记录' if self.pages.currentIndex() == 1 else '身体档案')
         elif self.pages.currentWidget() is self.training_hub:
             self.training_hub.set_plan(plan, self._body_scope_key())
             self.title.setText('训练中心')
@@ -1076,8 +1115,31 @@ class MainWindow(QMainWindow):
         self.discard_button.setVisible(self.state == 'SAVE_FAILED')
         self.backup_button.setEnabled(available)
         self.discard_button.setEnabled(available)
-        for button in (self.preview_button, self.confirm_button, self.start_button):
-            button.setVisible(self.state != 'SAVE_FAILED')
+        confirmed = getattr(self, '_confirmed', False)
+        self.preview_button.setVisible(self.state in ('UNSELECTED', 'OFFLINE', 'ERROR', 'PRIVACY_PAUSED'))
+        self.confirm_button.setVisible(self.state == 'PREVIEW' and not confirmed)
+        self.start_button.setVisible(self.state == 'PREVIEW' and confirmed)
+        self.stop_button.setVisible(self.state in ('ONLINE', 'ERROR'))
+        self.privacy_button.setVisible(self.state in ('PREVIEW', 'ONLINE', 'CONNECTING'))
+        primary = (self.retry_button if self.state == 'SAVE_FAILED' else self.stop_button if self.state == 'ONLINE'
+                   else self.start_button if self.state == 'PREVIEW' and confirmed
+                   else self.confirm_button if self.state == 'PREVIEW' else self.preview_button)
+        for button in (self.preview_button, self.confirm_button, self.start_button, self.stop_button, self.retry_button):
+            name = 'primary' if button is primary else ''
+            if button.objectName() != name:
+                button.setObjectName(name)
+                button.style().unpolish(button)
+                button.style().polish(button)
+        hint = {'UNSELECTED': '1 / 3  打开预览', 'PREVIEW': '3 / 3  开始任务' if confirmed else '2 / 3  检查机位与准备',
+                'CONNECTING': '正在连接…', 'ONLINE': '正在记录', 'SAVE_FAILED': '请先保存本次结果',
+                'OFFLINE': '输入已断开，请重新预览', 'ERROR': '检查输入后重试', 'PRIVACY_PAUSED': '采集已停止'}.get(self.state, '')
+        if self.state == 'PREVIEW' and confirmed and not training_ready:
+            hint = '请先确认训练计划'
+        if self.state == 'UNSELECTED' and self.source_kind.currentData() == 'LIVE_CAMERA' and not self.device.currentData():
+            hint = '请在顶部选择摄像头'
+        self.next_step_hint.setText(hint)
+        self.metrics_panel.setVisible(self.state in ('ONLINE', 'SAVE_FAILED'))
+        self.feedback.setVisible(self.state not in ('UNSELECTED', 'CONNECTING'))
         if hasattr(self, 'poses'):
             for button in (self.joint_rest_button, self.joint_direction_button):
                 button.setEnabled(available and self.state == 'PREVIEW')
@@ -1145,6 +1207,15 @@ class MainWindow(QMainWindow):
                 self.notice.setText('个人信息已保存。')
             self._buttons()
         elif kind == 'ready':
+            if not self._camera_selection_touched:
+                self._preferred_camera = m.get('preferred_camera')
+                self._allow_single_camera = not m.get('camera_preference_error', False)
+                if self._preferred_camera:
+                    index = self.backend.findData(self._preferred_camera.get('backend'))
+                    if index >= 0:
+                        self.backend.blockSignals(True)
+                        self.backend.setCurrentIndex(index)
+                        self.backend.blockSignals(False)
             self._send('participants')
             self._send('enumerate', backend=self.backend.currentData())
         elif kind in ('error', 'fatal'):
@@ -1175,10 +1246,14 @@ class MainWindow(QMainWindow):
                 self.participant_dialog.set_busy(False)
                 self.participant_dialog.accept()
         elif kind == 'devices':
-            previous = self.device.currentData()
+            if m.get('backend', self.backend.currentData()) != self.backend.currentData():
+                return  # Never apply a late enumeration from another backend.
+            previous = self.device.currentData() or self._preferred_camera
+            selected = choose_camera(m['devices'], previous, allow_single=self._allow_single_camera)
             self.device.blockSignals(True)
             self.device.clear()
-            self.device.addItem('选择摄像头', None)
+            placeholder = ('上次摄像头不可用，请重选' if previous else '请选择摄像头')
+            self.device.addItem(placeholder, None)
             names = Counter(d['name'] for d in m['devices'])
             for d in m['devices']:
                 title = d['name']
@@ -1186,15 +1261,32 @@ class MainWindow(QMainWindow):
                     title += f" · {d['index']} / {digest(d.get('path', ''))[:5]}"
                 self.device.addItem(title, d)
                 self.device.setItemData(self.device.count()-1, f"{d['name']} · 索引 {d['index']} · 接口 {d['backend']}", Qt.ItemDataRole.ToolTipRole)
-            if previous:
-                matching = [i for i in range(1, self.device.count()) if self.device.itemData(i).get('path') == previous.get('path') and self.device.itemData(i).get('backend') == previous.get('backend')]
-                if previous.get('path') and len(matching) == 1:
-                    self.device.setCurrentIndex(matching[0])
+                if d is selected:
+                    self.device.setCurrentIndex(self.device.count()-1)
             self.device.blockSignals(False)
+            if selected:
+                self._preferred_camera = selected
+                self.device.setToolTip('各模式共用此摄像头；打开预览后仍需确认机位。')
+                if self.notice.text() == self._camera_notice_text:
+                    self.notice.clear()
+            else:
+                self.device.setToolTip(placeholder)
+                if self.state == 'PREVIEW':
+                    self.manual.setChecked(False)
+                    self._confirmed = False
+                    self.runtime.command('unconfirm')
             if not m['devices']:
-                self.notice.setText('此后端未枚举到相机。可人工切换后端重新枚举，或选择本地录像。')
-            elif self.pages.currentIndex() == 0:
-                self.notice.setText('请选择摄像头，然后打开预览。')
+                self.device.setItemText(0, '未找到摄像头')
+                self._camera_notice_text = '未找到摄像头。检查连接后刷新，或在输入设置中更换接口。'
+                self.notice.setText(self._camera_notice_text)
+            elif not selected:
+                self._camera_notice_text = ('请选择一次摄像头，后续各模式会沿用。' if not previous
+                                            else '上次摄像头未找到或标识不唯一，请重新选择。')
+                self.notice.setText(self._camera_notice_text)
+            if self.state not in ('ONLINE', 'PREVIEW', 'CONNECTING'):
+                self.canvas.caption, self.canvas.subcaption, _ = self._idle_copy()
+                self.canvas.update()
+            self._buttons()
         elif kind == 'confirmed':
             self.setup = m['setup']
             self._confirmed = True
