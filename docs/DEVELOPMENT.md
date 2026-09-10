@@ -57,6 +57,7 @@ Set-Location .\rehab_codex_single_camera_v2_1
 .\.venv\Scripts\python.exe scripts\qa_training.py
 .\.venv\Scripts\python.exe scripts\qa_plan_library.py
 .\.venv\Scripts\python.exe scripts\qa_movement_timing.py --output qa-output\timing-review
+.\.venv\Scripts\python.exe scripts\qa_longitudinal.py --output qa-output\history-review
 .\.venv\Scripts\python.exe scripts\check_docs.py
 .\.venv\Scripts\python.exe -m compileall -q app scripts tests
 ```

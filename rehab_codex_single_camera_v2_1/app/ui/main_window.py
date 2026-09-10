@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (QMainWindow, QWidget, QFrame, QVBoxLayout, QHBoxL
     QInputDialog, QTextBrowser)
 
 from ..domain import SCENES, EXERCISES, SOURCES, CONTEXTS, digest, dumps
-from ..geometry import compatible_reports
+from ..longitudinal import compare_conditions, CONDITION_LABELS
 from ..settings import ROOT, default_setup, default_plan
 from ..exercises import exercise_spec
 from ..exercise_instructions import exercise_instructions
@@ -34,6 +34,7 @@ from .assessment_batches import AssessmentBatchDialog
 from .camera_test import CameraTestDialog
 from .distance_coach import DistanceCoach
 from .plan_library import PlanLibraryDialog
+from .longitudinal import LongitudinalDialog
 
 STATUS = {'UNSELECTED': '相机未打开', 'CONNECTING': '正在连接', 'PREVIEW': '预览中',
           'ONLINE': '记录中', 'OFFLINE': '输入已断开', 'PRIVACY_PAUSED': '采集已停止',
@@ -80,6 +81,7 @@ class MainWindow(QMainWindow):
         self.feedback_dialog = None
         self.batch_dialog = None
         self.plan_library_dialog = None
+        self.longitudinal_dialog = None
         self._plan_to_activate = None
         self._training_execution = {}
         self.state = 'UNSELECTED'
@@ -491,7 +493,7 @@ class MainWindow(QMainWindow):
         self.history_empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         box.addWidget(self.history_empty)
         row = QHBoxLayout()
-        for title, callback in (('刷新', self._history), ('打开报告', self._open_report), ('导出所选报告', self._export_selected), ('比较两份报告', self._compare), ('删除所选报告', self._delete_report), ('返回任务', lambda: self._select_scene(self.scene))):
+        for title, callback in (('刷新', self._history), ('打开报告', self._open_report), ('纵向记录', self._open_longitudinal), ('导出所选报告', self._export_selected), ('比较两份报告', self._compare), ('删除所选报告', self._delete_report), ('返回任务', lambda: self._select_scene(self.scene))):
             button = QPushButton(title)
             button.clicked.connect(callback)
             row.addWidget(button)
@@ -1389,6 +1391,8 @@ class MainWindow(QMainWindow):
             self._send('enumerate', backend=self.backend.currentData())
         elif kind in ('error', 'fatal'):
             self.notice.setText(m['text'])
+            if m.get('command') in ('longitudinal_history', 'export_longitudinal_history') and self.longitudinal_dialog:
+                self.longitudinal_dialog.show_error(m['text'], m.get('request_id'))
             if self.distance_coach and self.distance_coach.isVisible():
                 self.distance_coach.show_hold('请暂停动作\n查看下方提示')
                 self.distance_coach.set_feedback(m['text'])
@@ -1545,6 +1549,12 @@ class MainWindow(QMainWindow):
                 self.notice.setText('评估已汇总。选择项目后可进入训练。')
             else:
                 self.notice.clear()
+        elif kind == 'longitudinal_history':
+            if self.longitudinal_dialog:
+                self.longitudinal_dialog.receive(m['history'], m.get('request_id'))
+        elif kind == 'longitudinal_exported':
+            if self.longitudinal_dialog and self.longitudinal_dialog.request_id == m.get('request_id'):
+                self.longitudinal_dialog.notice.setText('纵向记录已导出：'+m['directory'])
         elif kind == 'history':
             self.sessions = m['sessions']
             self.table.setRowCount(len(self.sessions))
@@ -1800,10 +1810,33 @@ class MainWindow(QMainWindow):
             self.notice.setText('按住 Ctrl 选择两份报告再比较。')
             return
         a, b = (self.sessions[i] for i in rows)
-        if not compatible_reports(a, b):
-            QMessageBox.information(self, '条件不同', '两份报告的参与者、动作、侧别、机位、来源或规则条件不同，不宜直接比较。')
+        result = compare_conditions(a, b)
+        if result['status'] != 'MATCH':
+            keys = result['differences']+result['missing']
+            QMessageBox.information(self, '比较条件需要核对', '不同或缺失的条件：'+
+                '、'.join(CONDITION_LABELS.get(k, k) for k in keys)+'。可在“纵向记录”逐项查看。')
         else:
             QMessageBox.information(self, '相同条件记录对照', f"完整次数：{a['summary'].get('completed', '—')} / {b['summary'].get('completed', '—')}\n这是两次任务记录，不自动解释为康复改善。")
+
+    def _open_longitudinal(self):
+        rows = self._selected()
+        if len(rows) != 1:
+            self.notice.setText('请选择一份康复报告作为纵向比较基准。')
+            return
+        session = self.sessions[rows[0]]
+        if session.get('scene_id') != 'rehab':
+            self.notice.setText('纵向记录用于康复评估或训练，请选择对应报告。')
+            return
+        if self.longitudinal_dialog is None:
+            dialog = LongitudinalDialog(self)
+            self.longitudinal_dialog = dialog
+            dialog.anchor_requested.connect(lambda sid, request: self._send('longitudinal_history', anchor_id=sid, request_id=request))
+            dialog.report_requested.connect(lambda sid: self._send('report', id=sid))
+            dialog.export_requested.connect(lambda sid, metric, folder, fingerprint: self._send('export_longitudinal_history',
+                anchor_id=sid, metric=metric, directory=folder, expected_fingerprint=fingerprint, request_id=dialog.request_id))
+            dialog.finished.connect(lambda: setattr(self, 'longitudinal_dialog', None))
+        self.longitudinal_dialog.show()
+        self.longitudinal_dialog.request(session['id'])
 
     def _events(self):
         if self.events_dialog is None:

@@ -511,3 +511,80 @@ def export_body_profile(profile, folder) -> dict:
     html_path.write_text(render_body_profile(exported), encoding='utf-8')
     json_path.write_text(dumps(exported, indent=2), encoding='utf-8')
     return {'html': str(html_path), 'json': str(json_path)}
+
+
+def _history_svg(history, metric):
+    from .longitudinal import plot_series, METRICS
+    segments = plot_series(history, metric)
+    body = f'<text x="16" y="24" font-size="16">{fmt(METRICS[metric])} · 横轴为按日期排序的记录序号</text>'
+    if not segments:
+        body += '<text x="220" y="145" font-size="16">没有满足比较条件的有效数据点；请核对表中原因。</text>'
+    else:
+        values = [value for segment in segments for _, value in segment]
+        low, high = min(0., min(values)), max(values)
+        high += max(1., high-low)*.1
+        count = len(history['rows'])
+        for index in range(4):
+            y = 40+180*index/3
+            body += f'<path d="M60 {y} H900" stroke="#e3ddeb"/><text x="5" y="{y+5}" font-size="13">{high-(high-low)*index/3:.1f}</text>'
+        for segment in segments:
+            points = [(60+840*index/max(1, count-1), 40+180*(high-value)/(high-low), index, value) for index, value in segment]
+            if len(points) > 1:
+                joined = ' '.join(f'{x:.2f},{y:.2f}' for x, y, _, _ in points)
+                body += f'<polyline points="{joined}" fill="none" stroke="#7044d5" stroke-width="2"/>'
+            for x, y, index, value in points:
+                body += f'<circle cx="{x:.2f}" cy="{y:.2f}" r="4" fill="#7044d5"><title>记录 {index+1}: {value:.2f}</title></circle>'
+        body += f'<text x="60" y="252">1</text><text x="880" y="252">{count}</text>'
+    return ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 270" role="img" '
+            'aria-label="相同记录条件下的观测数值；缺失记录断开曲线" style="width:100%;background:white">'+body+'</svg>')
+
+
+def render_longitudinal_history(history, metric='range_deg'):
+    from .longitudinal import METRICS, DATA_LABELS, COMPARISON_LABELS, CONDITION_LABELS
+    if metric not in METRICS:
+        raise ValueError('未知历史指标')
+    scope = history['scope']
+    text = '<h1>'+fmt(history['exercise_label'])+' · 纵向记录</h1><p>'+fmt(scope['participant_id'])+' · '+fmt(SIDES.get(scope['side']))+' · '+fmt(MODES.get(scope['submode']))+' · '+fmt(SOURCES.get(scope['source_kind']))+' / '+fmt(CONTEXTS.get(scope['usage_context']))+'</p>'
+    text += '<p class="note">'+fmt(history['note'])+'</p><p>比较基准：<code>'+fmt(history['anchor_id'])+'</code>。曲线仅连接相邻的、已结束且有完整动作与有效测量的同条件记录；横轴不按日历间隔缩放。</p>'
+    text += _history_svg(history, metric)
+    text += '<h2>全部同用户 / 来源 / 情境 / 动作 / 侧别 / 模式记录</h2><p>失败、日期缺失与条件不同的记录保留。时间中位数只使用各次完整动作的有效时间；括号为有效样本数 / 完整动作数。空值不表示 0。</p>'
+    text += '<table><tr><th>序号 / 开始 UTC</th><th>记录</th><th>条件</th><th>完整次数</th><th>观察幅度 °</th><th>当前指标：'+fmt(METRICS[metric])+'</th><th>有效观察</th></tr>'
+    for index, row in enumerate(history['rows']):
+        count = row['timing_counts'].get(metric)
+        value = fmt(row['values'][metric], 2)+(f" ({count['measured']} / {count['complete_repetitions']})" if count else '')
+        values = [str(index+1)+' · '+fmt(row['start_utc']), fmt(DATA_LABELS[row['data_state']]),
+                  fmt(COMPARISON_LABELS[row['comparison']['status']]), fmt(row['values']['completed'], 0),
+                  fmt(row['values']['range_deg']), value, _percent(row['valid_ratio'])]
+        text += '<tr>'+''.join('<td>'+v+'</td>' for v in values)+'</tr>'
+    text += '</table><h2>比较条件与原始记录引用</h2>'
+    for row in history['rows']:
+        keys = row['comparison']['differences']+row['comparison']['missing']
+        text += '<details><summary>'+fmt(row['session_id'])+' · '+fmt(COMPARISON_LABELS[row['comparison']['status']])+'</summary>'
+        text += '<p>差异 / 缺失：'+fmt('、'.join(CONDITION_LABELS.get(k, k) for k in keys) or '无已记录条件差异')+'</p>'
+        text += '<p>数据状态：'+fmt(row['status'])+'；结束原因：'+fmt(row['stop_reason'])+'；角度来源：'+fmt(row['motion_evidence_source'])+'</p>'
+        text += '<table>'+''.join('<tr><th>'+fmt(CONDITION_LABELS.get(key, key))+'</th><td>'+fmt(dumps(value))+'</td></tr>' for key, value in row['conditions']['values'].items())+'</table></details>'
+    return _document('纵向记录', text)
+
+
+def export_longitudinal_history(history, folder, metric='range_deg'):
+    from .longitudinal import METRICS
+    if metric not in METRICS:
+        raise ValueError('未知历史指标')
+    result = _export_snapshot(history)
+    result['source_fingerprint'] = result.pop('fingerprint')
+    result['selected_metric'] = metric
+    result['export_content_sha256'] = digest(result)
+    out = _empty_export_directory(folder).resolve()
+    (out/'history.json').write_text(dumps(result, indent=2), encoding='utf-8')
+    (out/'history.html').write_text(render_longitudinal_history(result, metric), encoding='utf-8')
+    (out/'chart.svg').write_text(_history_svg(result, metric), encoding='utf-8')
+    with (out/'history.csv').open('w', newline='', encoding='utf-8-sig') as stream:
+        columns = ['session_id', 'start_utc', 'end_utc', 'status', 'stop_reason', 'data_state', 'comparison', 'differences', 'missing', 'valid_ratio', *METRICS, 'timing_counts', *result['scope']]
+        writer = csv.DictWriter(stream, fieldnames=columns)
+        writer.writeheader()
+        for row in result['rows']:
+            values = {key: row.get(key) for key in columns[:6]}
+            values.update(row['values'], **result['scope'], valid_ratio=row['valid_ratio'], comparison=row['comparison']['status'],
+                          differences=dumps(row['comparison']['differences']), missing=dumps(row['comparison']['missing']), timing_counts=dumps(row['timing_counts']))
+            writer.writerow({key: _csv_value(value) for key, value in values.items()})
+    return str(out)

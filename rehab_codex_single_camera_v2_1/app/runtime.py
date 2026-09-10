@@ -84,7 +84,7 @@ class Runtime:
         if getattr(self, 'camera_test', False) and name not in (
                 'stop_camera_test', 'stop', 'privacy', 'switch', 'shutdown', 'enumerate', 'remember_camera',
                 'history', 'participants', 'body_profile', 'report', 'profile', 'events', 'training_review',
-                'export', 'export_body_profile', 'unconfirm'):
+                'export', 'export_body_profile', 'longitudinal_history', 'export_longitudinal_history', 'unconfirm'):
             raise ValueError('请先关闭摄像头测试，再开始评估或训练')
         if name == 'enumerate':
             devices = self.camera.enumerate(kw['backend'])
@@ -183,6 +183,17 @@ class Runtime:
         elif name == 'history':
             sessions = store.list_sessions()
             self._message('history', sessions=[{k: v for k, v in s.items() if k not in ('metrics', 'poses')} for s in sessions])
+        elif name in ('longitudinal_history', 'export_longitudinal_history'):
+            from .longitudinal import build_longitudinal_history
+            from .reports import export_longitudinal_history
+            history = build_longitudinal_history(store.list_sessions(), kw['anchor_id'])
+            if name == 'longitudinal_history':
+                self._message('longitudinal_history', history=history, request_id=kw.get('request_id'))
+            else:
+                if kw.get('expected_fingerprint') != history['fingerprint']:
+                    raise ValueError('历史记录已变化，请重新选择基准刷新后再导出')
+                output = export_longitudinal_history(history, kw['directory'], kw.get('metric', 'range_deg'))
+                self._message('longitudinal_exported', directory=output, request_id=kw.get('request_id'))
         elif name == 'participants':
             self._message('participants', participants=store.list_participants())
         elif name in ('training_plans', 'save_training_plan', 'archive_training_plan', 'prepare_training_plan'):
@@ -363,7 +374,7 @@ class Runtime:
                     try:
                         self._execute(name, kw)
                     except Exception as exc:
-                        self._message('error', text=str(exc), command=name)
+                        self._message('error', text=str(exc), command=name, request_id=kw.get('request_id'))
                         self._view(error=str(exc))
                     finally:
                         self._message('command_done', command=name)
