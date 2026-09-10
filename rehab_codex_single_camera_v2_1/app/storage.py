@@ -32,11 +32,11 @@ class Storage:
             conn.row_factory = sqlite3.Row
             conn.execute('PRAGMA busy_timeout=4000')
             version = conn.execute('PRAGMA user_version').fetchone()[0]
-            if version not in (0, 1, 2, 3):
+            if version not in (0, 1, 2, 3, 4):
                 raise RuntimeError('数据库版本高于本程序支持范围，原数据已保留')
             if not self.readonly:
-                if version < 3 and existed:
-                    backup_path = self.path.with_name(self.path.name+'.before-v3-'+utc_now().replace(':', '-')+'.bak')
+                if version < 4 and existed:
+                    backup_path = self.path.with_name(self.path.name+'.before-v4-'+utc_now().replace(':', '-')+'.bak')
                     with sqlite3.connect(backup_path) as backup:
                         conn.backup(backup)
                 if version == 0 and existed:
@@ -56,7 +56,9 @@ class Storage:
                     CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, at_utc TEXT NOT NULL, action TEXT NOT NULL, payload TEXT NOT NULL);
                     CREATE TABLE IF NOT EXISTS participants(id TEXT PRIMARY KEY, revision INTEGER NOT NULL, payload TEXT NOT NULL);
                     CREATE TABLE IF NOT EXISTS assessment_batches(id TEXT PRIMARY KEY, participant_id TEXT NOT NULL, revision INTEGER NOT NULL, payload TEXT NOT NULL);
-                    PRAGMA user_version=3;
+                    CREATE TABLE IF NOT EXISTS training_plans(id TEXT PRIMARY KEY, participant_id TEXT NOT NULL, revision INTEGER NOT NULL, status TEXT NOT NULL, payload TEXT NOT NULL);
+                    CREATE INDEX IF NOT EXISTS training_plans_participant ON training_plans(participant_id);
+                    PRAGMA user_version=4;
                     COMMIT;
                 ''')
                 conn.commit()
@@ -195,6 +197,77 @@ class Storage:
 
     def list_sessions(self):
         return self._call(lambda c: [json.loads(r[0]) for r in c.execute('SELECT payload FROM sessions ORDER BY start_utc DESC')])
+
+    def get_training_plan(self, plan_id):
+        def get(c):
+            if not c.execute("SELECT 1 FROM sqlite_master WHERE name='training_plans' AND type='table'").fetchone():
+                return None
+            row = c.execute('SELECT payload FROM training_plans WHERE id=?', (plan_id,)).fetchone()
+            return json.loads(row[0]) if row else None
+        return self._call(get)
+
+    def list_training_plans(self, scope, *, include_archived=False):
+        from .assessment_batches import scope_key
+        key = scope_key(scope)
+        def collect(c):
+            if not c.execute("SELECT 1 FROM sqlite_master WHERE name='training_plans' AND type='table'").fetchone():
+                return []
+            values = [json.loads(row[0]) for row in c.execute(
+                'SELECT payload FROM training_plans WHERE participant_id=? ORDER BY rowid DESC', (key['participant_id'],))]
+            return [value for value in values if scope_key(value) == key
+                    and (include_archived or value['status'] == 'ACTIVE')]
+        return self._call(collect)
+
+    def save_training_plan(self, value, *, expected_revision):
+        from .assessment_batches import scope_key
+        from .training_plans import validate_training_plan
+        item = validate_training_plan(copy.deepcopy(value))
+        if type(expected_revision) is not int or expected_revision < 0:
+            raise ValueError('计划版本无效，请重新打开计划库')
+        def save(c):
+            c.execute('BEGIN IMMEDIATE')
+            row = c.execute('SELECT revision,payload FROM training_plans WHERE id=?', (item['id'],)).fetchone()
+            if (row[0] if row else 0) != expected_revision:
+                raise ValueError('计划已更新，请重新打开；本次草稿尚未保存')
+            previous = json.loads(row[1]) if row else {}
+            if previous and scope_key(previous) != scope_key(item):
+                raise ValueError('计划不属于当前用户与来源，不能改变所属范围')
+            if previous.get('status') == 'ARCHIVED':
+                raise ValueError('请先恢复已归档计划，再进行编辑')
+            at = utc_now()
+            item.update(revision=expected_revision+1, status='ACTIVE',
+                        created_utc=previous.get('created_utc') or at, updated_utc=at)
+            c.execute('INSERT OR REPLACE INTO training_plans VALUES (?,?,?,?,?)',
+                      (item['id'], item['participant_id'], item['revision'], item['status'], dumps(item)))
+            c.execute('INSERT INTO audit(at_utc,action,payload) VALUES (?,?,?)',
+                      (at, 'save_training_plan', dumps({'id': item['id'], 'revision': item['revision']})))
+            return item
+        return self._call(save)
+
+    def set_training_plan_archived(self, plan_id, scope, archived, *, expected_revision):
+        from .assessment_batches import scope_key
+        key = scope_key(scope)
+        if type(archived) is not bool or type(expected_revision) is not int or expected_revision < 1:
+            raise ValueError('计划操作或版本无效')
+        def change(c):
+            c.execute('BEGIN IMMEDIATE')
+            row = c.execute('SELECT payload FROM training_plans WHERE id=?', (plan_id,)).fetchone()
+            previous = json.loads(row[0]) if row else None
+            if previous is None or scope_key(previous) != key:
+                raise ValueError('计划不存在或不属于当前用户与来源')
+            if previous['revision'] != expected_revision:
+                raise ValueError('计划已更新，请重新打开后操作')
+            status = 'ARCHIVED' if archived else 'ACTIVE'
+            if previous['status'] == status:
+                return previous
+            previous.update(status=status, revision=expected_revision+1, updated_utc=utc_now())
+            c.execute('UPDATE training_plans SET revision=?,status=?,payload=? WHERE id=?',
+                      (previous['revision'], status, dumps(previous), plan_id))
+            c.execute('INSERT INTO audit(at_utc,action,payload) VALUES (?,?,?)',
+                      (utc_now(), 'archive_training_plan' if archived else 'restore_training_plan',
+                       dumps({'id': plan_id, 'revision': previous['revision']})))
+            return previous
+        return self._call(change)
 
     def get_participant(self, participant_id):
         def get(c):

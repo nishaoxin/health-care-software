@@ -64,7 +64,7 @@ def test_preference_survives_reopen_without_changing_schema_or_records(tmp_path)
         store.save_device('camera:existing', camera('old'))
         store.save_profile(dict(profile_id='existing', scene_id='rehab'))
         store.save_camera_preference(camera(index=89))
-        assert store._call(lambda c: c.execute('PRAGMA user_version').fetchone()[0]) == 3
+        assert store._call(lambda c: c.execute('PRAGMA user_version').fetchone()[0]) == 4
     finally:
         store.close()
     store = Storage(path)

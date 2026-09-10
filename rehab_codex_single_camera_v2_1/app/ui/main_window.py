@@ -33,6 +33,7 @@ from .training import TrainingFeedbackDialog, STAGES as TRAINING_STAGES
 from .assessment_batches import AssessmentBatchDialog
 from .camera_test import CameraTestDialog
 from .distance_coach import DistanceCoach
+from .plan_library import PlanLibraryDialog
 
 STATUS = {'UNSELECTED': '相机未打开', 'CONNECTING': '正在连接', 'PREVIEW': '预览中',
           'ONLINE': '记录中', 'OFFLINE': '输入已断开', 'PRIVACY_PAUSED': '采集已停止',
@@ -78,6 +79,8 @@ class MainWindow(QMainWindow):
         self._feedback_after_save = None
         self.feedback_dialog = None
         self.batch_dialog = None
+        self.plan_library_dialog = None
+        self._plan_to_activate = None
         self._training_execution = {}
         self.state = 'UNSELECTED'
         self.busy = 0
@@ -186,6 +189,55 @@ class MainWindow(QMainWindow):
             self.notice.setText('当前没有可引用的评估，请重新选择记录。')
             return
         self._select_rehab('training')
+
+    def _open_plan_library(self):
+        if self.state in ('ONLINE', 'SAVE_FAILED') or self.busy or self._camera_testing:
+            self.notice.setText('请先结束并保存当前任务，再打开训练计划库。')
+            return
+        self._invalidate()
+        scope = self._body_scope_key()
+        self.training_hub.set_plan(self.setup['plan'], scope)
+        candidate = self.setup['plan'] if self.training_hub.has_reference else None
+        dialog = PlanLibraryDialog(scope, self, candidate=candidate)
+        self.plan_library_dialog = dialog
+        dialog.refresh_requested.connect(lambda: self._library_command('training_plans'))
+        dialog.save_requested.connect(lambda plan, revision: self._library_command(
+            'save_training_plan', plan=plan, expected_revision=revision))
+        dialog.archive_requested.connect(lambda pid, revision, archived: self._library_command(
+            'archive_training_plan', id=pid, expected_revision=revision, archived=archived))
+        dialog.training_requested.connect(lambda pid, revision, entry: self._library_command(
+            'prepare_training_plan', id=pid, expected_revision=revision, entry_key=entry))
+        dialog.finished.connect(lambda: setattr(self, 'plan_library_dialog', None))
+        dialog.set_busy(True)
+        dialog.show()
+        # A preceding preview stop remains ahead of this read in the runtime queue.
+        self._send('training_plans', scope=scope)
+
+    def _library_command(self, name, **kwargs):
+        dialog = self.plan_library_dialog
+        if self.busy or not dialog or dialog.scope != self._body_scope_key():
+            return
+        dialog.error.clear()
+        dialog.set_busy(True)
+        self._send(name, scope=dialog.scope, **kwargs)
+
+    def _activate_saved_plan(self, prepared):
+        if prepared['scope'] != self._body_scope_key():
+            return
+        plan = prepared['plan']
+        self._invalidate()
+        self._select_rehab('training')
+        self.joint_group.setCurrentIndex(self.joint_group.findData('all'))
+        self.exercise.setCurrentIndex(self.exercise.findData(plan['exercise_id']))
+        self.side.setCurrentIndex(self.side.findData(plan['side']))
+        self.setup['plan'] = copy.deepcopy(plan)
+        self.setup.update(participant_confirmed=False, companion_confirmed=False,
+                          setup_confirmed_at=None, profile_id='')
+        self.setup.pop('profile_version', None)
+        self._sync_scene()
+        self.setup_tabs.setCurrentIndex(1)
+        reference = plan['saved_plan_reference']
+        self.notice.setText(f"已载入计划第 {reference['revision']} 版的所选项目。请核对并确认本次计划，再预览和确认机位。")
 
     def _source_card(self, parent):
         frame = card()
@@ -552,6 +604,7 @@ class MainWindow(QMainWindow):
 
     def _clear_training_reference(self):
         self.setup['plan'].pop('assessment_reference', None)
+        self.setup['plan'].pop('saved_plan_reference', None)
         self.setup['plan']['training_plan_confirmed'] = False
         self.setup['plan'].pop('assessment_batch_id', None)
         self.setup['plan'].pop('assessment_entry_key', None)
@@ -1301,6 +1354,13 @@ class MainWindow(QMainWindow):
                 self.feedback_dialog.set_busy(self.busy > 0)
             if self.batch_dialog:
                 self.batch_dialog.set_busy(self.busy > 0)
+            if self.plan_library_dialog:
+                self.plan_library_dialog.set_busy(self.busy > 0)
+            if not self.busy and self._plan_to_activate:
+                prepared, self._plan_to_activate = self._plan_to_activate, None
+                if self.plan_library_dialog:
+                    self.plan_library_dialog.accept()
+                    self._activate_saved_plan(prepared)
             if not self.busy and self._participant_to_activate:
                 pid = self._participant_to_activate
                 self._participant_to_activate = None
@@ -1339,6 +1399,8 @@ class MainWindow(QMainWindow):
                 self.feedback_dialog.error.setText(m['text'])
             if m.get('command') in ('assessment_batch', 'create_assessment_batch', 'change_assessment_batch') and self.batch_dialog:
                 self.batch_dialog.error.setText(m['text'])
+            if m.get('command') in ('training_plans', 'save_training_plan', 'archive_training_plan', 'prepare_training_plan') and self.plan_library_dialog:
+                self.plan_library_dialog.error.setText(m['text'])
             if kind == 'fatal':
                 self.preview_button.setEnabled(False)
         elif kind == 'notice':
@@ -1457,6 +1519,14 @@ class MainWindow(QMainWindow):
                 self._summarize_after_save = None
                 if scope == self._body_scope_key():
                     self._request_body()
+        elif kind == 'training_plans':
+            if (self.plan_library_dialog and m['scope'] == self._body_scope_key()
+                    and m['scope'] == self.plan_library_dialog.scope):
+                self.plan_library_dialog.populate(m['plans'], m.get('selected_id'), saved=m.get('saved', False))
+        elif kind == 'training_plan_prepared':
+            if (self.plan_library_dialog and m['scope'] == self._body_scope_key()
+                    and m['scope'] == self.plan_library_dialog.scope):
+                self._plan_to_activate = copy.deepcopy(m)
         elif kind == 'body_profile':
             profile = m['profile']
             if any(profile.get(k) != v for k, v in self._body_scope_key().items()):

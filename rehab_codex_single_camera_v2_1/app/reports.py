@@ -247,6 +247,7 @@ def render_report(s):
                    '<table><tr><th>序号</th><th>完成情况</th><th>个人目标</th><th>代表角度 °</th>'
                    '<th>最小 °</th><th>最大 °</th><th>幅度 °</th><th>时长 s</th><th>观察情况</th><th>可见问题</th></tr>'
                    + (''.join(rows) or '<tr><td colspan="10">没有已记录的动作重复。</td></tr>') + '</table>')
+        detail += _saved_plan_html(s)
         detail += _training_html(s)
         detail += _training_execution_html(s)
         if s.get('measurement_limitations'):
@@ -309,6 +310,28 @@ def _participant_html(profile):
             +'。不代表专业审核或摄像头测量，不自动调整训练目标。</p><table>'
             + ''.join(f'<tr><th>{fmt(label)}</th><td>{fmt(value)}</td></tr>' for label, value in rows if value not in (None, ''))
             + '</table>')
+
+
+def _saved_plan_html(session):
+    if session_value(session, 'submode') != 'training':
+        return ''
+    reference = session.get('saved_plan_reference') or (((session.get('config_snapshot') or {}).get('plan') or {}).get('saved_plan_reference'))
+    if not isinstance(reference, dict) or not reference.get('id'):
+        return ''
+    result = ('<h2>来源计划</h2><p>'+fmt(reference.get('name') or '名称未随导出提供')+
+              ' · 版本 '+fmt(reference.get('revision'), 0)+' · 项目 '+fmt(reference.get('entry_key'))+
+              '</p><p class="muted">保留开始时的计划版本；之后修改或归档计划不会改写本次报告。</p>')
+    changes = reference.get('session_overrides') or {}
+    labels = {'target_reps': '每组次数', 'target_sets': '组数', 'rest_between_sets_s': '组间休息秒数',
+              'target_angle_deg': '角度目标', 'allowed_elbow_flexion_deg': '可见屈肘上限',
+              'allowed_trunk_tilt_deg': '躯干侧倾上限', 'lowering_tempo_min_s': '下降最短秒数',
+              'lowering_tempo_max_s': '下降最长秒数', 'use_of_hands': '扶物安排',
+              'needs_companion': '陪同要求', 'sound_enabled': '提示音'}
+    if changes:
+        result += '<p>本次人工确认时修改了以下设置，实际执行以本次设置为准：</p><table><tr><th>设置</th><th>保存计划</th><th>本次使用</th></tr>'
+        result += ''.join('<tr><td>'+fmt(labels.get(k, k))+'</td><td>'+fmt(v.get('saved'))+
+                          '</td><td>'+fmt(v.get('used'))+'</td></tr>' for k, v in changes.items())+'</table>'
+    return result
 
 
 def _training_execution_html(session):

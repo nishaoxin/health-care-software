@@ -22,12 +22,13 @@ def nullable_spin(value, maximum=180, suffix=' °'):
 
 
 class PlanDialog(QDialog):
-    def __init__(self, plan, parent=None):
+    def __init__(self, plan, parent=None, *, template_mode=False):
         super().__init__(parent)
         self.setWindowTitle('训练计划')
         self.setMinimumWidth(540)
         self.resize(620, 650)
         self.plan = copy.deepcopy(plan)
+        self.template_mode = template_mode
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 20)
         layout.setSpacing(16)
@@ -35,7 +36,8 @@ class PlanDialog(QDialog):
         title = QLabel(spec['label']+' · '+('左侧' if plan['side'] == 'left' else '右侧'))
         title.setObjectName('sectionTitle')
         layout.addWidget(title)
-        intro = QLabel('按已确认的训练安排填写。角度目标可不设置。')
+        intro = QLabel('填写要保存的安排；每次使用仍需确认本次计划和机位。' if template_mode else
+                       '按已确认的训练安排填写。角度目标可不设置。')
         intro.setWordWrap(True)
         layout.addWidget(intro)
         form_host = QWidget()
@@ -103,7 +105,7 @@ class PlanDialog(QDialog):
         layout.addWidget(measure)
         layout.addWidget(QLabel('疼痛、头晕或不适时，请立即停止。'))
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
-        buttons.button(QDialogButtonBox.StandardButton.Save).setText('保存计划')
+        buttons.button(QDialogButtonBox.StandardButton.Save).setText('保存项目' if template_mode else '确认本次计划')
         buttons.button(QDialogButtonBox.StandardButton.Cancel).setText('取消')
         buttons.accepted.connect(self._save)
         buttons.rejected.connect(self.reject)
@@ -124,7 +126,7 @@ class PlanDialog(QDialog):
                          target_angle_deg=optional(self.target), allowed_elbow_flexion_deg=optional(self.elbow),
                          allowed_trunk_tilt_deg=optional(self.tilt), lowering_tempo_min_s=low, lowering_tempo_max_s=high,
                          use_of_hands=self.hands.currentData(), needs_companion=self.companion.isChecked(), sound_enabled=self.sound.isChecked())
-        self.plan['training_plan_confirmed'] = self.plan.get('submode') == 'training'
+        self.plan['training_plan_confirmed'] = self.plan.get('submode') == 'training' and not self.template_mode
         self.accept()
 
 

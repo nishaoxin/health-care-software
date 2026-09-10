@@ -231,8 +231,19 @@ class SceneController:
                     raise ValueError('评估记录已更新或已删除，请回到身体信息重新选择')
                 # Rebuild from saved evidence; never trust a UI-supplied measurement or goal.
                 plan['assessment_reference'] = copy.deepcopy(reference)
+                if plan.get('saved_plan_reference'):
+                    from .training_plans import validate_saved_binding
+                    supplied = plan['saved_plan_reference']
+                    saved = self.storage.get_training_plan(supplied.get('id'))
+                    bound = validate_saved_binding(saved, supplied, plan,
+                        dict(participant_id=plan['participant_id'], source_kind=self.source['kind'],
+                             usage_context=self.source['usage_context']))
+                    if (reference.get('conditions') or {}).get('measurement_contract') != bound['item']['measurement_contract']:
+                        raise ValueError('评估与来源计划的测量定义不一致，请重新评估并选择计划')
+                    plan['saved_plan_reference'] = bound
             else:
                 plan.pop('assessment_reference', None)
+                plan.pop('saved_plan_reference', None)
                 plan['training_plan_confirmed'] = False
                 if plan.get('assessment_batch_id') or plan.get('assessment_entry_key'):
                     from .assessment_batches import validate_binding
@@ -284,6 +295,8 @@ class SceneController:
                         'repetitions': [], 'events': [], 'metrics': [], 'summary': {}}
         if plan.get('assessment_reference'):
             self.session['assessment_reference'] = copy.deepcopy(plan['assessment_reference'])
+        if plan.get('saved_plan_reference'):
+            self.session['saved_plan_reference'] = copy.deepcopy(plan['saved_plan_reference'])
         if scene == 'rehab' and plan['submode'] == 'assessment' and plan.get('assessment_batch_id'):
             self.session.update(assessment_batch_id=plan['assessment_batch_id'],
                                 assessment_entry_key=plan['assessment_entry_key'])

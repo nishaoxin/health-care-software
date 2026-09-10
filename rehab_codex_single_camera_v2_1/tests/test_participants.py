@@ -91,8 +91,8 @@ def test_v1_migration_backs_up_before_adding_table_and_never_rewrites_sessions(t
     store = Storage(path)
     try:
         assert store.get_session('old') == original
-        assert store._call(lambda c: c.execute('PRAGMA user_version').fetchone()[0]) == 3
-        backups = list(tmp_path.glob('legacy.sqlite3.before-v3-*.bak'))
+        assert store._call(lambda c: c.execute('PRAGMA user_version').fetchone()[0]) == 4
+        backups = list(tmp_path.glob('legacy.sqlite3.before-v4-*.bak'))
         assert len(backups) == 1
         with sqlite3.connect(backups[0]) as backup:
             assert backup.execute('PRAGMA user_version').fetchone()[0] == 1
@@ -102,7 +102,7 @@ def test_v1_migration_backs_up_before_adding_table_and_never_rewrites_sessions(t
         store.close()
     store = Storage(path)
     store.close()
-    assert len(list(tmp_path.glob('legacy.sqlite3.before-v3-*.bak'))) == 1
+    assert len(list(tmp_path.glob('legacy.sqlite3.before-v4-*.bak'))) == 1
 
 
 def test_failed_migration_backup_leaves_original_schema_untouched(tmp_path, monkeypatch):

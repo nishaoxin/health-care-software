@@ -1,4 +1,4 @@
-"""Training entry screen: no invented recommendations, streaks, or saved plans."""
+"""Training entry screen with current preparation and a manual plan library."""
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QPushButton
 
@@ -10,6 +10,7 @@ class TrainingHub(QWidget):
     assessment_requested = Signal()
     records_requested = Signal()
     resume_requested = Signal()
+    library_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -45,6 +46,9 @@ class TrainingHub(QWidget):
         self.assess.clicked.connect(self.assessment_requested.emit)
         actions.addWidget(self.records)
         actions.addWidget(self.assess)
+        self.library = QPushButton('我的训练计划')
+        self.library.clicked.connect(self.library_requested.emit)
+        actions.addWidget(self.library)
         panel.addLayout(actions)
         box.addWidget(current)
         box.addStretch()

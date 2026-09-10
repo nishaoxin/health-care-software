@@ -270,6 +270,7 @@ def build_workspace(w):
     w.training_hub.assessment_requested.connect(w._show_catalog)
     w.training_hub.records_requested.connect(w._show_body)
     w.training_hub.resume_requested.connect(w._resume_training_preparation)
+    w.training_hub.library_requested.connect(w._open_plan_library)
     w.pages.addWidget(w.training_hub)
     body.addWidget(w.pages, 1)
     root.addLayout(body, 1)

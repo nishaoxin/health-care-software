@@ -185,6 +185,35 @@ class Runtime:
             self._message('history', sessions=[{k: v for k, v in s.items() if k not in ('metrics', 'poses')} for s in sessions])
         elif name == 'participants':
             self._message('participants', participants=store.list_participants())
+        elif name in ('training_plans', 'save_training_plan', 'archive_training_plan', 'prepare_training_plan'):
+            from .assessment_batches import scope_key
+            from .training_plans import prepare_training_plan, training_plan_view
+            scope = scope_key(kw['scope'])
+            if name != 'training_plans' and (c.session is not None or c.pending is not None
+                                             or c.state in ('ONLINE', 'SAVE_FAILED', 'PREVIEW', 'CONNECTING')):
+                raise ValueError('请先结束并保存当前任务，再修改或使用训练计划')
+            selected_id = None
+            if name == 'save_training_plan':
+                if scope_key(kw['plan']) != scope:
+                    raise ValueError('计划不属于当前用户与来源')
+                record = store.save_training_plan(kw['plan'], expected_revision=kw['expected_revision'])
+                selected_id = record['id']
+            elif name == 'archive_training_plan':
+                record = store.set_training_plan_archived(kw['id'], scope, kw['archived'],
+                                                           expected_revision=kw['expected_revision'])
+                selected_id = record['id']
+            profile = build_body_profile(store.list_sessions(), **scope)
+            if name == 'prepare_training_plan':
+                record = store.get_training_plan(kw['id'])
+                if (record is None or type(kw.get('expected_revision')) is not int
+                        or record['revision'] != kw['expected_revision']):
+                    raise ValueError('保存的计划已更新，请刷新后重新选择')
+                plan = prepare_training_plan(record, kw['entry_key'], profile)
+                self._message('training_plan_prepared', scope=scope, plan=plan)
+            else:
+                plans = [training_plan_view(p, profile) for p in store.list_training_plans(scope, include_archived=True)]
+                self._message('training_plans', scope=scope, plans=plans, selected_id=selected_id,
+                              saved=name == 'save_training_plan')
         elif name in ('assessment_batch', 'create_assessment_batch', 'change_assessment_batch'):
             from .assessment_batches import scope_key, batch_view
             scope = scope_key(kw['scope'])

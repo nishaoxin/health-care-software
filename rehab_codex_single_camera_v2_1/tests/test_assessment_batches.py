@@ -114,7 +114,7 @@ def test_v2_migration_backs_up_before_adding_table_and_readonly_does_not_migrate
     store = Storage(path)
     try:
         assert store.get_session('old') == {'id': 'old'}
-        backup_path = next(tmp_path.glob('v2.sqlite3.before-v3-*.bak'))
+        backup_path = next(tmp_path.glob('v2.sqlite3.before-v4-*.bak'))
         with sqlite3.connect(backup_path) as c:
             assert c.execute('PRAGMA user_version').fetchone()[0] == 2
             assert not c.execute("SELECT 1 FROM sqlite_master WHERE name='assessment_batches'").fetchone()

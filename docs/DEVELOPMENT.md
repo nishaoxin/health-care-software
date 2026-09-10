@@ -26,6 +26,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup-Rehab.ps1 -IncludeLa
 | `app/rehab.py`、`training.py`、`assessment.py` | 动作过程、组次执行和评估汇总 |
 | `app/runtime.py`、`scene_controller.py` | 命令、生命周期、开始门禁、配置快照、保存恢复 |
 | `app/storage.py`、`participants.py`、`assessment_batches.py`、`reports.py` | 本地数据库、个人档案、评估清单和导出 |
+| `app/training_plans.py`、`app/ui/plan_library.py` | 个人多项目计划、持久化白名单、版本 / 范围门禁和原生编辑器 |
 | `app/ui/` | 原生界面、身体导航、相机测试、大字指导 |
 
 ## 自动测试
@@ -54,6 +55,7 @@ Set-Location .\rehab_codex_single_camera_v2_1
 .\.venv\Scripts\python.exe scripts\qa_body_camera_ui.py --output qa-output\current-body
 .\.venv\Scripts\python.exe scripts\qa_neck_shoulder.py
 .\.venv\Scripts\python.exe scripts\qa_training.py
+.\.venv\Scripts\python.exe scripts\qa_plan_library.py
 .\.venv\Scripts\python.exe scripts\check_docs.py
 .\.venv\Scripts\python.exe -m compileall -q app scripts tests
 ```
