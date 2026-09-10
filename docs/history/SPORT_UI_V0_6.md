@@ -23,4 +23,4 @@
 
 `scripts/qa_sport_ui.py` 生成 1100×730、1360×900、1600×1000 的原生界面截图，以及显式 SYNTHETIC/TEST 的训练、离线、保存失败状态。`scripts/qa_training.py` 继续检查合成骨架→实际控制器→训练组次→数据库→结束反馈的路径。
 
-最终执行结果另见 `docs/VALIDATION_WINDOWS.md`。离屏截图和合成测试不证明真人角度准确度或患者适用性；本轮没有真实动作图片可验证。
+最终执行结果另见 `../validation/HISTORY_WINDOWS.md`。离屏截图和合成测试不证明真人角度准确度或患者适用性；本轮没有真实动作图片可验证。

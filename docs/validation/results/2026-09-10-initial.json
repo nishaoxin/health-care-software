@@ -1,0 +1,101 @@
+{
+  "started_at_utc": "2026-09-10T07:52:31.471933+00:00",
+  "python_version": "3.13.11",
+  "suite": "all",
+  "partition_file_count": 42,
+  "camera_opened_by_runner": false,
+  "results": [
+    {
+      "batch": "core",
+      "files": [
+        "tests/test_app_assessment.py",
+        "tests/test_app_camera.py",
+        "tests/test_app_contracts.py",
+        "tests/test_app_controller.py",
+        "tests/test_app_joint_exercises.py",
+        "tests/test_app_regression_audio.py",
+        "tests/test_app_rehab.py",
+        "tests/test_app_scenes.py",
+        "tests/test_app_storage.py",
+        "tests/test_assessment_batches.py",
+        "tests/test_axial_and_extension.py",
+        "tests/test_camera_reference.py",
+        "tests/test_camera_selection.py",
+        "tests/test_camera_test_runtime.py",
+        "tests/test_config_contract.py",
+        "tests/test_geometry.py",
+        "tests/test_neck_shoulder_repair.py",
+        "tests/test_participant_runtime.py",
+        "tests/test_participants.py",
+        "tests/test_training_execution.py",
+        "tests/test_training_feedback.py",
+        "tests/test_training_runtime.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 13.93,
+      "junit": {
+        "tests": 550,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "546 passed, 4 subtests passed in 13.34s",
+      "log": "core.log",
+      "junit_file": "core.xml"
+    },
+    {
+      "batch": "ui",
+      "files": [
+        "tests/test_app_ui.py",
+        "tests/test_assessment_batch_ui.py",
+        "tests/test_body_camera_ui.py",
+        "tests/test_clarity_ui.py",
+        "tests/test_distance_ui.py",
+        "tests/test_exercise_guides.py",
+        "tests/test_neck_shoulder_ui.py",
+        "tests/test_participant_ui.py",
+        "tests/test_product_body_overview.py",
+        "tests/test_product_catalog.py",
+        "tests/test_product_navigation.py",
+        "tests/test_sport_ui_flow.py",
+        "tests/test_training_hub.py",
+        "tests/test_training_ui.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 28.9,
+      "junit": {
+        "tests": 341,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "341 passed in 24.46s",
+      "log": "ui.log",
+      "junit_file": "ui.xml"
+    },
+    {
+      "batch": "test_app_joint_expansion_flow",
+      "files": [
+        "tests/test_app_joint_expansion_flow.py"
+      ],
+      "exit_code": 1,
+      "timed_out": false,
+      "duration_s": 48.61,
+      "junit": {
+        "tests": 21,
+        "failures": 3,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "3 failed, 18 passed in 48.12s",
+      "log": "test_app_joint_expansion_flow.log",
+      "junit_file": "test_app_joint_expansion_flow.xml"
+    }
+  ],
+  "success": false,
+  "local_evidence_directory": "rehab_codex_single_camera_v2_1/.runtime/checks/integration-20260910",
+  "published_evidence_note": "Raw logs and JUnit remain local and are not included in Git.",
+  "evidence_scope": "Software tests, synthetic inputs and real local model SDK integration; no human accuracy acceptance."
+}

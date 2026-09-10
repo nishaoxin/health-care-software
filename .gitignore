@@ -18,3 +18,7 @@ backups/
 **/*.log
 **/*.sqlite3*
 **/qa-output/
+# Incoming whole-project archives contain environments and local participant data.
+/*.zip
+**/*.bak
+**/application.lock

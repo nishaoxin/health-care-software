@@ -1,0 +1,133 @@
+{
+  "archive": "health-care-software-main.zip",
+  "archived_main": "552fa2a42b205e89055d5ada0701b2cedd8c309a",
+  "categories": {
+    "environment": {
+      "files": 35817,
+      "bytes": 1739673953
+    },
+    "git_metadata": {
+      "files": 381,
+      "bytes": 2855624
+    },
+    "local_data": {
+      "files": 2,
+      "bytes": 3276800
+    },
+    "model_weights": {
+      "files": 3,
+      "bytes": 23472896
+    },
+    "qa_evidence": {
+      "files": 188,
+      "bytes": 21003061
+    },
+    "runtime_cache": {
+      "files": 152,
+      "bytes": 3015585
+    },
+    "source": {
+      "files": 165,
+      "bytes": 2459728
+    }
+  },
+  "source_files": 165,
+  "archive_bytes": 623892605,
+  "archive_sha256": "62498fac9d454bc40f00a2fa2ade12171f11d7caf38feb5231abd27419b1e2c7",
+  "archive_local_location": "backups/incoming/health-care-software-main-2026-09-10.zip",
+  "base_main": "d17b672aee4db8f0a78e7d84085a12548e5728e0",
+  "source_matches_archived_head": true,
+  "uncommitted_archive_source_changes": 0,
+  "git_object_integrity_check_passed": true,
+  "document_moves": {
+    "SOFTWARE_SPEC.md": "docs/archive/original-v2.1/SOFTWARE_SPEC.md",
+    "rehab_codex_single_camera_v2_1/README.md": "docs/archive/original-v2.1/README.md",
+    "rehab_codex_single_camera_v2_1/MANIFEST.sha256.json": "docs/archive/original-v2.1/MANIFEST.sha256.json",
+    "rehab_codex_single_camera_v2_1/VALIDATION.md": "docs/archive/original-v2.1/VALIDATION.md",
+    "rehab_codex_single_camera_v2_1/MIGRATION_V1_TO_V2.md": "docs/archive/original-v2.1/MIGRATION_V1_TO_V2.md",
+    "rehab_codex_single_camera_v2_1/SOFTWARE_SPEC.md": "docs/specifications/SOFTWARE_SPEC.md",
+    "rehab_codex_single_camera_v2_1/START_WITH_CODEX.md": "docs/specifications/START_WITH_CODEX.md",
+    "rehab_codex_single_camera_v2_1/CHANGELOG_V2_1.md": "docs/history/CHANGELOG.md",
+    "rehab_codex_single_camera_v2_1/APP_README.md": "docs/USER_GUIDE.md",
+    "rehab_codex_single_camera_v2_1/docs/ASSESSMENT_TRAINING_V0_2.md": "docs/history/ASSESSMENT_TRAINING_V0_2.md",
+    "rehab_codex_single_camera_v2_1/docs/JOINT_EXPANSION_V0_3.md": "docs/history/JOINT_EXPANSION_V0_3.md",
+    "rehab_codex_single_camera_v2_1/docs/FUNCTIONAL_EXPANSION_V0_5.md": "docs/history/FUNCTIONAL_EXPANSION_V0_5.md",
+    "rehab_codex_single_camera_v2_1/docs/SPORT_UI_V0_6.md": "docs/history/SPORT_UI_V0_6.md",
+    "rehab_codex_single_camera_v2_1/docs/CLARITY_UI_V0_7.md": "docs/history/CLARITY_UI_V0_7.md",
+    "rehab_codex_single_camera_v2_1/docs/BODY_NAVIGATION_V0_8.md": "docs/history/BODY_NAVIGATION_V0_8.md",
+    "rehab_codex_single_camera_v2_1/docs/DISTANCE_GUIDANCE_V0_9.md": "docs/history/DISTANCE_GUIDANCE_V0_9.md",
+    "rehab_codex_single_camera_v2_1/docs/NECK_SHOULDER_FIX_V0_9_1.md": "docs/history/NECK_SHOULDER_FIX_V0_9_1.md",
+    "rehab_codex_single_camera_v2_1/docs/JOINT_EXPANSION_PLAN.md": "docs/plans/JOINT_EXPANSION_PLAN.md",
+    "rehab_codex_single_camera_v2_1/docs/PRODUCT_COMPLETION_PLAN.md": "docs/plans/PRODUCT_COMPLETION_PLAN.md",
+    "rehab_codex_single_camera_v2_1/docs/FUTURE_EXTENSIONS.md": "docs/plans/FUTURE_EXTENSIONS.md",
+    "rehab_codex_single_camera_v2_1/docs/RESOURCES_AND_UPGRADES.md": "docs/plans/RESOURCES_AND_UPGRADES.md",
+    "rehab_codex_single_camera_v2_1/docs/PRODUCT_INTENT.md": "docs/specifications/PRODUCT_INTENT.md",
+    "rehab_codex_single_camera_v2_1/docs/REGRESSION_CASES.md": "docs/development/REGRESSION_CASES.md",
+    "rehab_codex_single_camera_v2_1/docs/DEPENDENCY_MANIFEST.json": "docs/dependencies/DEPENDENCY_MANIFEST.json",
+    "rehab_codex_single_camera_v2_1/docs/THIRD_PARTY_NOTICES.md": "docs/dependencies/THIRD_PARTY_NOTICES.md",
+    "rehab_codex_single_camera_v2_1/docs/VALIDATION_WINDOWS.md": "docs/validation/HISTORY_WINDOWS.md",
+    "rehab_codex_single_camera_v2_1/docs/TEST_RESULTS.txt": "docs/archive/original-v2.1/TEST_RESULTS.txt",
+    "rehab_codex_single_camera_v2_1/docs/TEST_RESULTS_WINDOWS.txt": "docs/validation/archive/2026-09-06-pytest.txt",
+    "rehab_codex_single_camera_v2_1/docs/UNITTEST_RESULTS_WINDOWS.txt": "docs/validation/archive/2026-09-06-unittest.txt"
+  },
+  "integrated_commits": [
+    {
+      "commit": "2f201ab824f98ccc1847ddd215ee7bc33b2011cc",
+      "subject": "fix: allow slow camera startup"
+    },
+    {
+      "commit": "c0bb56bb6f41ddd51eb83e444a696b131f491a95",
+      "subject": "feat: separate assessment and training with joint body profiles"
+    },
+    {
+      "commit": "2391631ed7dea59a8e920ae2c53d6d6c7951f416",
+      "subject": "feat: expand joint assessments with wrist ankle and finger landmarks"
+    },
+    {
+      "commit": "17b4c1d0b8a7e7538e4f78118eef4fad2a2a7a68",
+      "subject": "feat: redesign local rehab workspace and assessment catalog"
+    },
+    {
+      "commit": "e43f4f83453f0b8bd02c418246b567ae81cb61f7",
+      "subject": "feat: add persistent local participant profiles and session snapshots"
+    },
+    {
+      "commit": "e8303fb0ac6de4bb232770b64ac133c059493d9a",
+      "subject": "feat: execute training sets with rest pause and saved feedback"
+    },
+    {
+      "commit": "15c668d2d03e69457bb317c518f61bb0a5fc2cf5",
+      "subject": "feat: expand joint tasks and persist multi-item assessment rounds"
+    },
+    {
+      "commit": "0d2dce76c9a6e97f831820f2f4f890b32db3a131",
+      "subject": "feat: redesign rehab UI with training hub and step-by-step guides"
+    },
+    {
+      "commit": "df47c77eef375ae7dc712d76d1a10592c9bb82ab",
+      "subject": "Simplify rehabilitation UI and remember shared camera selection"
+    },
+    {
+      "commit": "991e0c630b8a62feb9866dcfb91011a27ae9624e",
+      "subject": "feat: add body-part navigation and isolated camera test"
+    },
+    {
+      "commit": "e166f5906bfbffefeb5f6d2a98b6f09cd6cd48f9",
+      "subject": "feat: default mirrored camera and large distance guidance"
+    },
+    {
+      "commit": "552fa2a42b205e89055d5ada0701b2cedd8c309a",
+      "subject": "fix: clarify neck visibility and shoulder adduction setup"
+    }
+  ],
+  "excluded_from_publication": [
+    "original archive",
+    "virtual environments",
+    "personal databases",
+    "model binaries",
+    "runtime caches",
+    "raw QA outputs"
+  ],
+  "preexisting_local_database_unchanged": true,
+  "evidence_written_at_utc": "2026-09-10T08:06:07.552787+00:00"
+}

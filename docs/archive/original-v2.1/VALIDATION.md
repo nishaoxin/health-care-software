@@ -4,7 +4,7 @@
 
 ## 本次实际执行
 
-- 重新运行`python -m unittest discover -s tests -v`：**原有41项参考测试全部通过**，结果见`docs/TEST_RESULTS.txt`。没有把新增业务要求算成已经实现的测试。
+- 重新运行`python -m unittest discover -s tests -v`：**原有41项参考测试全部通过**，结果见`TEST_RESULTS.txt`。没有把新增业务要求算成已经实现的测试。
 - 全部Python文件通过AST解析与compileall语法检查。
 - 全部YAML/JSON配置可以解析。
 - `list_cameras.py --help`与`smoke_pose.py --help`实际运行成功。

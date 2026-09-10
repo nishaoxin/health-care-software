@@ -9,4 +9,8 @@
 
 ## 应用开发
 
-修改 `rehab_codex_single_camera_v2_1/` 中的内容时，继续遵循该目录的 `AGENTS.md` 与 v2.1 软件规范。
+先读 `docs/HANDOFF.md` 了解当前版本、已验证内容和未完成目标。修改 `rehab_codex_single_camera_v2_1/` 中的内容时，继续遵循该目录的 `AGENTS.md` 与 `docs/specifications/SOFTWARE_SPEC.md`。
+
+项目文档集中放在 `docs/`；版本历史与旧验收记录分别放在 `docs/history/`、`docs/validation/`，不能把旧测试计数或同学电脑上的环境描述当作本机最新结果。原实施包文档在 `docs/archive/original-v2.1/`。
+
+应用目录名称保留以兼容现有独立环境和数据位置。外来整包先放入 `backups/incoming/` 并记录 SHA256，再检查 Git 历史和未提交改动；不把压缩包中的 `.git`、虚拟环境或个人数据库直接覆盖到当前项目。

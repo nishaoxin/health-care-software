@@ -39,4 +39,4 @@
 
 可见的无障碍改进：更少的并列按钮、主要按钮至少 120×42 像素、动作文字优先、提示不滚出视野。尚未进行读屏、Windows 高 DPI/大字体、色觉或真实老年用户可用性测试；不能声称符合完整 WCAG。
 
-本机独立目录启动检查已枚举到 Integrated Camera、WebcastMate VirtualCamera、OBS Virtual Camera；首次默认选中 Integrated Camera，未打开捕获。该检查不代表摄像头采集、USB 拔插或真人测量通过。工程验证结果见 `VALIDATION_WINDOWS.md`。
+本机独立目录启动检查已枚举到 Integrated Camera、WebcastMate VirtualCamera、OBS Virtual Camera；首次默认选中 Integrated Camera，未打开捕获。该检查不代表摄像头采集、USB 拔插或真人测量通过。工程验证结果见 `../validation/HISTORY_WINDOWS.md`。

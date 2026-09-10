@@ -95,12 +95,15 @@ def main():
     parser.add_argument('--hand-sha256')
     parser.add_argument('--side', choices=('left', 'right'), default='left')
     args = parser.parse_args()
-    actual_hash = hashlib.sha256(args.model.read_bytes()).hexdigest()
+    model_bytes = args.model.read_bytes()
+    actual_hash = hashlib.sha256(model_bytes).hexdigest()
     if actual_hash != args.sha256:
         raise ValueError('Model SHA256 mismatch')
     import numpy as np
     import mediapipe as mp
-    base = mp.tasks.BaseOptions(model_asset_path=str(args.model.resolve()))
+    # Python opens Windows Unicode paths correctly; the native task loader's
+    # filename API does not. Load the very bytes whose SHA256 was checked.
+    base = mp.tasks.BaseOptions(model_asset_buffer=model_bytes)
     vision = mp.tasks.vision
     extra_task = None
     if args.backend in ('mediapipe_pose', 'mediapipe_wrist'):
@@ -108,10 +111,11 @@ def main():
                     num_poses=2, min_pose_detection_confidence=.6, min_pose_presence_confidence=.6)
         task = vision.PoseLandmarker.create_from_options(options)
         if args.backend == 'mediapipe_wrist':
-            if hashlib.sha256(args.hand_model.read_bytes()).hexdigest() != args.hand_sha256:
+            hand_bytes = args.hand_model.read_bytes()
+            if hashlib.sha256(hand_bytes).hexdigest() != args.hand_sha256:
                 raise ValueError('Hand model SHA256 mismatch')
             extra_task = vision.HandLandmarker.create_from_options(vision.HandLandmarkerOptions(
-                base_options=mp.tasks.BaseOptions(model_asset_path=str(args.hand_model.resolve())),
+                base_options=mp.tasks.BaseOptions(model_asset_buffer=hand_bytes),
                 running_mode=vision.RunningMode.IMAGE, num_hands=2,
                 min_hand_detection_confidence=.6, min_hand_presence_confidence=.6))
     else:

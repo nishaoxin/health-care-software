@@ -1,6 +1,8 @@
 # 可直接发给Codex的开始指令
 
-当前继续开发须先结合 `docs/JOINT_EXPANSION_V0_3.md`：用户已明确授权关节扩展及可选本地模型。本文件下方为原首周开工要求，不能据此取消已授权功能；不扩展到多路摄像头、云端或医学诊断。
+> 本文保留历史开工要求。当前继续开发先读 [交接清单](../HANDOFF.md)、[开发说明](../DEVELOPMENT.md) 和应用目录的 [AGENTS.md](../../rehab_codex_single_camera_v2_1/AGENTS.md)，再结合下面的原始规范。
+
+当前继续开发须先结合 `../history/JOINT_EXPANSION_V0_3.md`：用户已明确授权关节扩展及可选本地模型。本文件下方为原首周开工要求，不能据此取消已授权功能；不扩展到多路摄像头、云端或医学诊断。
 
 先阅读SOFTWARE_SPEC.md、AGENTS.md和CHANGELOG_V2_1.md；MIGRATION_V1_TO_V2.md仅用于理解历史范围收缩。
 当前采用v2.1单摄像头版本；不再执行v1多路并行和雷达首周任务。

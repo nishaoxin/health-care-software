@@ -1,0 +1,41 @@
+{
+  "description": "Controlled regression before the model_asset_buffer fix; only the directory differs.",
+  "input": "Blank synthetic 640x480 frame with verified local models; no camera.",
+  "local_evidence_files": [
+    "rehab_codex_single_camera_v2_1/.runtime/checks/unicode-before.xml",
+    "rehab_codex_single_camera_v2_1/.runtime/checks/unicode-before.log"
+  ],
+  "failure_summary": "MediaPipe native task filename loader could not open models under Windows Chinese paths.",
+  "cases": [
+    {
+      "name": "test_models_load_from_ascii_and_unicode_directories[mediapipe_pose-models-ascii]",
+      "result": "passed",
+      "duration_s": 1.546
+    },
+    {
+      "name": "test_models_load_from_ascii_and_unicode_directories[mediapipe_pose-中文模型目录 with spaces]",
+      "result": "failed",
+      "duration_s": 1.075
+    },
+    {
+      "name": "test_models_load_from_ascii_and_unicode_directories[mediapipe_hands-models-ascii]",
+      "result": "passed",
+      "duration_s": 2.338
+    },
+    {
+      "name": "test_models_load_from_ascii_and_unicode_directories[mediapipe_hands-中文模型目录 with spaces]",
+      "result": "failed",
+      "duration_s": 1.029
+    },
+    {
+      "name": "test_models_load_from_ascii_and_unicode_directories[mediapipe_wrist-models-ascii]",
+      "result": "passed",
+      "duration_s": 2.31
+    },
+    {
+      "name": "test_models_load_from_ascii_and_unicode_directories[mediapipe_wrist-中文模型目录 with spaces]",
+      "result": "failed",
+      "duration_s": 0.989
+    }
+  ]
+}

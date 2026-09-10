@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $taskRoot = Join-Path $PSScriptRoot 'rehab_codex_single_camera_v2_1'
 $taskPython = Join-Path $taskRoot '.venv\Scripts\pythonw.exe'
 if (-not (Test-Path -LiteralPath $taskPython)) {
-    throw 'Project environment is missing. Run rehab_codex_single_camera_v2_1\scripts\setup.ps1 first.'
+    throw 'Project environment is missing. Run Setup-Rehab.ps1 first; add -IncludeLandmarks for wrist, ankle and finger tasks.'
 }
 $taskRuntimeDir = Join-Path $taskRoot '.runtime'
 New-Item -ItemType Directory -Path $taskRuntimeDir -Force | Out-Null

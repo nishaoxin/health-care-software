@@ -33,4 +33,4 @@
 
 新增近侧限定骨架、缺失/短参考线、方向和低位起点、真实控制器校准/计次/SQLite 保存/训练引用、普通和大字界面的合成回归。两个窗口尺寸共 6 张本地布局图见忽略目录 `qa-output/neck-shoulder-v091`。
 
-全部输入是标注为 SYNTHETIC/TEST 的工程样例；未做真实相机测量、双摄同步、临床精度或老人独立操作验收。具体运行结果见 `VALIDATION_WINDOWS.md`。
+全部输入是标注为 SYNTHETIC/TEST 的工程样例；未做真实相机测量、双摄同步、临床精度或老人独立操作验收。具体运行结果见 `../validation/HISTORY_WINDOWS.md`。

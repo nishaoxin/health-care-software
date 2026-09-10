@@ -1,9 +1,10 @@
 """Verify all cached installation wheels against the official PyPI JSON digests."""
 from concurrent.futures import ThreadPoolExecutor
+import argparse
 import hashlib
-import importlib.metadata as md
 import json
 from pathlib import Path
+import platform
 import urllib.request
 
 from packaging.utils import parse_wheel_filename
@@ -28,12 +29,18 @@ def verify(path):
 
 
 if __name__ == '__main__':
-    paths = sorted((ROOT/'.runtime/verified-wheels').glob('*.whl'))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--wheel-dir', type=Path, default=ROOT/'.runtime/verified-wheels')
+    parser.add_argument('--output', type=Path, default=ROOT.parent/'docs/dependencies/DEPENDENCY_MANIFEST.json')
+    parser.add_argument('--transport', default='Cached installation wheels')
+    args = parser.parse_args()
+    paths = sorted(args.wheel_dir.glob('*.whl'))
     if not paths:
         raise SystemExit('No wheels downloaded for verification')
     with ThreadPoolExecutor(max_workers=6) as pool:
         results = list(pool.map(verify, paths))
-    output = {'platform': 'Windows x64 / Python 3.13.11', 'transport': 'Tsinghua PyPI mirror',
+    output = {'platform': f'{platform.system()} {platform.machine()} / Python {platform.python_version()}', 'transport': args.transport,
               'verification_source': 'official pypi.org JSON SHA256 values', 'wheels': results}
-    (ROOT/'docs/DEPENDENCY_MANIFEST.json').write_text(json.dumps(output, ensure_ascii=False, indent=2), encoding='utf-8')
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(output, ensure_ascii=False, indent=2)+'\n', encoding='utf-8')
     print(f'{len(results)} wheels verified against official PyPI SHA256 digests.')

@@ -3,6 +3,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QWidget, QFrame, QLabel, QPushButton, QLineEdit, QComboBox,
     QVBoxLayout, QHBoxLayout, QStackedWidget, QPlainTextEdit, QScrollArea, QTabWidget, QCheckBox)
 
+from .. import __version__
 from .catalog import ExerciseCatalog
 from .training import TrainingControls
 from .training_hub import TrainingHub
@@ -67,7 +68,7 @@ def build_workspace(w):
     w.coverage.setWordWrap(True)
     nav.addWidget(w.coverage)
     nav.addSpacing(12)
-    version = QLabel('本地康复  ·  0.9.1')
+    version = QLabel(f'本地康复  ·  {__version__}')
     version.setObjectName('muted')
     nav.addWidget(version)
     root.addWidget(sidebar)

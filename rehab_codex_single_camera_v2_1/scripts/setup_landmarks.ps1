@@ -1,4 +1,7 @@
-param([switch]$VerifyOnly)
+param(
+    [switch]$VerifyOnly,
+    [string]$IndexUrl = 'https://pypi.org/simple'
+)
 $ErrorActionPreference = 'Stop'
 $taskRoot = [IO.Path]::GetFullPath((Split-Path -Parent $PSScriptRoot))
 $taskPython = Join-Path $taskRoot '.venv-landmarks\Scripts\python.exe'
@@ -18,7 +21,13 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Cannot create isolated landmark environment.' }
     }
     if (-not $VerifyOnly) {
-        & $taskPython -m pip install --disable-pip-version-check --only-binary=:all: --index-url https://pypi.org/simple -r (Join-Path $taskRoot 'requirements.landmarks.lock.txt')
+        $taskWheels = Join-Path $taskRoot '.runtime\landmark-wheels'
+        New-Item -ItemType Directory -Path $taskWheels -Force | Out-Null
+        & $taskPython -m pip download --disable-pip-version-check --only-binary=:all: --no-deps --index-url $IndexUrl --dest $taskWheels -r (Join-Path $taskRoot 'requirements.landmarks.lock.txt')
+        if ($LASTEXITCODE -ne 0) { throw 'Optional dependency download failed.' }
+        & $taskBasePython (Join-Path $PSScriptRoot 'verify_wheels.py') --wheel-dir $taskWheels --output (Join-Path $taskRoot '.runtime\landmark-dependency-manifest.json') --transport $IndexUrl
+        if ($LASTEXITCODE -ne 0) { throw 'Optional dependency official SHA256 verification failed.' }
+        & $taskPython -m pip install --disable-pip-version-check --only-binary=:all: --no-index --find-links $taskWheels -r (Join-Path $taskRoot 'requirements.landmarks.lock.txt')
         if ($LASTEXITCODE -ne 0) { throw 'Optional dependencies could not be installed; main environment is unchanged.' }
     }
     & $taskPython -m pip check
