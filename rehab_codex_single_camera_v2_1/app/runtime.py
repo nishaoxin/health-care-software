@@ -10,7 +10,7 @@ import time
 
 from .audio import AudioGate
 from .camera_manager import CameraManager
-from .domain import digest, dumps, utc_now
+from .domain import digest, dumps, utc_now, PacketGate
 from .reports import export_session, render_report, render_body_profile, export_body_profile
 from .assessment import build_body_profile
 from .exercises import exercise_spec
@@ -49,6 +49,7 @@ class Runtime:
         self.capture_settings = {}
         self.camera_test = False
         self.camera_test_frames = 0
+        self.dual_receive_gate = PacketGate()
         self.thread = threading.Thread(target=self._run, name='application-runtime', daemon=True)
         self.thread.start()
 
@@ -61,11 +62,25 @@ class Runtime:
         hint = None
         if not testing and pose and c.latest_observation and c.state in ('PREVIEW', 'ONLINE') and c.setup['scene_id'] == 'rehab':
             hint = measurement_hint(c.latest_observation, c.setup['plan'], pose.schema_id, preview=c.state == 'PREVIEW')
+        dual_view = None
+        if c.dual_config:
+            from .dual_camera import other_view
+            from .dual_view import auxiliary_hint, AUXILIARY_VERSION
+            auxiliary = c.latest_secondary_observation if pose else None
+            dual_view = dict(version=c.dual_config['version'], primary_view=c.dual_config['primary_view'],
+                             secondary_view=other_view(c.dual_config['primary_view']),
+                             pairing=copy.deepcopy(packet.pairing) if packet else None,
+                             auxiliary_version=AUXILIARY_VERSION,
+                             auxiliary_status=auxiliary.status if auxiliary else None,
+                             auxiliary_metrics={k: asdict(v) for k, v in auxiliary.metrics.items()} if auxiliary else {})
+            if not testing and pose:
+                hint = auxiliary_hint(c) or hint
         put_latest(self.views, {'state': c.state, 'context': c.context, 'summary': {} if testing else c.summary(),
                                'confirmed': False if testing else c.confirmed, 'packet': packet, 'pose': None if testing else pose,
                                'camera_test': testing, 'camera_test_frames': getattr(self, 'camera_test_frames', 0),
                                'error': error, 'last_saved_id': c.last_saved_id,
                                'pending': c.pending is not None,
+                               'dual_camera': dual_view,
                                'measurement_hint': hint,
                                'observation_status': c.latest_observation.status if pose and c.latest_observation else None})
 
@@ -73,16 +88,37 @@ class Runtime:
         self.messages.put({'kind': kind, **data})
 
     def _inference_failed(self, packet, error):
+        if getattr(self.controller, 'dual_config', None) and self.controller.state == 'ONLINE':
+            had_session = self.controller.session is not None
+            self._record_dual_failure('dual_view_inference_error')
+            try:
+                self.controller.stop('dual_view_inference_error')
+            except Exception as exc:
+                self._message('error', text=str(exc))
+            else:
+                if had_session and self.controller.last_saved_id:
+                    self._message('saved', id=self.controller.last_saved_id)
+            self.preview_history = []
+            self.audio.reset()
+            self.vision.clear()
+            self._view(error=error)
+            return
         self.controller.latest_packet = packet
         self.controller.latest_pose = self.controller.latest_observation = None
+        self.controller.latest_secondary_observation = self.controller.latest_primary_observation = None
         self.preview_history = []
         self.audio.reset(self.controller.context)
         self._view(packet, error=error)
 
+    def _record_dual_failure(self, category, view=None):
+        c = self.controller
+        if c.session and c.dual_config:
+            c.session['dual_camera']['input_failure'] = dict(category=category, view=view, observed_utc=utc_now())
+
     def _execute(self, name, kw):
         c, store = self.controller, self.store
         if getattr(self, 'camera_test', False) and name not in (
-                'stop_camera_test', 'stop', 'privacy', 'switch', 'shutdown', 'enumerate', 'remember_camera',
+                'stop_camera_test', 'stop', 'privacy', 'switch', 'shutdown', 'enumerate', 'remember_camera', 'remember_camera_pair',
                 'history', 'participants', 'body_profile', 'report', 'profile', 'events', 'training_review',
                 'export', 'export_body_profile', 'longitudinal_history', 'export_longitudinal_history', 'unconfirm'):
             raise ValueError('请先关闭摄像头测试，再开始评估或训练')
@@ -91,6 +127,8 @@ class Runtime:
             self._message('devices', backend=kw['backend'], devices=[asdict(d) for d in devices])
         elif name == 'remember_camera':
             self._remember_camera(kw['device'])
+        elif name == 'remember_camera_pair':
+            self._remember_camera_pair(kw['devices'])
         elif name in ('open', 'camera_test'):
             if name == 'camera_test':
                 if c.session is not None or c.pending is not None or c.state in ('ONLINE', 'SAVE_FAILED'):
@@ -103,7 +141,13 @@ class Runtime:
             self.vision.clear()
             options = {k: self.capture_settings.get('request_'+k, default) for k, default in (('width', 1280), ('height', 720), ('fps', 30))}
             options.update(kw.get('options') or {})
-            c.open(kw['source'], default_setup() if name == 'camera_test' else kw['setup'], options)
+            setup = default_setup() if name == 'camera_test' else kw['setup']
+            if name == 'camera_test' and (kw['source'].get('dual_camera') or {}).get('primary_view') == 'sagittal':
+                setup = default_setup(exercise='elbow_flexion')
+            c.open(kw['source'], setup, options)
+            if c.dual_config:
+                self.dual_receive_gate = PacketGate()
+                self.dual_receive_gate.reset(c.context)
             self.preview_history = []
             self.connect_started_wall = time.monotonic()
             self.last_frame_wall = None
@@ -113,7 +157,10 @@ class Runtime:
             self._message('confirmed', setup=confirmed)
             self._view(c.latest_packet, c.latest_pose)
             if c.source['kind'] == 'LIVE_CAMERA':
-                self._remember_camera(c.source['device_ref'])
+                if c.dual_config:
+                    self._remember_camera_pair(c.dual_config['devices'])
+                else:
+                    self._remember_camera(c.source['device_ref'])
         elif name == 'unconfirm':
             c.confirmed = False
             self._view(c.latest_packet, c.latest_pose)
@@ -122,6 +169,8 @@ class Runtime:
                 raise ValueError('画面过期，请重新预览')
             c.vision_config['device_at_start'] = self.vision.device
             context = c.start()
+            if c.dual_config:
+                self.dual_receive_gate.reset(context)
             self.vision.clear()
             self.audio.reset(context)
             self.preview_history = []
@@ -315,11 +364,29 @@ class Runtime:
             # masquerade as a failed clinical report save.
             self._message('notice', text='本次摄像头可继续使用，但未能记住选择；下次启动可能需要重选。')
 
+    def _remember_camera_pair(self, devices):
+        try:
+            self.store.save_camera_pair_preference(devices)
+        except Exception:
+            self._message('notice', text='本次双摄可继续使用，但未能记住正侧面对应；下次需要重新选择。')
+
     def _receive_packet(self, packet, worker):
         c = self.controller
         if packet.context != c.context:
             worker.acknowledge(packet.seq)
             return
+        if c.dual_config:
+            from .dual_camera import validate_pair
+            try:
+                validate_pair(packet, c.dual_config['primary_view'], now=time.monotonic())
+            except ValueError:
+                return  # Do not refresh the watchdog with unpaired or stale input.
+            gate = getattr(self, 'dual_receive_gate', None)
+            if gate is None:
+                self.dual_receive_gate = gate = PacketGate()
+                gate.reset(c.context)
+            if not gate.admit(packet):
+                return
         if getattr(self, 'camera_test', False):
             worker.acknowledge(packet.seq)
             if (c.state not in ('CONNECTING', 'PREVIEW') or
@@ -360,7 +427,12 @@ class Runtime:
                 preference_error = False
             except Exception:
                 preferred_camera, preference_error = None, True
-            self._message('ready', preferred_camera=preferred_camera, camera_preference_error=preference_error)
+            try:
+                preferred_pair = self.store.get_camera_pair_preference()
+            except Exception:
+                preferred_pair = None
+            self._message('ready', preferred_camera=preferred_camera, preferred_camera_pair=preferred_pair,
+                          camera_preference_error=preference_error)
             if recovered:
                 self._message('notice', text=f'发现 {recovered} 条上次非正常结束的任务，已标记中断；未补造缺失结果。')
             self._view()
@@ -390,6 +462,8 @@ class Runtime:
                     if error or ended:
                         had_session = c.session is not None
                         save_ok = True
+                        if error:
+                            self._record_dual_failure('input_error', error.get('view'))
                         try:
                             c.stop('input_error' if error else 'replay_end')
                         except Exception as exc:
@@ -413,6 +487,7 @@ class Runtime:
                                                            self.last_frame_wall, self.capture_settings)
                                       if c.context and c.context.source_kind == 'LIVE_CAMERA' else None)
                     if timeout_reason:
+                        self._record_dual_failure(timeout_reason)
                         try:
                             c.stop(timeout_reason)
                             c.state = 'OFFLINE'

@@ -18,12 +18,16 @@ def angle_delta(value, reference):
 
 
 class PoseAnalyzer:
-    def __init__(self, side='left', conf_min=.5, tau=.12, max_gap=.5, exercise_id=None, joint_baseline=None):
+    def __init__(self, side='left', conf_min=.5, tau=.12, max_gap=.5, exercise_id=None, joint_baseline=None,
+                 auxiliary_view=None):
         self.side, self.conf_min, self.tau, self.max_gap = side, conf_min, tau, max_gap
         self.previous = {}
         self.previous_track = None
         self.exercise_id = exercise_id
         self.joint_baseline = joint_baseline or {}
+        if auxiliary_view not in (None, 'frontal', 'sagittal'):
+            raise ValueError('辅助视角不明确')
+        self.auxiliary_view = auxiliary_view
 
     def analyze(self, frame):
         if (frame.schema_id not in SCHEMAS or frame.coordinate_space != 'raw_image_pixels'
@@ -190,6 +194,30 @@ class PoseAnalyzer:
             if scale > 1:
                 local = [([(p.xy[i][j]-raw_center[j])/scale for j in (0, 1)]
                           if i in points else None) for i in range(len(names))]
+        if self.auxiliary_view:
+            from .axial_geometry import trunk_frontal, trunk_sagittal
+
+            def shoulder_line(left, right):
+                if math.dist(left, right) < 40.:
+                    return None
+                return math.degrees(math.atan2(abs(right[1]-left[1]), abs(right[0]-left[0])))
+
+            def frontal_deviation(*points):
+                angle = trunk_frontal(*points)
+                return None if angle is None else abs(abs(angle)-90.)
+
+            def sagittal_deviation(hip, shoulder):
+                angle = trunk_sagittal(hip, shoulder)
+                return None if angle is None else abs(angle)
+
+            # Use only filtered, valid points in THIS view. These are auxiliary
+            # projections with no clinical target and never drive repetition rules.
+            metrics = ({
+                'aux_shoulder_line_deg': measured(['left_shoulder', 'right_shoulder'], shoulder_line),
+                'aux_trunk_frontal_deg': measured(['left_hip', 'right_hip', 'left_shoulder', 'right_shoulder'], frontal_deviation),
+            } if self.auxiliary_view == 'frontal' else {
+                'aux_trunk_sagittal_deg': measured([hi, sh], sagittal_deviation),
+            })
         valid = any(m.valid for m in metrics.values())
         return Observation(t, p.track_key, 'VALID' if valid else 'UNKNOWN', metrics,
                            raw_center, p.bbox, local, frame.size, sorted(set(reasons.values())))

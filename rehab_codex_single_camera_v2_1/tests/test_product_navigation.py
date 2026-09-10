@@ -157,7 +157,16 @@ def test_layout_keeps_requested_window_size_and_footer_accessible(desktop, size)
     w._choose_catalog_exercise('index_dip_flexion')
     app.processEvents()
     assert (w.width(), w.height()) == size
-    for button in (w.preview_button, w.confirm_button, w.start_button, w.stop_button):
+    # Qt retains obsolete geometry for hidden widgets. Check each action in
+    # the actual lifecycle state that puts it in the footer layout.
+    for state, confirmed, button in (('UNSELECTED', False, w.preview_button),
+                                     ('PREVIEW', False, w.confirm_button),
+                                     ('PREVIEW', True, w.start_button),
+                                     ('ONLINE', True, w.stop_button)):
+        w.state, w._confirmed = state, confirmed
+        w._buttons()
+        app.processEvents()
+        assert button.isVisible()
         position = button.mapTo(w, button.rect().bottomRight())
         assert position.x() < w.width() and position.y() < w.height()
         assert button.height() >= 36

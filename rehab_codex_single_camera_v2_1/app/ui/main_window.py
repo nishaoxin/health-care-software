@@ -22,6 +22,7 @@ from ..exercise_instructions import exercise_instructions
 from ..assessment import build_training_reference
 from ..participants import legacy_participant, new_participant
 from ..camera_selection import choose_camera
+from ..dual_camera import checked_devices, make_dual_source, VIEWS
 from ..runtime import Runtime
 from .dialogs import PlanDialog, ReportDialog, EventsDialog
 from .widgets import ROI_LABELS, Disclosure
@@ -96,6 +97,9 @@ class MainWindow(QMainWindow):
         self.last_generation = -1
         self._accept_context_frames = True
         self._preferred_camera = None
+        self._preferred_camera_pair = None
+        self._preferred_secondary_camera = None
+        self._last_devices = []
         self._allow_single_camera = True
         self._camera_selection_touched = False
         self._camera_notice_text = ''
@@ -265,6 +269,27 @@ class MainWindow(QMainWindow):
         self.camera_test_button.clicked.connect(self._start_camera_test)
         grid.addWidget(self.camera_test_button, 0, 4)
         grid.setColumnStretch(2, 1)
+        self.dual_row = QWidget()
+        dual = QHBoxLayout(self.dual_row)
+        dual.setContentsMargins(0, 0, 0, 0)
+        self.dual_toggle = QCheckBox('双摄：正面＋侧面')
+        self.dual_toggle.toggled.connect(self._dual_changed)
+        dual.addWidget(self.dual_toggle)
+        self.dual_controls = QWidget()
+        roles = QHBoxLayout(self.dual_controls)
+        roles.setContentsMargins(12, 0, 0, 0)
+        roles.addWidget(QLabel('上方为正面 · 侧面相机'))
+        self.secondary_device = QComboBox()
+        self.secondary_device.addItem('请选择侧面摄像头', None)
+        self.secondary_device.setAccessibleName('侧面摄像头')
+        self.secondary_device.currentIndexChanged.connect(self._secondary_device_changed)
+        roles.addWidget(self.secondary_device, 1)
+        self.dual_role_hint = QLabel()
+        self.dual_role_hint.setObjectName('muted')
+        roles.addWidget(self.dual_role_hint)
+        dual.addWidget(self.dual_controls, 1)
+        grid.addWidget(self.dual_row, 1, 0, 1, 6)
+        self.dual_controls.hide()
         self.source_options = Disclosure('输入设置')
         advanced = QHBoxLayout()
         advanced.addWidget(QLabel('相机接口'))
@@ -821,6 +846,7 @@ class MainWindow(QMainWindow):
         self.start_button.setEnabled(False)
         self._accept_context_frames = False
         self._training_execution = {}
+        self.video_pair.clear()
         self.setup['plan']['joint_baseline'] = {}
         self.exercise_guide.select_step(0)
         self.exercise_guide.follow_observation('UNSELECTED', None)
@@ -884,6 +910,11 @@ class MainWindow(QMainWindow):
         self.device.clear()
         self.device.addItem('请选择摄像头', None)
         self.device.blockSignals(False)
+        self.secondary_device.blockSignals(True)
+        self.secondary_device.clear()
+        self.secondary_device.addItem('请选择侧面摄像头', None)
+        self.secondary_device.blockSignals(False)
+        self._last_devices = []
         self._send('enumerate', backend=self.backend.currentData())
 
     def _device_changed(self):
@@ -897,10 +928,89 @@ class MainWindow(QMainWindow):
         self._allow_single_camera = False
         self._preferred_camera = self.device.currentData()
         if self._preferred_camera:
-            self.runtime.command('remember_camera', device=self._preferred_camera)
+            if self._dual_enabled():
+                self._remember_pair_selection()
+            else:
+                self.runtime.command('remember_camera', device=self._preferred_camera)
             if self.notice.text() == self._camera_notice_text:
                 self.notice.clear()
         self._sync_scene()
+
+    def _dual_enabled(self):
+        return self.scene == 'rehab' and self.source_kind.currentData() == 'LIVE_CAMERA' and self.dual_toggle.isChecked()
+
+    def _sync_dual_controls(self):
+        available = self.scene == 'rehab' and self.source_kind.currentData() == 'LIVE_CAMERA'
+        enabled = self._dual_enabled()
+        self.dual_row.setVisible(available)
+        self.dual_controls.setVisible(enabled)
+        self.device.setAccessibleName('正面摄像头' if enabled else '摄像头')
+        self.dual_role_hint.setText('本动作使用'+VIEWS.get(self.view.currentData(), '指定')+'机位')
+        self.video_pair.configure(enabled, self.view.currentData())
+        if enabled:
+            self.manual.setText('已确认两路均为同一人、正侧面及本人侧别正确')
+            self.manual.setToolTip('核对两路画面中的同一位参与者、正面与侧面相机角色、测试侧及所需关节点。')
+        self.poses.setText('保存本次两路骨架调试数据' if enabled else '保存本次骨架调试数据')
+
+    def _dual_changed(self):
+        if self.constructing:
+            return
+        self._invalidate()
+        self.setup['plan']['calibration'] = {}
+        self.setup['rois'] = {}
+        self.canvas.rois = {}
+        self._camera_selection_touched = True
+        if self.dual_toggle.isChecked() and self._preferred_camera_pair:
+            preferred = self._preferred_camera_pair
+            for widget, view in ((self.device, 'frontal'), (self.secondary_device, 'sagittal')):
+                selected = choose_camera(self._last_devices, preferred.get(view), allow_single=False)
+                widget.blockSignals(True)
+                widget.setCurrentIndex(next((i for i in range(widget.count()) if selected and widget.itemData(i) == selected), 0))
+                widget.blockSignals(False)
+            self._preferred_secondary_camera = preferred.get('sagittal')
+        self._sync_scene()
+
+    def _remember_pair_selection(self):
+        try:
+            refs = checked_devices(dict(frontal=self.device.currentData(), sagittal=self.secondary_device.currentData()))
+        except ValueError:
+            return
+        self._preferred_camera_pair = refs
+        self.runtime.command('remember_camera_pair', devices=refs)
+
+    def _secondary_device_changed(self):
+        if self.constructing:
+            return
+        self._invalidate()
+        self.setup['plan']['calibration'] = {}
+        self.setup['rois'] = {}
+        self.canvas.rois = {}
+        self._preferred_secondary_camera = self.secondary_device.currentData()
+        self._camera_selection_touched = True
+        if self._dual_enabled():
+            self._remember_pair_selection()
+        self._sync_scene()
+
+    def _fill_secondary_devices(self, devices):
+        previous = self.secondary_device.currentData() or self._preferred_secondary_camera or (self._preferred_camera_pair or {}).get('sagittal')
+        selected = choose_camera(devices, previous, allow_single=False) if previous else None
+        self.secondary_device.blockSignals(True)
+        self.secondary_device.clear()
+        self.secondary_device.addItem('侧面设备不可用，请重选' if previous else '请选择侧面摄像头', None)
+        names = Counter(d['name'] for d in devices)
+        for d in devices:
+            title = d['name']+(f" · {d['index']} / {digest(d.get('path', ''))[:5]}" if names[d['name']] > 1 else '')
+            self.secondary_device.addItem(title, d)
+            self.secondary_device.setItemData(self.secondary_device.count()-1, f"索引 {d['index']} · 接口 {d['backend']}", Qt.ItemDataRole.ToolTipRole)
+            if d is selected:
+                self.secondary_device.setCurrentIndex(self.secondary_device.count()-1)
+        self.secondary_device.blockSignals(False)
+        if selected:
+            self._preferred_secondary_camera = selected
+        elif self._dual_enabled() and self.state == 'PREVIEW':
+            self.manual.setChecked(False)
+            self._confirmed = False
+            self.runtime.command('unconfirm')
 
     def _placement_changed(self):
         if self.constructing:
@@ -1066,6 +1176,7 @@ class MainWindow(QMainWindow):
             self.training_hub.set_plan(plan, self._body_scope_key())
             self.title.setText('训练中心')
             self.subtitle.setText('从评估出发，按已确认的安排练习。')
+        self._sync_dual_controls()
         self._buttons()
 
     def _mirror_changed(self):
@@ -1076,6 +1187,7 @@ class MainWindow(QMainWindow):
             self._replay_mirror = self.mirror.isChecked()
         self.canvas.mirror = self.mirror.isChecked()
         self.canvas.update()
+        self.video_pair.set_mirror(self.mirror.isChecked())
 
     def _test_mirror_changed(self, checked):
         # Raw camera testing has no active clinical setup; share this display
@@ -1086,6 +1198,7 @@ class MainWindow(QMainWindow):
         self.mirror.blockSignals(False)
         self.canvas.mirror = checked
         self.canvas.update()
+        self.video_pair.set_mirror(checked)
 
     def _open_distance_coach(self):
         if self.scene != 'rehab' or self.pages.currentIndex() != 0 or self.busy or self._camera_testing or self.state == 'SAVE_FAILED':
@@ -1128,6 +1241,10 @@ class MainWindow(QMainWindow):
                      needs_assistance=self.assistance.isChecked(), night_confirmed=self.night.isChecked())
         setup['plan'].update(exercise_id=self.exercise.currentData(), side=self.side.currentData(),
                              submode=self.submode.currentData(), view=self.view.currentData(), participant_id=self.participant_id)
+        if self._dual_enabled():
+            setup['dual_camera'] = dict(primary_view=self.view.currentData(), same_participant_confirmed=self.manual.isChecked())
+        else:
+            setup.pop('dual_camera', None)
         if setup['demo_thresholds']:
             setup.update(sedentary_trigger_s=15., stand_target_s=5., walk_target_s=8.)
         return setup
@@ -1135,6 +1252,9 @@ class MainWindow(QMainWindow):
     def _source(self):
         kind = self.source_kind.currentData()
         if kind == 'LIVE_CAMERA':
+            if self._dual_enabled():
+                return make_dual_source(dict(frontal=self.device.currentData(), sagittal=self.secondary_device.currentData()),
+                                        self.view.currentData(), self.usage.currentData())
             d = self.device.currentData()
             if not d:
                 raise ValueError('请刷新并人工选择一个摄像头')
@@ -1164,7 +1284,7 @@ class MainWindow(QMainWindow):
             self.setup['plan']['calibration'] = {}
             self._sync_scene()
         self.canvas.caption = '正在连接输入'
-        self.canvas.set_frame(None)
+        self.video_pair.clear()
         self.last_generation = -1
         self._accept_context_frames = True
         self._send('open', source=source, setup=self._read_setup(), options={'speed': self.speed.currentData(), 'seek_s': self.seek.value()})
@@ -1184,7 +1304,9 @@ class MainWindow(QMainWindow):
         self._camera_testing = True
         self._accept_context_frames = True
         self.last_generation = -1
-        self.camera_test_dialog = CameraTestDialog(self.device.currentText(), self, mirror=self._live_mirror)
+        title = (f'正面：{self.device.currentText()} / 侧面：{self.secondary_device.currentText()}'
+                 if self._dual_enabled() else self.device.currentText())
+        self.camera_test_dialog = CameraTestDialog(title, self, mirror=self._live_mirror, dual_view=source.get('dual_camera'))
         self.camera_test_dialog.mirror_toggle.toggled.connect(self._test_mirror_changed)
         self.camera_test_dialog.stop_requested.connect(lambda: self._send('stop_camera_test'))
         self.camera_test_dialog.show()
@@ -1310,7 +1432,8 @@ class MainWindow(QMainWindow):
             editable = available and self.state not in ('ONLINE', 'SAVE_FAILED')
             for w in (self.participant, self.participant_select, self.participant_button, self.participant_new,
                       self.joint_group, self.exercise, self.side, self.view,
-                      self.plan_button, self.reference_button, self.source_kind, self.device, self.backend, self.refresh, self.mirror):
+                      self.plan_button, self.reference_button, self.source_kind, self.device, self.backend, self.refresh, self.mirror,
+                      self.dual_toggle, self.secondary_device):
                 w.setEnabled(editable)
             if hasattr(self, 'personal_summary'):
                 self.personal_summary.edit.setEnabled(editable)
@@ -1380,6 +1503,7 @@ class MainWindow(QMainWindow):
         elif kind == 'ready':
             if not self._camera_selection_touched:
                 self._preferred_camera = m.get('preferred_camera')
+                self._preferred_camera_pair = m.get('preferred_camera_pair')
                 self._allow_single_camera = not m.get('camera_preference_error', False)
                 if self._preferred_camera:
                     index = self.backend.findData(self._preferred_camera.get('backend'))
@@ -1442,6 +1566,7 @@ class MainWindow(QMainWindow):
         elif kind == 'devices':
             if m.get('backend', self.backend.currentData()) != self.backend.currentData():
                 return  # Never apply a late enumeration from another backend.
+            self._last_devices = copy.deepcopy(m['devices'])
             previous = self.device.currentData() or self._preferred_camera
             selected = choose_camera(m['devices'], previous, allow_single=self._allow_single_camera)
             self.device.blockSignals(True)
@@ -1458,6 +1583,7 @@ class MainWindow(QMainWindow):
                 if d is selected:
                     self.device.setCurrentIndex(self.device.count()-1)
             self.device.blockSignals(False)
+            self._fill_secondary_devices(m['devices'])
             if selected:
                 self._preferred_camera = selected
                 self.device.setToolTip('各模式共用此摄像头；打开预览后仍需确认机位。')
@@ -1673,12 +1799,14 @@ class MainWindow(QMainWindow):
         if self.state == 'ONLINE' and training_stage in ('PAUSED', 'RESTING', 'COMPLETE'):
             self.coverage.setText('未计次，摄像头仍开启\n其他场景未监测')
         packet, pose = data.get('packet'), data.get('pose')
+        self.video_pair.render(data, mirror=self.mirror.isChecked(), enabled=self._dual_enabled(), primary_view=self.view.currentData())
         if packet and self.state in ('PREVIEW', 'ONLINE'):
-            self.canvas.set_frame(packet, pose)
             self.source_badge.setText(SOURCES.get(packet.context.source_kind, '')+' / '+CONTEXTS.get(packet.context.usage_context, '')+(' · 演示阈值' if self.demo.isChecked() and self.scene == 'activity' else ''))
             h, w = packet.image.shape[:2]
             fps = packet.received_fps
             self.frame_info.setText(f'{w} × {h}  ·  '+('速率测量中' if fps is None else f'接收 {fps:.1f} fps')+(f' · 推理 {pose.inference_ms:.0f} ms' if pose else ''))
+            if data.get('dual_camera'):
+                self.frame_info.setText('双摄 · 主机位：'+VIEWS[data['dual_camera']['primary_view']])
         elif self.state not in ('PREVIEW', 'ONLINE'):
             self.canvas.set_frame(None)
             self.frame_info.clear()

@@ -67,6 +67,7 @@ def _conditions_html(conditions):
     c = conditions or {}
     view = {'frontal': '正面', 'sagittal': '侧面', 'front': '正面'}.get(c.get('view'), c.get('view'))
     return (f'机位：{fmt(view)} · 机位版本：{fmt(c.get("profile_version"))}'
+            f' · 采集模式：{fmt({"single": "单路", "dual": "双摄"}.get(c.get("capture_mode")))}'
             f' · 放置版本：{fmt(c.get("placement_revision"), 0)} · 实际尺寸：{fmt(c.get("actual_size"))}<br>'
             f'模型：<code>{fmt(c.get("model_manifest_id"))}</code> · 骨架：{fmt(c.get("schema_id"))}<br>'
             f'规则：{fmt(c.get("rule_version"))} · 预处理：{fmt(c.get("preprocess_version"))}'
@@ -290,6 +291,7 @@ def render_report(s):
                    + (''.join(rows) or '<tr><td colspan="10">没有已记录的动作重复。</td></tr>') + '</table>')
         detail += _saved_plan_html(s)
         detail += _timing_html(s)
+        detail += _dual_camera_html(s)
         detail += _training_html(s)
         detail += _training_execution_html(s)
         if s.get('measurement_limitations'):
@@ -337,6 +339,55 @@ def render_report(s):
             f'<p>{_conditions_html(session_conditions(s))}</p>'
             f'<p class="muted">记录 ID：<code>{fmt(s.get("id"))}</code>。{fmt(COMPARISON_NOTE)}</p>')
     return _document('任务报告', body)
+
+
+def _dual_camera_html(session):
+    dual = session.get('dual_camera')
+    if not isinstance(dual, dict):
+        return ''
+    from .dual_camera import VIEWS
+    summary = dual.get('summary') or {}
+
+    def milliseconds(value):
+        number = finite_number(value)
+        return fmt(number*1000 if number is not None else None)
+
+    result = ('<h2>双摄观察</h2><p>动作测量使用'+fmt(VIEWS.get(dual.get('primary_view')))+'机位；'
+              +fmt(VIEWS.get(dual.get('secondary_view')))+'机位提供独立辅助投影。'
+              '人工确认两路为同一人，不用跨画面的坐标补点或自动匹配身份。</p>'
+              '<p class="muted">按单调接收时间配对，每帧最多使用一次；未验证曝光同步，未作空间标定或三维重建。'
+              '接收差筛选上限 '+milliseconds(dual.get('max_receive_delta_s'))+' 毫秒；'
+              '本次配对观察 '+fmt(summary.get('paired_observations'), 0)+' 帧，其中两路指标可测 '
+              +fmt(summary.get('both_views_valid'), 0)+' 帧。接收差中位数 '
+              +milliseconds(summary.get('median_receive_delta_s'))+' 毫秒，最大 '
+              +milliseconds(summary.get('max_receive_delta_s'))+' 毫秒。缺测不补计，辅助指标没有自动临床阈值。</p>'
+              '<table><tr><th>机位与用途</th><th>实际图幅</th><th>报告 / 接收帧率</th><th>来源引用</th></tr>')
+    for view in ('frontal', 'sagittal'):
+        stream = (dual.get('streams') or {}).get(view) or {}
+        actual = stream.get('actual_capture') or {}
+        result += ('<tr><td>'+fmt(VIEWS[view])+(' · 动作测量' if view == dual.get('primary_view') else ' · 辅助观察')
+                   +'</td><td>'+fmt(actual.get('size'))+'</td><td>'+fmt(actual.get('reported_fps'))+' / '
+                   +fmt(actual.get('received_fps'))+'</td><td>'+fmt(_public_ref(stream.get('source_ref')))+'</td></tr>')
+    result += '</table>'
+    failure = dual.get('input_failure')
+    if failure:
+        reasons = {'input_error': '输入失效', 'dual_view_inference_error': '姿态推理失败',
+                   'stream_stale': '新配对画面超时', 'connect_timeout': '启动超时'}
+        result += ('<p>输入中断：'+fmt(reasons.get(failure.get('category'), failure.get('category')))
+                   +'；机位：'+fmt(VIEWS.get(failure.get('view'), '未定位到单一路'))+'。</p>')
+    diagnostics = dual.get('capture_pairing_diagnostics')
+    if diagnostics:
+        result += ('<p class="muted">当前任务的配对器发出 '+fmt(diagnostics.get('emitted_pairs'), 0)
+                   +' 对画面。此数值统计进入应用的配对结果，可能因推理队列丢帧而多于上方的姿态观察数；不代表相机曝光总数。</p>')
+    result += '<h3>辅助指标（二维投影）</h3><table><tr><th>指标</th><th>有效帧 / 配对观察</th><th>中位数 °</th><th>最小 °</th><th>最大 °</th></tr>'
+    for key, definition in (dual.get('auxiliary_metrics') or {}).items():
+        values = (summary.get('auxiliary_metrics') or {}).get(key) or {}
+        result += ('<tr><td>'+fmt(definition.get('label'))+'</td><td>'+fmt(values.get('valid_samples'), 0)+' / '
+                   +fmt(values.get('total_samples'), 0)+'</td>'+''.join('<td>'+fmt(values.get(k))+'</td>' for k in ('median', 'min', 'max'))+'</tr>')
+    result += '</table><ul>'
+    for definition in (dual.get('auxiliary_metrics') or {}).values():
+        result += '<li>'+fmt(definition.get('label'))+'：'+fmt(definition.get('definition'))+'。</li>'
+    return result+'</ul>'
 
 
 def _participant_html(profile):
@@ -466,6 +517,8 @@ def export_session(snapshot, directory):
     if (s.get('config_snapshot') or {}).get('poses_consent'):
         (out/'poses.jsonl').write_text(''.join(dumps(row)+'\n' for row in s.get('poses') or []), encoding='utf-8')
     (out/'report.html').write_text(render_report(s), encoding='utf-8')
+    if isinstance(s.get('dual_camera'), dict):
+        _export_dual_camera_csv(s, out/'dual-camera.csv')
     with (out/'repetitions.csv').open('w', newline='', encoding='utf-8-sig') as f:
         columns = ['number', 'completion_status', 'target_status', 'observation_status', 'duration_s',
                    'peak_angle_deg', 'min_angle_deg', 'range_deg', 'max_raise_projection_deg',
@@ -501,6 +554,36 @@ def export_session(snapshot, directory):
     with (out/'annotations.csv').open('w', newline='', encoding='utf-8-sig') as f:
         csv.writer(f).writerow(['annotation_origin', 'annotator', 'annotation_version', 'participant_id', 'recording_id', 'evidence_time_s', 'human_label', 'notes'])
     return out
+
+
+def _export_dual_camera_csv(session, path):
+    dual = session['dual_camera']
+    primary, secondary = dual.get('primary_view'), dual.get('secondary_view')
+    primary_metric = exercise_spec(session_value(session, 'exercise_id'))['metric']
+    auxiliary_metrics = sorted((dual.get('auxiliary_metrics') or {}).keys())
+    columns = ['primary_view', 'secondary_view', 'primary_source_ref', 'secondary_source_ref',
+               'primary_seq', 'secondary_seq', 'primary_time_s', 'secondary_time_s', 'receive_delta_s',
+               'phase', 'included_in_training', 'primary_status', 'auxiliary_status', 'jointly_valid',
+               'primary_metric', 'primary_value', 'primary_valid', 'primary_reason', 'auxiliary_reasons',
+               'source_kind', 'usage_context', 'annotation_origin']
+    columns += [key+suffix for key in auxiliary_metrics for suffix in ('', '_valid', '_reason')]
+    with path.open('w', newline='', encoding='utf-8-sig') as stream:
+        writer = csv.DictWriter(stream, fieldnames=columns, extrasaction='ignore')
+        writer.writeheader()
+        for observation in dual.get('observations') or []:
+            metric = (observation.get('primary_metrics') or {}).get(primary_metric) or {}
+            row = dict(observation, primary_view=primary, secondary_view=secondary,
+                       primary_source_ref=((dual.get('streams') or {}).get(primary) or {}).get('source_ref'),
+                       secondary_source_ref=((dual.get('streams') or {}).get(secondary) or {}).get('source_ref'),
+                       primary_metric=primary_metric, primary_value=metric.get('value') if metric.get('valid') else None,
+                       primary_valid=metric.get('valid'), primary_reason=metric.get('reason'),
+                       auxiliary_reasons=dumps(observation.get('auxiliary_reasons') or []),
+                       source_kind=session.get('source_kind'), usage_context=session.get('usage_context'))
+            for key in auxiliary_metrics:
+                measured = (observation.get('auxiliary_metrics') or {}).get(key) or {}
+                row.update({key: measured.get('value') if measured.get('valid') else None,
+                            key+'_valid': measured.get('valid'), key+'_reason': measured.get('reason')})
+            writer.writerow({key: _csv_value(value) for key, value in row.items() if key in columns})
 
 
 def export_body_profile(profile, folder) -> dict:

@@ -21,6 +21,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup-Rehab.ps1 -IncludeLa
 | 位置 | 责任 |
 | --- | --- |
 | `app/camera_manager.py`、`source_worker.py` | 唯一采集入口、设备解析、帧时间、停止释放 |
+| `app/dual_camera.py`、`dual_view.py` | 正侧面设备角色、单次使用的接收配对、辅助测量记录和逐路条件 |
 | `app/vision.py`、`landmark_backend.py`、`landmark_process.py` | 主姿态模型及同图像的可选关键点进程 |
 | `app/exercises.py`、`quality.py`、`joint_calibration.py`、`axial_geometry.py` | 动作定义、逐指标可见性、校准、二维几何 |
 | `app/rehab.py`、`training.py`、`assessment.py` | 动作过程、组次执行和评估汇总 |
@@ -58,6 +59,7 @@ Set-Location .\rehab_codex_single_camera_v2_1
 .\.venv\Scripts\python.exe scripts\qa_plan_library.py
 .\.venv\Scripts\python.exe scripts\qa_movement_timing.py --output qa-output\timing-review
 .\.venv\Scripts\python.exe scripts\qa_longitudinal.py --output qa-output\history-review
+.\.venv\Scripts\python.exe scripts\qa_dual_camera.py --output qa-output\dual-camera-review
 .\.venv\Scripts\python.exe scripts\audit_readiness.py --output .runtime\readiness-review
 .\.venv\Scripts\python.exe scripts\check_docs.py
 .\.venv\Scripts\python.exe -m compileall -q app scripts tests
@@ -72,6 +74,8 @@ Remove-Item Env:QT_QPA_PLATFORM
 ```
 
 最后一行只清除本次 shell 的环境变量。真实摄像头验收从软件的相机测试入口由使用者开始，独立记录设备和验证范围。
+
+双摄也提供显式选择设备的本地检查脚本：先 `scripts\check_dual_camera.py --list --output .runtime\pair-enumeration` 只枚举，再按当次输出提供 `--frontal-index` 与 `--sagittal-index`。由 CameraManager 打开、采样并释放后重新打开，不加载模型或保存图像；完整命令和证据范围见[双摄说明](history/DUAL_CAMERA_V0_13.md)。
 
 ## 数据、提交与交接
 

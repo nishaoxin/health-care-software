@@ -1,0 +1,48 @@
+{
+  "source_kind": "SYNTHETIC",
+  "usage_context": "TEST",
+  "camera_opened": false,
+  "storage_reopened": true,
+  "completed": 1,
+  "paired_observations": 61,
+  "screenshots": [
+    "selection.png",
+    "paired-1100.png",
+    "paired-1360.png",
+    "raw-pair-test.png",
+    "distance-pair.png",
+    "auxiliary-missing.png",
+    "report-dual.png"
+  ],
+  "geometry": {
+    "1100": [
+      [
+        0,
+        0,
+        237,
+        194
+      ],
+      [
+        249,
+        0,
+        237,
+        194
+      ]
+    ],
+    "1360": [
+      [
+        0,
+        0,
+        367,
+        194
+      ],
+      [
+        379,
+        0,
+        367,
+        194
+      ]
+    ]
+  },
+  "evidence_scope": "Synthetic trajectories, native UI and SQLite reopen; no human or camera accuracy validation."
+}

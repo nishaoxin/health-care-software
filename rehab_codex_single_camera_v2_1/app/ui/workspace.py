@@ -9,6 +9,7 @@ from .training import TrainingControls
 from .training_hub import TrainingHub
 from .exercise_guide import ExerciseGuide
 from .widgets import VideoCanvas, MetricCard, Disclosure, NoticeLabel
+from .video_pair import VideoPairPanel
 
 
 def build_workspace(w):
@@ -162,7 +163,8 @@ def build_workspace(w):
 
     w.canvas = VideoCanvas()
     w.canvas.roi_changed.connect(w._roi_changed)
-    monitor.addWidget(w.canvas, 1)
+    w.video_pair = VideoPairPanel(w.canvas)
+    monitor.addWidget(w.video_pair, 1)
     meta = QHBoxLayout()
     w.source_badge = QLabel('摄像头 · 未打开')
     w.source_badge.setObjectName('muted')

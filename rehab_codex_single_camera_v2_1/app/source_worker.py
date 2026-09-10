@@ -145,6 +145,7 @@ class SourceWorker:
         self.process = ctx.Process(target=_capture, args=(source, context, options, self.frames,
                                    self.statuses, self.commands, self.acks, self.stop_event), daemon=True)
         self.forced_stop = False
+        self.stopped = False
 
     def start(self):
         self.process.start()
@@ -180,16 +181,23 @@ class SourceWorker:
         except queue.Empty:
             return result
 
-    def stop(self):
+    def request_stop(self):
         self.stop_event.set()
-        self.process.join(timeout=2)
-        if self.process.is_alive():
+
+    def stop(self):
+        if self.stopped:
+            return True
+        self.request_stop()
+        if self.process.pid is not None:
+            self.process.join(timeout=2)
+        if self.process.pid is not None and self.process.is_alive():
             self.forced_stop = True
             self.process.terminate()
             self.process.join(timeout=2)
-        if self.process.is_alive():
+        if self.process.pid is not None and self.process.is_alive():
             return False
         for slot in (self.frames, self.statuses, self.commands, self.acks):
             slot.cancel_join_thread()
             slot.close()
+        self.stopped = True
         return True

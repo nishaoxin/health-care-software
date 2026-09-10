@@ -1,0 +1,23 @@
+{
+  "observed_utc": "2026-09-10T10:16:03.910162+00:00",
+  "backend": "dshow",
+  "enumeration_only": true,
+  "camera_open_attempted": false,
+  "camera_frames_observed": false,
+  "image_saved": false,
+  "model_loaded": false,
+  "runs": [],
+  "physical_view_placement_verified": false,
+  "human_accuracy_validated": false,
+  "evidence_scope": "Read-only enumeration or explicitly requested capture/release checks; receive pairing is not exposure synchronization.",
+  "devices": [
+    {
+      "name": "HD Webcam",
+      "backend": 700,
+      "current_index": 0,
+      "path_available": true,
+      "device_fingerprint": "8f5cc4229dbc3d08"
+    }
+  ],
+  "status": "ENUMERATION_ONLY"
+}

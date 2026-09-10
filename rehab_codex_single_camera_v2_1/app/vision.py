@@ -14,7 +14,7 @@ from .source_worker import put_latest
 
 
 class VisionWorker:
-    def __init__(self, model_path=None, imgsz=640, device='cpu'):
+    def __init__(self, model_path=None, imgsz=640, device='cpu', *, start_thread=True):
         self.model_path = Path(model_path or ROOT/'assets/models/yolo11n-pose.pt')
         self.imgsz, self.device = imgsz, device
         self.inputs, self.outputs = queue.Queue(maxsize=1), queue.Queue(maxsize=1)
@@ -27,7 +27,9 @@ class VisionWorker:
         self.landmark_selection = None
         self.failed_selection = None
         self.failed_message = None
-        self.thread.start()
+        self.secondary_vision = None
+        if start_thread:
+            self.thread.start()
 
     def _load(self):
         if not self.model_path.is_file():
@@ -94,6 +96,19 @@ class VisionWorker:
         return PoseFrame(packet.context, packet.seq, packet.time_s, (w, h), people,
                          (time.perf_counter()-start)*1000, model_manifest_id=self.manifest_id)
 
+    def infer_pair(self, packet, backend='yolo', side='left'):
+        from .dual_camera import validate_pair
+        paired = validate_pair(packet, packet.camera_view)
+        # Each view owns a separate predictor and tracker. Inference stays in
+        # this one worker thread so CPU work cannot fan out without bounds.
+        if self.secondary_vision is None:
+            self.secondary_vision = VisionWorker(self.model_path, self.imgsz, self.device, start_thread=False)
+            self.secondary_vision.stop_event = self.stop_event
+        primary = self.infer(packet, backend, side)
+        secondary = self.secondary_vision.infer(paired, 'yolo', side)
+        primary.paired_pose = secondary
+        return primary
+
     def _run(self):
         while not self.stop_event.is_set():
             try:
@@ -104,7 +119,8 @@ class VisionWorker:
                 selection = (packet.context, backend, side)
                 if selection == self.failed_selection:
                     raise RuntimeError(self.failed_message)
-                result = self.infer(packet, backend, side)
+                result = (self.infer_pair(packet, backend, side) if packet.paired_frame is not None
+                          else self.infer(packet, backend, side))
                 put_latest(self.outputs, (packet, result, None))
             except Exception as exc:
                 if selection != self.failed_selection:
@@ -129,5 +145,12 @@ class VisionWorker:
     def close(self):
         self.stop_event.set()
         self.clear()
-        self.thread.join(timeout=5)
-        return not self.thread.is_alive()
+        if self.thread.ident is not None:
+            self.thread.join(timeout=5)
+        elif self.landmark_backend:
+            self.landmark_backend.close()
+            self.landmark_backend = None
+        closed = not self.thread.is_alive()
+        if closed and self.secondary_vision:
+            closed = self.secondary_vision.close()
+        return closed

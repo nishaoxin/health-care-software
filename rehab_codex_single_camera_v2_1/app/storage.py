@@ -409,6 +409,16 @@ class Storage:
                                             ('preference:camera:v1',)).fetchone())
         return camera_preference(json.loads(row[0])) if row else None
 
+    def save_camera_pair_preference(self, devices):
+        from .dual_camera import checked_devices
+        return self.save_device('preference:camera-pair:v1', checked_devices(devices))
+
+    def get_camera_pair_preference(self):
+        from .dual_camera import checked_devices
+        row = self._call(lambda c: c.execute('SELECT payload FROM devices WHERE id=?',
+                                            ('preference:camera-pair:v1',)).fetchone())
+        return checked_devices(json.loads(row[0])) if row else None
+
     def audit(self, action, payload):
         return self._call(lambda c: c.execute('INSERT INTO audit(at_utc,action,payload) VALUES (?,?,?)',
                                               (utc_now(), action, dumps(payload))).rowcount)

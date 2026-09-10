@@ -12,6 +12,7 @@ from ..exercises import exercise_spec
 from .exercise_guide import ExerciseGuide
 from .training import TrainingControls
 from .widgets import VideoCanvas
+from .video_pair import VideoPairPanel
 
 
 class DistanceCoach(QDialog):
@@ -69,7 +70,8 @@ class DistanceCoach(QDialog):
         left.addWidget(self.count)
         self.canvas = VideoCanvas()
         self.canvas.setMinimumSize(300, 170)
-        left.addWidget(self.canvas, 1)
+        self.video_pair = VideoPairPanel(self.canvas, compact=True)
+        left.addWidget(self.video_pair, 1)
         self.feedback = self.label('', 'coachFeedback')
         left.addWidget(self.feedback)
         middle.addLayout(left, 4)
@@ -150,6 +152,8 @@ class DistanceCoach(QDialog):
         self.source.setText(SOURCES.get(source_kind, '来源未记录')+' / '+CONTEXTS.get(usage_context, '情境未记录')+
                             ' · '+info['view_label']+(' · 镜像画面' if mirror else ' · 原向画面')+
                             (' · 实验性二维观察' if info['experimental'] else ' · 二维观察'))
+        if data.get('dual_camera'):
+            self.source.setText(self.source.text()+' · 正侧双摄')
         summary = data.get('summary') or {}
         self.training_data = summary.get('training') or {}
         stage = self.training_data.get('stage')
@@ -163,12 +167,18 @@ class DistanceCoach(QDialog):
         self.exit_hint.setText('Esc 返回普通界面，不停止采集' if active else '采集未开启 · Esc 返回普通界面')
         packet = data.get('packet')
         self._frame_received = getattr(packet, 'received_monotonic', None)
+        if data.get('dual_camera'):
+            secondary_received = getattr(getattr(packet, 'paired_frame', None), 'received_monotonic', None)
+            self._frame_received = (min(self._frame_received, secondary_received)
+                                    if all(isinstance(t, (int, float)) and math.isfinite(t) for t in (self._frame_received, secondary_received)) else None)
         fresh = (not self._live_display or (isinstance(self._frame_received, (int, float)) and
                  math.isfinite(self._frame_received) and 0 <= time.monotonic()-self._frame_received <= 3))
         if packet is not None and packet.context == context and fresh and self.state in ('PREVIEW', 'ONLINE') and not data.get('error'):
-            self.canvas.set_frame(packet, data.get('pose'))
+            pair_fresh = self.video_pair.render(data, mirror=mirror)
+            if data.get('dual_camera'):
+                fresh = fresh and pair_fresh
         else:
-            self.canvas.set_frame(None)
+            self.video_pair.clear()
             self.canvas.caption = '暂无实时画面'
             self.canvas.subcaption = '请以当前输入状态为准'
         metric = (summary.get('metrics') or {}).get(exercise_spec(plan['exercise_id'])['metric'], {})
@@ -224,7 +234,7 @@ class DistanceCoach(QDialog):
     def _check_freshness(self, now=None):
         if (self._live_display and self.state in ('PREVIEW', 'ONLINE') and self._frame_received is not None
                 and (time.monotonic() if now is None else now)-self._frame_received > 3):
-            self.canvas.set_frame(None)
+            self.video_pair.clear()
             if self.training_data.get('stage') not in ('PAUSED', 'RESTING', 'COMPLETE', 'FINISHED'):
                 self.show_hold('画面更新超时\n请暂停动作')
                 self.set_feedback('等待新画面，或停止采集后重新预览。')
@@ -238,9 +248,9 @@ class DistanceCoach(QDialog):
         super().hideEvent(event)
 
     def reject(self):
-        self.canvas.set_frame(None)
+        self.video_pair.clear()
         self.hide()  # Presentation only; returning must not silently stop a run.
 
     def closeEvent(self, event):
-        self.canvas.set_frame(None)
+        self.video_pair.clear()
         event.accept()

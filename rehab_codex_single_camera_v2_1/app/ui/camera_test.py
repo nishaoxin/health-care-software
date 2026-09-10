@@ -2,17 +2,22 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QCheckBox
 
 from .widgets import VideoCanvas
+from .video_pair import VideoPairPanel
 
 
 class CameraTestDialog(QDialog):
     stop_requested = Signal()
 
-    def __init__(self, device_name, parent=None, *, mirror=True):
+    def __init__(self, device_name, parent=None, *, mirror=True, dual_view=None):
         super().__init__(parent)
         self.setWindowTitle('摄像头测试')
         self.setWindowModality(Qt.WindowModality.WindowModal)
         self.resize(760, 560)
         self.setMinimumSize(580, 420)
+        self.dual_view = dual_view
+        if dual_view:
+            self.resize(1060, 680)
+            self.setMinimumSize(700, 520)
         self._released = False
         self.stopping = False
         layout = QVBoxLayout(self)
@@ -28,8 +33,10 @@ class CameraTestDialog(QDialog):
         self.canvas.mirror = mirror
         self.canvas.caption = '正在连接摄像头'
         self.canvas.subcaption = '首次连接可能需要几秒'
-        layout.addWidget(self.canvas, 1)
-        self.details = QLabel('只测试画面，不记录评估、不保存视频')
+        self.video_pair = VideoPairPanel(self.canvas)
+        self.video_pair.configure(bool(dual_view), (dual_view or {}).get('primary_view', 'frontal'))
+        layout.addWidget(self.video_pair, 1)
+        self.details = QLabel('只测试'+('两路' if dual_view else '')+'画面，不记录评估、不保存视频')
         self.details.setObjectName('muted')
         layout.addWidget(self.details)
         footer = QHBoxLayout()
@@ -47,8 +54,7 @@ class CameraTestDialog(QDialog):
         layout.addLayout(footer)
 
     def _set_mirror(self, checked):
-        self.canvas.mirror = checked
-        self.canvas.update()
+        self.video_pair.set_mirror(checked)
 
     def render(self, data):
         if self.stopping:
@@ -57,13 +63,15 @@ class CameraTestDialog(QDialog):
         if data.get('error'):
             self.show_error(data['error'])
         elif packet is not None and packet.context == data.get('context') and data['state'] == 'PREVIEW':
-            self.canvas.set_frame(packet)
-            self.status.setText('已收到画面，请确认能看清自己')
+            fresh = self.video_pair.render(data, mirror=self.mirror_toggle.isChecked(), enabled=bool(self.dual_view),
+                                           primary_view=(self.dual_view or {}).get('primary_view', 'frontal'))
+            self.status.setText(('已收到两路画面，请核对正面与侧面位置' if self.dual_view else '已收到画面，请确认能看清自己')
+                                if fresh else '两路画面尚未就绪，请检查设备和接收时间')
             h, w = packet.image.shape[:2]
             fps = packet.received_fps
             self.frame_info.setText(f'{w} × {h} · '+('帧率统计中' if fps is None else f'{fps:.1f} 帧/秒'))
         elif data['state'] != 'PREVIEW':
-            self.canvas.set_frame(None)
+            self.video_pair.clear()
             self.frame_info.clear()
             self.canvas.caption = '正在连接摄像头' if data['state'] == 'CONNECTING' else '摄像头未连接'
             self.status.setText('正在打开摄像头…' if data['state'] == 'CONNECTING' else '没有取得画面，请关闭后检查设备并重试')
@@ -73,7 +81,7 @@ class CameraTestDialog(QDialog):
         self.status.setText(text)
         self.canvas.caption = '暂时无法显示画面'
         self.canvas.subcaption = '关闭后检查权限、占用或连接，再重试'
-        self.canvas.set_frame(None)
+        self.video_pair.clear()
         self.frame_info.clear()
         self.stop_button.setText('关闭摄像头 / 重试关闭')
         self.stop_button.setEnabled(True)
@@ -83,14 +91,14 @@ class CameraTestDialog(QDialog):
             return
         self.stopping = True
         self.status.setText('正在关闭摄像头…')
-        self.canvas.set_frame(None)
+        self.video_pair.clear()
         self.frame_info.clear()
         self.stop_button.setEnabled(False)
         self.stop_requested.emit()
 
     def finish_close(self):
         self._released = True
-        self.canvas.set_frame(None)
+        self.video_pair.clear()
         self.accept()
 
     def reject(self):

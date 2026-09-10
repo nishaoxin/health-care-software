@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import copy
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from datetime import datetime
 import json
 import math
@@ -47,6 +47,11 @@ class SceneController:
         self.processed_frames = 0
         self.dropped_frames = 0
         self.previous_seq = None
+        self.dual_config = None
+        self.secondary_gate = PacketGate()
+        self.secondary_analyzer = None
+        self.latest_secondary_observation = self.latest_primary_observation = None
+        self.active_secondary_track = None
         if self.pending_path.is_file():
             self.pending = json.loads(self.pending_path.read_text(encoding='utf-8'))
             self.state = 'SAVE_FAILED'
@@ -61,6 +66,31 @@ class SceneController:
                             tau=self.vision_config.get('filter_tau_s', .12), max_gap=self.vision_config.get('invalid_gap_s', .5),
                             exercise_id=self.setup['plan']['exercise_id'] if self.setup['scene_id'] == 'rehab' else None,
                             joint_baseline=self.setup['plan'].get('joint_baseline'))
+
+    def _new_secondary_analyzer(self):
+        from .dual_camera import other_view
+        return PoseAnalyzer(side=self.setup['plan']['side'],
+                            conf_min=self.vision_config.get('keypoint_conf_min', .5),
+                            tau=self.vision_config.get('filter_tau_s', .12), max_gap=self.vision_config.get('invalid_gap_s', .5),
+                            auxiliary_view=other_view(self.dual_config['primary_view']))
+
+    def _reset_secondary(self, context=None):
+        from .dual_camera import other_view, secondary_context
+        self.latest_secondary_observation = self.latest_primary_observation = None
+        self.active_secondary_track = None
+        self.secondary_gate.reset(secondary_context(context, other_view(self.dual_config['primary_view']))
+                                  if context is not None and self.dual_config else None)
+        self.secondary_analyzer = self._new_secondary_analyzer() if self.dual_config else None
+
+    def _validate_current_pair(self):
+        from .dual_view import validate_pair_pose
+        import time
+        if self.latest_packet is None or self.latest_pose is None:
+            raise ValueError('请先取得两路有效姿态')
+        now = time.monotonic() if self.source['kind'] == 'LIVE_CAMERA' and not self.test_mode else None
+        validate_pair_pose(self.latest_packet, self.latest_pose, self.dual_config['primary_view'], now=now)
+        if self.latest_secondary_observation is None or self.latest_secondary_observation.status != 'VALID':
+            raise ValueError('请让两路画面中的同一位参与者和必要肩髋点清楚可见')
 
     def open(self, source, setup, options=None):
         if self.pending is not None:
@@ -82,16 +112,31 @@ class SceneController:
             self.source['usage_context'] = 'CONTROLLED_DEMO'
         if kind == 'SYNTHETIC':
             self.source['usage_context'] = 'TEST'
+        self.dual_config = None
+        if 'dual_camera' in source:
+            from .dual_camera import validate_dual_source
+            if self.setup['scene_id'] != 'rehab':
+                raise ValueError('双摄当前用于一个康复任务，请切回身体评估或训练')
+            self.dual_config = validate_dual_source(self.source, self.setup['view'], allow_synthetic=self.test_mode)
+            self.setup['dual_camera'] = dict(primary_view=self.dual_config['primary_view'], same_participant_confirmed=False)
+        else:
+            self.setup.pop('dual_camera', None)
         self.context = self._context()
         self.gate.reset(self.context)
+        self._reset_secondary(self.context)
         self.confirmed = False
         self.analyzer = self._analyzer(setup['plan']['side'])
         self.latest_packet = self.latest_pose = self.latest_observation = None
         self.state = 'CONNECTING'
         try:
             if kind == 'LIVE_CAMERA':
-                self.camera.open_camera(source['device_ref'], self.context, options)
-                self.storage.save_device(source['ref'], source['device_ref'])
+                if self.dual_config:
+                    self.camera.open_pair(self.dual_config['devices'], self.dual_config['primary_view'], self.context, options)
+                    for view, ref in self.dual_config['devices'].items():
+                        self.storage.save_device(source['ref']+':'+view, ref)
+                else:
+                    self.camera.open_camera(source['device_ref'], self.context, options)
+                    self.storage.save_device(source['ref'], source['device_ref'])
             elif kind == 'REPLAY_FILE':
                 self.camera.open_replay(source['file'], self.context, options)
         except Exception:
@@ -164,6 +209,19 @@ class SceneController:
             raise ValueError('用户、模式、场景、动作、侧别或机位已经改变，请重新预览')
         if not setup.get('participant_confirmed'):
             raise ValueError('请人工确认参与者和机位')
+        if self.dual_config:
+            from .dual_camera import other_view
+            dual = setup.get('dual_camera') or {}
+            if dual.get('same_participant_confirmed') is not True or dual.get('primary_view') != self.dual_config['primary_view']:
+                raise ValueError('请人工确认两路均为同一人，正面 / 侧面角色和测试侧正确')
+            self._validate_current_pair()
+            primary = self.dual_config['primary_view']
+            setup['dual_camera'] = {k: copy.deepcopy(v) for k, v in self.dual_config.items() if k != 'devices'}
+            setup['dual_camera'].update(same_participant_confirmed=True,
+                                       confirmed_sizes={primary: list(self.latest_pose.size),
+                                                        other_view(primary): list(self.latest_pose.paired_pose.size)})
+        elif setup.get('dual_camera'):
+            raise ValueError('双摄设置已经改变，请重新预览')
         scene, exercise = setup['scene_id'], setup['plan']['exercise_id']
         required = {'activity': ['chair'], 'bedroom_demo': ['bed', 'bed_edge', 'exit', 'floor_watch'],
                     'safety_demo': ['floor_watch']}.get(scene, [])
@@ -196,6 +254,8 @@ class SceneController:
                                            'calibration': setup['plan'].get('calibration'),
                                            'joint_baseline': setup['plan'].get('joint_baseline'),
                                            'placement_revision': setup['placement_revision']})[:16]
+        if self.dual_config:
+            setup['profile_version'] = digest({'primary_profile': setup['profile_version'], 'dual_camera': setup['dual_camera']})[:16]
         self.storage.save_profile(setup)
         self.setup, self.confirmed = setup, True
         return copy.deepcopy(setup)
@@ -205,6 +265,13 @@ class SceneController:
             raise ValueError('需要有效预览和本次机位确认后才能开始')
         if self.latest_pose is None or self.latest_observation is None or self.latest_observation.status != 'VALID':
             raise ValueError('尚未取得有效的单人姿态，请检查模型与站位')
+        if self.dual_config:
+            self._validate_current_pair()
+            sizes = self.setup['dual_camera']['confirmed_sizes']
+            from .dual_camera import other_view
+            primary = self.dual_config['primary_view']
+            if list(self.latest_pose.size) != sizes[primary] or list(self.latest_pose.paired_pose.size) != sizes[other_view(primary)]:
+                raise ValueError('两路采集尺寸已变化，请重新确认机位')
         plan = copy.deepcopy(self.setup['plan'])
         if not str(plan.get('participant_id', '')).strip():
             raise ValueError('请先选择当前用户')
@@ -269,6 +336,7 @@ class SceneController:
         self.setup['preprocessing'] = {k: self.vision_config.get(k) for k in ('imgsz', 'keypoint_conf_min', 'filter_tau_s', 'invalid_gap_s', 'device_at_start')}
         self.session = {'id': run_id, 'run_id': run_id, 'status': 'RUNNING', 'scene_id': self.setup['scene_id'],
                         'source_ref': self.source['ref'], 'source_kind': self.source['kind'],
+                        'capture_mode': 'dual' if self.dual_config else 'single',
                         'usage_context': self.source['usage_context'], 'submode': plan['submode'],
                         'exercise_id': plan['exercise_id'], 'side': plan['side'],
                         'participant_id': plan['participant_id'], 'recording_id': self.source.get('recording_id', run_id),
@@ -294,6 +362,9 @@ class SceneController:
                         'actual_capture': {'size': list(packet.image.shape[1::-1]), 'reported_fps': packet.reported_fps,
                                            'received_fps': packet.received_fps},
                         'repetitions': [], 'events': [], 'metrics': [], 'summary': {}}
+        if self.dual_config:
+            from .dual_view import session_snapshot
+            self.session['dual_camera'] = session_snapshot(self)
         if plan.get('assessment_reference'):
             self.session['assessment_reference'] = copy.deepcopy(plan['assessment_reference'])
         if plan.get('saved_plan_reference'):
@@ -314,11 +385,16 @@ class SceneController:
         self.context = context
         self.gate.reset(context)
         self.analyzer = self._analyzer(plan['side'])
+        self._reset_secondary(context)
         self.processed_frames = self.dropped_frames = 0
         self.previous_seq = None
         self.latest_packet = self.latest_pose = self.latest_observation = None
         if self.source['kind'] != 'SYNTHETIC':
-            self.camera.change_context(context)
+            try:
+                self.camera.change_context(context)
+            except Exception:
+                self.stop('context_change_failed')
+                raise
         self.state = 'ONLINE'
         return context
 
@@ -335,15 +411,47 @@ class SceneController:
         if self.state == 'ONLINE' and list(pose.size) != self.setup.get('actual_size_confirmed'):
             self.stop('frame_shape_changed')
             raise RuntimeError('采集尺寸改变，已结束任务；需重新确认机位与区域')
+        auxiliary = None
+        if self.dual_config:
+            from .dual_view import validate_pair_pose
+            from .dual_camera import other_view
+            import time
+            now = time.monotonic() if self.source['kind'] == 'LIVE_CAMERA' and not self.test_mode else None
+            _, auxiliary_pose = validate_pair_pose(packet, pose, self.dual_config['primary_view'], now=now)
+            if not self.secondary_gate.admit(auxiliary_pose):
+                return False
+            if self.state == 'ONLINE' and list(auxiliary_pose.size) != self.setup['dual_camera']['confirmed_sizes'][other_view(self.dual_config['primary_view'])]:
+                self.stop('secondary_frame_shape_changed')
+                raise RuntimeError('辅助摄像头尺寸改变，已结束双摄任务；请重新确认机位')
+            auxiliary = self.secondary_analyzer.analyze(auxiliary_pose)
         obs = self.analyzer.analyze(pose)
+        primary_observation = obs
+        self.latest_primary_observation, self.latest_secondary_observation = obs, auxiliary
+        if auxiliary is not None and auxiliary.status != 'VALID':
+            obs = replace(obs, status='UNKNOWN', metrics={}, reasons=obs.reasons+['secondary_view_'+auxiliary.status.lower()])
         self.latest_packet, self.latest_pose, self.latest_observation = packet, pose, obs
         if self.state == 'CONNECTING':
             self.state = 'PREVIEW'
         if self.state != 'ONLINE' or self.engine is None:
             return True
+        if auxiliary is not None:
+            if (auxiliary.status == 'MULTI_PERSON' or
+                    self.active_secondary_track and auxiliary.track_key and auxiliary.track_key != self.active_secondary_track):
+                from .dual_view import observation_row
+                invalid = replace(obs, status='UNKNOWN', metrics={}, reasons=['secondary_view_identity_ambiguous'])
+                self.engine.process(invalid)
+                self.session['dual_camera']['observations'].append(observation_row(self, packet, primary_observation, auxiliary))
+                self.stop('dual_identity_ambiguous')
+                self.last_error = '辅助机位的参与者归属不明确，双摄任务已保存；请重新预览并确认同一人'
+                return True
+            if auxiliary.track_key:
+                self.active_secondary_track = auxiliary.track_key
         previous_track = getattr(self, 'active_track', None)
-        if obs.status == 'MULTI_PERSON' or (previous_track and obs.track_key and obs.track_key != previous_track):
-            self.engine.process(obs)
+        if primary_observation.status == 'MULTI_PERSON' or (previous_track and obs.track_key and obs.track_key != previous_track):
+            self.engine.process(primary_observation)
+            if auxiliary is not None:
+                from .dual_view import observation_row
+                self.session['dual_camera']['observations'].append(observation_row(self, packet, primary_observation, auxiliary))
             self.stop('identity_ambiguous')
             self.last_error = '参与者归属不明确，任务已保存；请重新预览并人工确认'
             return True
@@ -356,6 +464,14 @@ class SceneController:
             self.dropped_frames += max(0, pose.seq-self.previous_seq-1)
         self.previous_seq = pose.seq
         included = not isinstance(self.engine, TrainingEngine) or self.engine.last_observation_included
+        if auxiliary is not None:
+            from .dual_view import observation_row
+            self.session['dual_camera']['observations'].append(observation_row(
+                self, packet, primary_observation, auxiliary, included=included if isinstance(self.engine, TrainingEngine) else None))
+            streams = self.session['dual_camera']['streams']
+            for view, frame, frame_pose in ((self.dual_config['primary_view'], packet, pose),
+                                            (self.session['dual_camera']['secondary_view'], packet.paired_frame, pose.paired_pose)):
+                streams[view]['actual_capture'].update(received_fps=frame.received_fps, inference_ms=frame_pose.inference_ms)
         self.session['metrics'].append({'time_s': obs.time_s, 'seq': pose.seq, 'phase': self.engine.phase,
                                         'training_stage': self.engine.stage if isinstance(self.engine, TrainingEngine) else None,
                                         'included_in_training': included if isinstance(self.engine, TrainingEngine) else None,
@@ -383,8 +499,11 @@ class SceneController:
         return True
 
     def _checkpoint_training(self):
+        self._update_dual_diagnostics()
         self.session.update(summary=self.engine.summary(), repetitions=copy.deepcopy(self.engine.repetitions),
                             processed_frames=self.processed_frames, skipped_capture_frames=self.dropped_frames)
+        from .dual_view import update_summary
+        update_summary(self.session)
         try:
             self.storage.save_session(self.session)
         except Exception:
@@ -416,24 +535,35 @@ class SceneController:
                          or not math.isfinite(packet.received_monotonic)
                          or not 0 <= t-packet.received_monotonic <= 3))):
                 raise ValueError('请让当前参与者和必要关节重新清楚入镜，再继续')
+            if self.dual_config:
+                self._validate_current_pair()
         self.engine.control(action, t)
         if action in ('resume', 'next_set'):
             self.engine.training_events[-1]['setup_manually_confirmed'] = True
         if action in ('resume', 'next_set'):
             self.analyzer = self._analyzer(self.setup['plan']['side'])
+            if self.dual_config:
+                self.secondary_analyzer = self._new_secondary_analyzer()
         self._checkpoint_training()
         return self.engine.summary()
+
+    def _update_dual_diagnostics(self):
+        worker = self.camera.worker
+        if self.session and self.dual_config and callable(getattr(worker, 'diagnostics', None)):
+            self.session['dual_camera']['capture_pairing_diagnostics'] = copy.deepcopy(worker.diagnostics())
 
     def stop(self, reason='user_stop', privacy=False):
         if self.pending is not None and self.session is None:
             self.camera.stop()
             self.state = 'SAVE_FAILED'
             raise RuntimeError('仍有未保存结果，请先重试保存')
+        self._update_dual_diagnostics()
         self.generation += 1
         self.gate.reset()
         self.context = None
         self.confirmed = False
         self.active_track = None
+        self._reset_secondary()
         self.latest_packet = self.latest_pose = self.latest_observation = None
         stop_error = None
         try:
@@ -447,6 +577,8 @@ class SceneController:
                             summary=self.engine.summary(), repetitions=copy.deepcopy(getattr(self.engine, 'repetitions', [])),
                             intervals=copy.deepcopy(getattr(self.engine, 'intervals', [])), tasks=copy.deepcopy(getattr(self.engine, 'tasks', [])),
                             processed_frames=self.processed_frames, skipped_capture_frames=self.dropped_frames)
+            from .dual_view import update_summary
+            update_summary(snapshot)
             self.pending = self.storage.authorized_snapshot(snapshot)
             self.session, self.engine = None, None
             try:

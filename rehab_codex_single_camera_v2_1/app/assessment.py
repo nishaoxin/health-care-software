@@ -57,6 +57,11 @@ def session_conditions(session):
                   placement_revision=session.get('placement_revision', config.get('placement_revision')),
                   actual_size=(session.get('actual_capture') or {}).get('size'),
                   backend=session.get('backend'))
+    from .dual_view import capture_conditions
+    capture = capture_conditions(session)
+    result['capture_mode'] = capture['capture_mode']
+    if capture['capture_mode'] != 'single':
+        result['camera_views'] = capture
     return clean_json(copy.deepcopy(result))
 
 

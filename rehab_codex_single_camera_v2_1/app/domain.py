@@ -71,6 +71,9 @@ class FramePacket:
     reported_fps: float | None = None
     received_fps: float | None = None
     time_basis: str = 'monotonic_receive'
+    camera_view: str | None = None
+    paired_frame: FramePacket | None = None
+    pairing: dict | None = None
 
 
 @dataclass
@@ -96,6 +99,7 @@ class PoseFrame:
     model_manifest_id: str = ''
     backend: str = 'yolo'
     target_kind: str = 'person'
+    paired_pose: PoseFrame | None = None
 
 
 @dataclass(frozen=True)
