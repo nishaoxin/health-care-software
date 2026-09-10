@@ -174,6 +174,10 @@ class DistanceCoach(QDialog):
         metric = (summary.get('metrics') or {}).get(exercise_spec(plan['exercise_id'])['metric'], {})
         valid = metric.get('valid') and data.get('observation_status') == 'VALID' and fresh
         phase = summary.get('phase')
+        timing = summary.get('movement_timing_live') or {}
+        hold_pending = (timing.get('at_target') and isinstance(timing.get('hold_elapsed_s'), (int, float))
+                        and isinstance(timing.get('hold_min_s'), (int, float))
+                        and timing['hold_elapsed_s']+1e-8 < timing['hold_min_s'])
         self.set_feedback('')
         if data.get('error'):
             self.show_hold('请暂停动作\n检查输入或操作提示')
@@ -200,6 +204,9 @@ class DistanceCoach(QDialog):
                                   .get(data.get('observation_status'), '请检查遮挡和拍摄位置。'))
         elif self.training_mode and summary.get('current_issues') and summary.get('message'):
             self.show_hold(summary['message'])
+        elif self.training_mode and hold_pending and phase in ('RAISING', 'PEAK_OR_HOLD', 'RISING', 'STANDING_REACHED'):
+            self.show_hold(f"本段连续保持\n{timing['hold_elapsed_s']:.1f} / {timing['hold_min_s']:g} 秒")
+            self.set_feedback(summary.get('message') or '按本次人工安排保持；不适时停止。')
         elif phase not in ('REST', 'WAIT_READY', 'SEATED_READY', 'RAISING', 'RISING', 'PEAK_OR_HOLD', 'STANDING_REACHED', 'LOWERING'):
             self.show_hold('等待明确动作阶段\n请保持舒适姿势')
         else:

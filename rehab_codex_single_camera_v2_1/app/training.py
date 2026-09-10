@@ -84,6 +84,8 @@ class TrainingEngine(RehabEngine):
         self.clock_t = t
 
     def _reset_motion(self, t):
+        self._close_standing_timing('training_boundary')
+        self.timing_history.clear()
         self.phase = 'WAIT_READY'
         self.holds.clear()
         self.rest_samples.clear()
@@ -197,6 +199,11 @@ class TrainingEngine(RehabEngine):
                     'FINISHED': '本次训练已结束。'}
         if self.stage in messages:
             result['message'] = messages[self.stage]
+        if self.stage == 'RECOVERY':
+            if not self.previous_valid:
+                result['message'] = self.message
+            elif self.phase == 'STANDING_REACHED' and self._hold_guidance():
+                result['message'] = self._hold_guidance()
         result.update(observed_span_s=self.active_span_s,
                       valid_ratio=min(1., self.valid_s/self.active_span_s) if self.active_span_s > 0 else None,
                       completed_sets=completed_sets, plan_completed=completed_sets == self.plan['target_sets'])

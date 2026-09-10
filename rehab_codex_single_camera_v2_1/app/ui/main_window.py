@@ -982,6 +982,8 @@ class MainWindow(QMainWindow):
         self.camera_instruction.setText(instructions['camera'])
         self.camera_instruction.setVisible(self.scene == 'rehab')
         self.exercise_guide.setVisible(self.scene == 'rehab')
+        self.timing_readout.clear()
+        self.timing_readout.hide()
         self.exercise_guide.set_exercise(plan['exercise_id'], plan['side'])
         self.setup_tabs.setTabVisible(0, self.scene == 'rehab')
         if self.scene != 'rehab':
@@ -1711,6 +1713,22 @@ class MainWindow(QMainWindow):
         if self.state in ('OFFLINE', 'ERROR', 'SAVE_FAILED', 'PRIVACY_PAUSED'):
             self.feedback.setText(self._idle_copy()[2])
         observed = data.get('observation_status')
+        timing_text = []
+        if self.scene == 'rehab' and self.state == 'ONLINE' and observed == 'VALID' and training_stage not in ('PAUSED', 'RESTING', 'FINISHED'):
+            live = summary.get('movement_timing_live') or {}
+            elapsed = live.get('hold_elapsed_s')
+            if elapsed is not None:
+                timing_text.append(f'本段连续保持 {elapsed:.1f} 秒')
+            last = summary.get('last_movement_timing') or {}
+            if last:
+                values = []
+                for key, label in (('outbound_s', '出程'), ('endpoint_dwell_s', '峰区停留'), ('return_s', '回程')):
+                    metric = last.get(key) or {}
+                    value = metric.get('value') if metric.get('valid') else None
+                    values.append(label+' '+(f'{value:.1f} 秒' if value is not None else '—'))
+                timing_text.append('最近一次记录：'+' / '.join(values))
+        self.timing_readout.setText('；'.join(timing_text))
+        self.timing_readout.setVisible(bool(timing_text))
         if self.scene == 'rehab':
             primary = metrics.get(exercise_spec(self.exercise.currentData())['metric'], {})
             self.exercise_guide.follow_observation(

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLabel, QCombo
 
 from ..reports import LABELS
 from ..exercises import exercise_spec
+from ..movement_timing import timing_for_plan, validate_timing_plan
 
 
 def nullable_spin(value, maximum=180, suffix=' °'):
@@ -58,8 +59,10 @@ class PlanDialog(QDialog):
         self.target = nullable_spin(plan['target_angle_deg'])
         self.elbow = nullable_spin(plan['allowed_elbow_flexion_deg'])
         self.tilt = nullable_spin(plan['allowed_trunk_tilt_deg'], 90)
-        self.tempo_min = nullable_spin(plan['lowering_tempo_min_s'], 60, ' 秒')
-        self.tempo_max = nullable_spin(plan['lowering_tempo_max_s'], 60, ' 秒')
+        timing = timing_for_plan(plan)
+        self.timing_controls = {key: nullable_spin(value, 300, ' 秒') for key, value in timing.items()}
+        self.tempo_min = self.timing_controls['return_min_s']
+        self.tempo_max = self.timing_controls['return_max_s']
         self.hands = QComboBox()
         for title, key in (('未记录', 'not_recorded'), ('允许扶物', 'allowed'), ('不允许扶物', 'not_allowed'), ('人工记录已使用双手', 'used_hands')):
             self.hands.addItem(title, key)
@@ -86,9 +89,14 @@ class PlanDialog(QDialog):
         if spec['joint'] == 'shoulder':
             form.addRow('允许躯干侧倾上限', self.tilt)
         if plan['exercise_id'] == 'sit_to_stand':
-            form.addRow('下降节奏最短时间', self.tempo_min)
-            form.addRow('下降节奏最长时间', self.tempo_max)
             form.addRow('扶物 / 双手使用', self.hands)
+        timing_note = QLabel('可选时间安排：留空仅记录。保持按人工角度目标范围内的连续观察计算；坐站按已确认站位范围计算。')
+        timing_note.setWordWrap(True)
+        form.addRow(timing_note)
+        for key, label in (('outbound_min_s', '出程最短时间'), ('outbound_max_s', '出程最长时间'),
+                           ('return_min_s', '回程最短时间'), ('return_max_s', '回程最长时间'),
+                           ('hold_min_s', '连续保持至少')):
+            form.addRow(label, self.timing_controls[key])
         form.addRow(self.companion)
         form.addRow(self.sound)
         scroll = QScrollArea()
@@ -117,14 +125,17 @@ class PlanDialog(QDialog):
             return
         def optional(w):
             return w.value() if w.value() >= 0 else None
-        low, high = optional(self.tempo_min), optional(self.tempo_max)
-        if low is not None and high is not None and low > high:
-            QMessageBox.information(self, '检查节奏范围', '最短时间不能大于最长时间。')
+        try:
+            timing = validate_timing_plan({key: optional(w) for key, w in self.timing_controls.items()},
+                                          self.plan['exercise_id'], optional(self.target))
+        except ValueError as exc:
+            QMessageBox.information(self, '检查时间安排', str(exc))
             return
         self.plan.update(participant_id=self.participant.text().strip(), target_reps=self.reps.value(), target_sets=self.sets.value(),
                          rest_between_sets_s=optional(self.rest),
                          target_angle_deg=optional(self.target), allowed_elbow_flexion_deg=optional(self.elbow),
-                         allowed_trunk_tilt_deg=optional(self.tilt), lowering_tempo_min_s=low, lowering_tempo_max_s=high,
+                         allowed_trunk_tilt_deg=optional(self.tilt), lowering_tempo_min_s=None, lowering_tempo_max_s=None,
+                         timing_plan=timing,
                          use_of_hands=self.hands.currentData(), needs_companion=self.companion.isChecked(), sound_enabled=self.sound.isChecked())
         self.plan['training_plan_confirmed'] = self.plan.get('submode') == 'training' and not self.template_mode
         self.accept()

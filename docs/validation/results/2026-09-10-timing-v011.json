@@ -1,0 +1,324 @@
+{
+  "final_main_tests": 1187,
+  "subtests": 4,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "complete_run": {
+    "started_at_utc": "2026-09-10T08:47:54.885990+00:00",
+    "python_version": "3.13.11",
+    "suite": "all",
+    "partition_file_count": 49,
+    "camera_opened_by_runner": false,
+    "results": [
+      {
+        "batch": "core",
+        "files": [
+          "tests/test_app_assessment.py",
+          "tests/test_app_camera.py",
+          "tests/test_app_contracts.py",
+          "tests/test_app_controller.py",
+          "tests/test_app_joint_exercises.py",
+          "tests/test_app_regression_audio.py",
+          "tests/test_app_rehab.py",
+          "tests/test_app_scenes.py",
+          "tests/test_app_storage.py",
+          "tests/test_assessment_batches.py",
+          "tests/test_axial_and_extension.py",
+          "tests/test_camera_reference.py",
+          "tests/test_camera_selection.py",
+          "tests/test_camera_test_runtime.py",
+          "tests/test_config_contract.py",
+          "tests/test_geometry.py",
+          "tests/test_movement_timing.py",
+          "tests/test_neck_shoulder_repair.py",
+          "tests/test_participant_runtime.py",
+          "tests/test_participants.py",
+          "tests/test_saved_plan_runtime.py",
+          "tests/test_saved_training_plans.py",
+          "tests/test_training_execution.py",
+          "tests/test_training_feedback.py",
+          "tests/test_training_runtime.py",
+          "tests/test_training_timing.py"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_s": 22.99,
+        "junit": {
+          "tests": 622,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "pytest_summary": "618 passed, 4 subtests passed in 22.40s",
+        "log": "core.log",
+        "junit_file": "core.xml"
+      },
+      {
+        "batch": "ui",
+        "files": [
+          "tests/test_app_ui.py",
+          "tests/test_assessment_batch_ui.py",
+          "tests/test_body_camera_ui.py",
+          "tests/test_clarity_ui.py",
+          "tests/test_distance_ui.py",
+          "tests/test_exercise_guides.py",
+          "tests/test_neck_shoulder_ui.py",
+          "tests/test_participant_ui.py",
+          "tests/test_plan_library_ui.py",
+          "tests/test_product_body_overview.py",
+          "tests/test_product_catalog.py",
+          "tests/test_product_navigation.py",
+          "tests/test_sport_ui_flow.py",
+          "tests/test_timing_ui.py",
+          "tests/test_training_hub.py",
+          "tests/test_training_ui.py"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_s": 30.28,
+        "junit": {
+          "tests": 353,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "pytest_summary": "353 passed in 25.76s",
+        "log": "ui.log",
+        "junit_file": "ui.xml"
+      },
+      {
+        "batch": "test_app_joint_expansion_flow",
+        "files": [
+          "tests/test_app_joint_expansion_flow.py"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_s": 7.1,
+        "junit": {
+          "tests": 21,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "pytest_summary": "21 passed in 6.65s",
+        "log": "test_app_joint_expansion_flow.log",
+        "junit_file": "test_app_joint_expansion_flow.xml"
+      },
+      {
+        "batch": "test_app_landmarks",
+        "files": [
+          "tests/test_app_landmarks.py"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_s": 4.09,
+        "junit": {
+          "tests": 179,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "pytest_summary": "179 passed in 3.64s",
+        "log": "test_app_landmarks.log",
+        "junit_file": "test_app_landmarks.xml"
+      },
+      {
+        "batch": "test_app_runtime_integration",
+        "files": [
+          "tests/test_app_runtime_integration.py"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_s": 4.63,
+        "junit": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "pytest_summary": "3 passed in 3.59s",
+        "log": "test_app_runtime_integration.log",
+        "junit_file": "test_app_runtime_integration.xml"
+      },
+      {
+        "batch": "test_app_source_integration",
+        "files": [
+          "tests/test_app_source_integration.py"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_s": 1.72,
+        "junit": {
+          "tests": 1,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "pytest_summary": "1 passed in 1.28s",
+        "log": "test_app_source_integration.log",
+        "junit_file": "test_app_source_integration.xml"
+      },
+      {
+        "batch": "test_app_vision_integration",
+        "files": [
+          "tests/test_app_vision_integration.py"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_s": 3.47,
+        "junit": {
+          "tests": 2,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "pytest_summary": "2 passed in 2.50s",
+        "log": "test_app_vision_integration.log",
+        "junit_file": "test_app_vision_integration.xml"
+      },
+      {
+        "batch": "test_camera_test_integration",
+        "files": [
+          "tests/test_camera_test_integration.py"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_s": 1.01,
+        "junit": {
+          "tests": 3,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "pytest_summary": "3 passed in 0.58s",
+        "log": "test_camera_test_integration.log",
+        "junit_file": "test_camera_test_integration.xml"
+      },
+      {
+        "batch": "test_model_paths_integration",
+        "files": [
+          "tests/test_model_paths_integration.py"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_s": 7.07,
+        "junit": {
+          "tests": 6,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "pytest_summary": "6 passed in 6.62s",
+        "log": "test_model_paths_integration.log",
+        "junit_file": "test_model_paths_integration.xml"
+      }
+    ],
+    "success": true,
+    "completed_at_utc": "2026-09-10T08:49:17.270081+00:00",
+    "completed_batches": 9
+  },
+  "replacement_ui_batch": {
+    "started_at_utc": "2026-09-10T08:50:49.419350+00:00",
+    "python_version": "3.13.11",
+    "suite": "ui",
+    "partition_file_count": 49,
+    "camera_opened_by_runner": false,
+    "results": [
+      {
+        "batch": "ui",
+        "files": [
+          "tests/test_app_ui.py",
+          "tests/test_assessment_batch_ui.py",
+          "tests/test_body_camera_ui.py",
+          "tests/test_clarity_ui.py",
+          "tests/test_distance_ui.py",
+          "tests/test_exercise_guides.py",
+          "tests/test_neck_shoulder_ui.py",
+          "tests/test_participant_ui.py",
+          "tests/test_plan_library_ui.py",
+          "tests/test_product_body_overview.py",
+          "tests/test_product_catalog.py",
+          "tests/test_product_navigation.py",
+          "tests/test_sport_ui_flow.py",
+          "tests/test_timing_ui.py",
+          "tests/test_training_hub.py",
+          "tests/test_training_ui.py"
+        ],
+        "exit_code": 0,
+        "timed_out": false,
+        "duration_s": 30.56,
+        "junit": {
+          "tests": 354,
+          "failures": 0,
+          "errors": 0,
+          "skipped": 0
+        },
+        "pytest_summary": "354 passed in 25.80s",
+        "log": "ui.log",
+        "junit_file": "ui.xml"
+      }
+    ],
+    "success": true,
+    "completed_at_utc": "2026-09-10T08:51:19.982026+00:00",
+    "completed_batches": 1
+  },
+  "last_scoped_ui_verification": {
+    "name": "pytest",
+    "errors": "0",
+    "failures": "0",
+    "skipped": "0",
+    "tests": "106",
+    "time": "12.787",
+    "timestamp": "2026-09-10T16:54:41.900991+08:00"
+  },
+  "native_qa": {
+    "source_kind": "SYNTHETIC",
+    "usage_context": "TEST",
+    "camera_opened": false,
+    "ui_confirmed": true,
+    "storage_reopened": true,
+    "completed": 1,
+    "timing": {
+      "outbound_s": {
+        "value": 1.8000000000000014,
+        "valid": true,
+        "reason": null
+      },
+      "endpoint_dwell_s": {
+        "value": 3.7999999999999896,
+        "valid": true,
+        "reason": null
+      },
+      "return_s": {
+        "value": 1.699999999999994,
+        "valid": true,
+        "reason": null
+      },
+      "target_hold_s": {
+        "value": 3.89999999999999,
+        "valid": true,
+        "reason": null
+      },
+      "version": "observed-timing-1",
+      "method": "calibrated_standing",
+      "cycle_complete": true,
+      "partial_observation": false,
+      "goals": {
+        "outbound": "MET",
+        "return": "MET",
+        "hold": "MET"
+      },
+      "arrangement": {
+        "outbound_min_s": 0.5,
+        "outbound_max_s": null,
+        "return_min_s": null,
+        "return_max_s": 6.0,
+        "hold_min_s": 3.0
+      }
+    },
+    "export_directory": "export",
+    "evidence_scope": "Controlled observations and native UI only; no human accuracy validation."
+  },
+  "note": "Use the replacement UI batch instead of the earlier UI count; do not sum reruns."
+}

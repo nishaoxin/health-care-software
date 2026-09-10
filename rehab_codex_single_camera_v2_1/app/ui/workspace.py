@@ -207,6 +207,11 @@ def build_workspace(w):
     left.addWidget(w.training_panel)
     left.addWidget(w.monitor_scroll, 1)
     left.addWidget(w.feedback)  # Current guidance stays visible even when the camera area scrolls.
+    w.timing_readout = QLabel()
+    w.timing_readout.setWordWrap(True)
+    w.timing_readout.setObjectName('muted')
+    w.timing_readout.hide()
+    left.addWidget(w.timing_readout)
     split.addLayout(left, 1)
     w.setup_panel = w._setup_panel()
     w.setup_tabs = QTabWidget()

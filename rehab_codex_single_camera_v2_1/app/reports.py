@@ -22,6 +22,13 @@ LABELS = {'COMPLETE': '完整完成', 'PARTIAL': '部分尝试', 'INTERRUPTED': 
 SIDES = {'left': '左侧', 'right': '右侧'}
 MODES = {'assessment': '身体评估', 'training': '康复训练'}
 SESSION_STATUSES = {'FINISHED': '已结束', 'COMPLETED': '已结束', 'INTERRUPTED': '已中断', 'RUNNING': '进行中'}
+TIMING_METRICS = ('outbound_s', 'endpoint_dwell_s', 'return_s', 'target_hold_s')
+TIMING_REASONS = {'incomplete_cycle': '未观察到完整回程', 'standing_not_observed': '未观察到确认站位',
+                  'occlusion': '期间缺测', 'stream_gap': '输入时间断开', 'invalid_metric': '指标无效',
+                  'insufficient_valid_samples': '有效样本不足', 'unobserved_phase_boundary': '阶段边界未观察完整',
+                  'ambiguous_peak_band': '多段峰区，无法唯一分期', 'no_hold_anchor': '未设置保持角度',
+                  'no_valid_samples': '没有有效样本', 'user_pause': '用户暂停', 'user_stop': '用户结束',
+                  'training_boundary': '训练阶段切换', 'identity_ambiguous': '参与者不明确'}
 STYLE = """body{font-family:'Microsoft YaHei UI',sans-serif;color:#203c3d;background:#f5f8f6;
 max-width:1200px;margin:24px auto;padding:24px;line-height:1.7}h1{font-size:26px}h2{font-size:18px}
 .tag{color:#13776c}.muted{color:#627476}table{border-collapse:collapse;width:100%;background:white}
@@ -218,6 +225,40 @@ def _rep_angle(rep, spec):
     return rep.get(legacy.get(spec.get('metric')))
 
 
+def _timing_html(session):
+    reps = session.get('repetitions') or []
+    if not any(r.get('movement_timing') for r in reps):
+        return '<h2>动作时间</h2><p>本记录没有逐阶段时间数据；不从旧总时长补算。</p>'
+    rows = []
+    for rep in reps:
+        timing = rep.get('movement_timing') or {}
+        values = [fmt(rep.get('number'), 0)]
+        for key in TIMING_METRICS:
+            metric = timing.get(key) or {}
+            values.append(fmt(metric.get('value')) if metric.get('valid') else
+                          '—（'+fmt(TIMING_REASONS.get(metric.get('reason'), metric.get('reason') or '未记录'))+'）')
+        goals = timing.get('goals') or {}
+        values.append('<br>'.join(label+'：'+fmt(LABELS.get(goals.get(key), '未记录'))
+                                 for key, label in (('outbound', '出程'), ('return', '回程'), ('hold', '保持'))))
+        rows.append('<tr>'+''.join('<td>'+v+'</td>' for v in values)+'</tr>')
+    plan = ((session.get('config_snapshot') or {}).get('plan') or {})
+    from .movement_timing import timing_for_plan
+    try:
+        arrangement = timing_for_plan(plan)
+    except (ValueError, KeyError):
+        arrangement = {}
+    goal_text = '；'.join(label+' '+fmt(arrangement.get(key))+' 秒' for key, label in (
+        ('outbound_min_s', '出程最短'), ('outbound_max_s', '出程最长'), ('return_min_s', '回程最短'),
+        ('return_max_s', '回程最长'), ('hold_min_s', '连续保持至少')))
+    return ('<h2>动作时间</h2><p>人工安排：'+goal_text+'。— 表示未设置。</p>'
+            '<p class="muted">关节出程 / 峰区停留 / 回程为完整往返结束后的分期统计：连续三点中位数在中心帧时刻、'
+            '距本次峰值 3° 内的单段区域定义峰区。坐站按确认站位与回坐边界分期，起立计数仍在站位确认时完成。'
+            '连续保持为人工目标角度范围（坐站为校准站位）内最长一段连续观察；分段不累加，缺测不补计。'
+            '峰区停留不表示平衡或支撑稳定性，时间目标与完成次数分别评价。</p>'
+            '<table><tr><th>序号</th><th>出程 s</th><th>峰区 / 站位停留 s</th><th>回程 s</th><th>最长连续保持 s</th>'
+            '<th>时间目标</th></tr>'+''.join(rows)+'</table>')
+
+
 def render_report(s):
     summary = s.get('summary') or {}
     source = SOURCES.get(s.get('source_kind'), '来源未记录')
@@ -248,6 +289,7 @@ def render_report(s):
                    '<th>最小 °</th><th>最大 °</th><th>幅度 °</th><th>时长 s</th><th>观察情况</th><th>可见问题</th></tr>'
                    + (''.join(rows) or '<tr><td colspan="10">没有已记录的动作重复。</td></tr>') + '</table>')
         detail += _saved_plan_html(s)
+        detail += _timing_html(s)
         detail += _training_html(s)
         detail += _training_execution_html(s)
         if s.get('measurement_limitations'):
@@ -429,7 +471,11 @@ def export_session(snapshot, directory):
                    'peak_angle_deg', 'min_angle_deg', 'range_deg', 'max_raise_projection_deg',
                    'min_knee_flexion_projection_deg', 'rise_time_s', 'lowering_time_s',
                    'exercise_id', 'side', 'submode', 'participant_id', 'source_kind', 'usage_context',
-                   'primary_metric', 'primary_metric_label', 'assessment_session_id', 'issues']
+                   'primary_metric', 'primary_metric_label', 'assessment_session_id', 'issues',
+                   'movement_timing_version', 'timing_cycle_complete', 'timing_partial_observation']
+        columns += [key+suffix for key in TIMING_METRICS for suffix in ('', '_valid', '_reason')]
+        columns += ['timing_goal_'+key for key in ('outbound', 'return', 'hold')]
+        columns += ['timing_arrangement']
         writer = csv.DictWriter(f, fieldnames=columns, extrasaction='ignore')
         writer.writeheader()
         exercise_id = session_value(s, 'exercise_id')
@@ -437,6 +483,14 @@ def export_session(snapshot, directory):
         reference = _assessment_reference(s) or {}
         for rep in s.get('repetitions') or []:
             row = dict(rep)
+            timing = rep.get('movement_timing') or {}
+            row.update(movement_timing_version=timing.get('version'), timing_cycle_complete=timing.get('cycle_complete'),
+                       timing_partial_observation=timing.get('partial_observation'), timing_arrangement=dumps(timing.get('arrangement')))
+            for key in TIMING_METRICS:
+                metric = timing.get(key) or {}
+                row.update({key: metric.get('value') if metric.get('valid') else None,
+                            key+'_valid': metric.get('valid'), key+'_reason': metric.get('reason')})
+            row.update({'timing_goal_'+key: (timing.get('goals') or {}).get(key) for key in ('outbound', 'return', 'hold')})
             row.update({key: session_value(s, key) for key in ('exercise_id', 'side', 'submode', 'participant_id')})
             row.update({key: s.get(key) for key in ('source_kind', 'usage_context')})
             row.update(primary_metric=(s.get('summary') or {}).get('primary_metric') or spec.get('metric'),

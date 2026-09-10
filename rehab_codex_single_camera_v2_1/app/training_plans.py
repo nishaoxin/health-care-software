@@ -10,13 +10,14 @@ from .assessment import build_training_reference
 from .assessment_batches import scope_key
 from .exercises import exercise_spec
 from .settings import default_plan
+from .movement_timing import timing_for_plan
 
 
 PRESCRIPTION_FIELDS = (
     'target_reps', 'target_sets', 'rest_between_sets_s', 'target_angle_deg',
     'allowed_elbow_flexion_deg', 'allowed_trunk_tilt_deg',
     'lowering_tempo_min_s', 'lowering_tempo_max_s', 'use_of_hands',
-    'needs_companion', 'sound_enabled',
+    'needs_companion', 'sound_enabled', 'timing_plan',
 )
 
 
@@ -45,6 +46,7 @@ def prescription_settings(value, exercise_id):
             raise ValueError('陪同和提示音设置应为明确的开关')
     if result['use_of_hands'] not in ('not_recorded', 'allowed', 'not_allowed', 'used_hands'):
         raise ValueError('扶物安排无效，请重新选择')
+    result['timing_plan'] = timing_for_plan(dict(result, exercise_id=exercise_id))
     return result
 
 
@@ -81,7 +83,7 @@ def validate_training_plan(value):
         if entry.get('measurement_contract') != spec['measurement_contract']:
             raise ValueError('项目的测量定义已变化，请编辑并核对该项目后再保存')
         settings = entry.get('settings')
-        if not isinstance(settings, dict) or any(k not in settings for k in PRESCRIPTION_FIELDS):
+        if not isinstance(settings, dict) or any(k not in settings for k in PRESCRIPTION_FIELDS if k != 'timing_plan'):
             raise ValueError('项目安排不完整，请重新填写；不会自动补入训练目标')
         row = item_from_plan(dict(settings, exercise_id=eid, side=entry.get('side')))
         if entry.get('key') != row['key'] or row['key'] in seen:
@@ -142,9 +144,10 @@ def validate_saved_binding(record, supplied, execution, scope):
             entry['exercise_id'], entry['side'], record['participant_id']):
         raise ValueError('来源计划与当前用户、动作或侧别不一致，请重新选择')
     settings = prescription_settings(execution, entry['exercise_id'])
+    saved = prescription_settings(entry['settings'], entry['exercise_id'])
     reference = _reference(record, entry)
-    reference['session_overrides'] = {k: {'saved': copy.deepcopy(entry['settings'][k]), 'used': copy.deepcopy(v)}
-                                      for k, v in settings.items() if v != entry['settings'][k]}
+    reference['session_overrides'] = {k: {'saved': copy.deepcopy(saved[k]), 'used': copy.deepcopy(v)}
+                                      for k, v in settings.items() if v != saved[k]}
     return reference
 
 

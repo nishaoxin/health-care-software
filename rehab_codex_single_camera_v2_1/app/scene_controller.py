@@ -290,6 +290,7 @@ class SceneController:
                         'requested_capture': {k: self.capture_options.get(k) for k in ('width', 'height', 'fps')} if self.source['kind'] == 'LIVE_CAMERA' else None,
                         'capture_backend_report': copy.deepcopy(self.input_diagnostics),
                         'plan_hash': digest(plan), 'config_snapshot': copy.deepcopy(self.setup),
+                        'movement_timing_version': engine.summary().get('movement_timing_version') if scene == 'rehab' else None,
                         'actual_capture': {'size': list(packet.image.shape[1::-1]), 'reported_fps': packet.reported_fps,
                                            'received_fps': packet.received_fps},
                         'repetitions': [], 'events': [], 'metrics': [], 'summary': {}}

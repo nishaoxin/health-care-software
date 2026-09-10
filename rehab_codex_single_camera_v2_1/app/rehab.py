@@ -7,6 +7,7 @@ from statistics import median
 from .domain import clean_json
 from .exercises import exercise_spec
 from .joint_calibration import validate_start_value
+from .movement_timing import MovementTiming, TIMING_VERSION, timing_for_plan
 
 
 class _AngleEvidence:
@@ -59,6 +60,9 @@ class RehabEngine:
                 raise ValueError('本动作需要先记录活动方向')
             validate_start_value(self.plan, value)
         self.direction = 1 if self.spec['target_direction'] == 'increase' else -1
+        self.timing_plan = timing_for_plan(self.plan)
+        self.timing_history = deque()
+        self.standing_timing = None
         self.motion_evidence = _AngleEvidence()
         self.rest_samples = deque(maxlen=3)
         self.phase = 'WAIT_READY'
@@ -92,6 +96,15 @@ class RehabEngine:
             evidence.add(value)
         self.current = {'start_time_s': t, 'samples': {self.primary_metric: list(self.rest_samples)},
                         'unavailable': {}, 'issues': [], 'angle_evidence': evidence}
+        timer = MovementTiming(direction=self.direction, max_gap_s=self.plan['max_gap_s'],
+                               target=self.plan['target_angle_deg'], goals=self.timing_plan,
+                               sit_to_stand=self.exercise == 'sit_to_stand')
+        start = self.holds.get('rise' if self.exercise == 'sit_to_stand' else 'raise', t)
+        history = list(self.timing_history)
+        first = next((i for i, sample in enumerate(history) if sample[0] >= start), len(history))
+        for sample_t, angle, standing in history[max(0, first-1):]:
+            timer.add(sample_t, angle, at_standing=standing)
+        self.current['timing'] = timer
         self.rest_samples.clear()
         self.issue_starts.clear()
 
@@ -191,6 +204,14 @@ class RehabEngine:
                'max_raise_projection_deg': peak, 'min_knee_flexion_projection_deg': knee_min,
                'rise_time_s': max(0., t-c['start_time_s']) if self.exercise == 'sit_to_stand' and completion == 'COMPLETE' else None,
                'lowering_time_s': None, 'metric_validity': validity, 'issues': copy.deepcopy(c['issues'])}
+        timer = c['timing']
+        if self.exercise == 'sit_to_stand' and completion == 'COMPLETE':
+            timer.mark_standing(t)
+            self.standing_timing = timer
+        rep['movement_timing'] = timer.snapshot(completion, reason=reason,
+                                                cycle_complete=completion == 'COMPLETE' and self.exercise != 'sit_to_stand')
+        if self.exercise == 'sit_to_stand':
+            rep['rise_time_s'] = rep['movement_timing']['outbound_s']['value']
         if self.exercise == 'sit_to_stand' and target_status == 'NOT_MET':
             rep['issues'].append({'rule_id': 'target_not_reached', 'phase': self.phase,
                                  'start_time_s': c['start_time_s'], 'end_time_s': t,
@@ -203,12 +224,39 @@ class RehabEngine:
         return rep
 
     def _interrupt(self, t, reason):
+        self._close_standing_timing(reason)
         self._record(t, 'UNASSESSABLE', reason)
         self.phase = 'WAIT_READY'
         self.holds.clear()
         self.rest_samples.clear()
         self.motion_evidence.break_continuity()
         self.last_standing_rep = None
+        self.timing_history.clear()
+
+    def _close_standing_timing(self, reason=None, *, cycle_complete=False):
+        if self.standing_timing and self.last_standing_rep is not None:
+            self.last_standing_rep['movement_timing'] = self.standing_timing.snapshot(
+                'COMPLETE', cycle_complete=cycle_complete, reason=reason)
+            self.last_standing_rep['lowering_time_s'] = self.last_standing_rep['movement_timing']['return_s']['value']
+        self.standing_timing = None
+
+    def _standing_condition(self, o):
+        c = self.plan.get('calibration') or {}
+        return (self.exercise == 'sit_to_stand' and 'standing_knee' in c and 'standing_hip_y' in c
+                and o.value('knee_flexion_deg') <= c['standing_knee']+10
+                and o.value('hip_y') <= c['standing_hip_y']+.04)
+
+    def _timing_observation(self, o):
+        t, angle, standing = o.time_s, o.value(self.primary_metric), self._standing_condition(o)
+        self.timing_history.append((t, angle, standing))
+        cutoff = t-max(2., self.plan['dwell_s']+self.plan['max_gap_s']+.5)
+        while len(self.timing_history) > 1 and self.timing_history[1][0] < cutoff:
+            self.timing_history.popleft()
+        timer = self.current['timing'] if self.current else self.standing_timing
+        if timer:
+            timer.add(t, angle, at_standing=standing)
+        if self.standing_timing and self.last_standing_rep is not None:
+            self.last_standing_rep['movement_timing'] = self.standing_timing.snapshot('COMPLETE')
 
     def process(self, o):
         t = o.time_s
@@ -235,6 +283,10 @@ class RehabEngine:
                  all(o.value(k) is not None and math.isfinite(o.value(k)) for k in necessary))
         self.latest_metrics = clean_json(o.metrics)
         if not valid:
+            self.timing_history.clear()
+            timer = self.current['timing'] if self.current else self.standing_timing
+            if timer:
+                timer.break_continuity(t, 'occlusion')
             self.holds.clear()
             self.issue_starts.clear()
             self.rest_samples.clear()
@@ -253,6 +305,7 @@ class RehabEngine:
             self.valid_s += dt
         self.previous_valid, self.last_good_t = True, t
         self.motion_evidence.add(o.value(self.primary_metric))
+        self._timing_observation(o)
         self._collect(o)
         if self.exercise == 'sit_to_stand':
             self._sitstand(o)
@@ -342,12 +395,14 @@ class RehabEngine:
             if not standing and self._held('lower', knee > c['standing_knee']+15, t, dwell):
                 self.phase = 'LOWERING'
                 self.lower_start = t-dwell
+                if self.standing_timing:
+                    self.standing_timing.mark_return(self.holds['lower'])
         elif self.phase == 'LOWERING' and self._held('reseat', seated, t, dwell):
             if self.last_standing_rep is not None:
-                duration = t-self.lower_start
-                self.last_standing_rep['lowering_time_s'] = duration
+                self._close_standing_timing(cycle_complete=True)
+                duration = self.last_standing_rep['lowering_time_s']
                 low, high = self.plan['lowering_tempo_min_s'], self.plan['lowering_tempo_max_s']
-                if (low is not None and duration < low) or (high is not None and duration > high):
+                if duration is not None and ((low is not None and duration < low) or (high is not None and duration > high)):
                     self.last_standing_rep['issues'].append({
                         'rule_id': 'lowering_tempo', 'phase': 'LOWERING', 'start_time_s': self.lower_start,
                         'end_time_s': t, 'metric': 'lowering_time_s', 'measured_value': duration,
@@ -357,7 +412,21 @@ class RehabEngine:
 
     def finish(self, reason):
         self._record(self.last_t or 0, 'INTERRUPTED', reason)
+        self._close_standing_timing(reason)
         self.phase = 'FINISHED'
+
+    def _hold_guidance(self):
+        timer = self.current['timing'] if self.current else self.standing_timing
+        if not self.previous_valid or not timer or self.timing_plan['hold_min_s'] is None:
+            return None
+        live = timer.live()
+        if not live['at_target'] or live['hold_elapsed_s'] is None:
+            return None
+        elapsed, target = live['hold_elapsed_s'], self.timing_plan['hold_min_s']
+        anchor = '已确认站位范围' if self.exercise == 'sit_to_stand' else '人工角度目标范围'
+        if elapsed+1e-8 < target:
+            return f'{anchor}内连续观察 {elapsed:.1f} / {target:g} 秒；按本次安排保持，不适时停止'
+        return f'已观察到本次连续保持目标 {target:g} 秒；'+self.spec['return_hint']
 
     def _training_message(self):
         if not self.previous_valid or self.phase == 'FINISHED':
@@ -366,6 +435,9 @@ class RehabEngine:
             return self.position_hint
         if self.phase == 'WAIT_READY':
             return self.message
+        hold = self._hold_guidance()
+        if hold and self.phase in ('RAISING', 'PEAK_OR_HOLD', 'RISING', 'STANDING_REACHED'):
+            return hold
         angle = self.latest_metrics.get(self.primary_metric, {}).get('value')
         target = self.plan['target_angle_deg']
         target_text = '未设置角度目标，按舒适范围活动'
@@ -406,10 +478,14 @@ class RehabEngine:
             labels = {'elbow_flexion': '本次上举时可见屈肘超出已设范围', 'trunk_tilt': '本次上举时可见躯干投影倾斜超出已设范围'}
             message = '；'.join(labels[i['rule_id']] for i in current_issues[:2])
         goal = self.plan['target_reps']*self.plan['target_sets']
-        if training and self.completed >= goal and self.previous_valid:
+        if training and self.completed >= goal and self.previous_valid and not self.standing_timing:
             message = f'已完成计划的 {goal} 次，可停止并保存本次任务'
         motion_range = self.motion_evidence.motion_range()
+        timer = self.current['timing'] if self.current else self.standing_timing
         return {'exercise_id': self.exercise, 'joint': self.spec['joint'],
+                'movement_timing_version': TIMING_VERSION,
+                'movement_timing_live': timer.live() if timer and self.previous_valid and self.phase != 'FINISHED' else None,
+                'last_movement_timing': copy.deepcopy(self.repetitions[-1].get('movement_timing')) if self.repetitions else None,
                 'primary_metric': self.primary_metric, 'primary_metric_label': self.spec['metric_label'],
                 'motion_range': motion_range, 'valid_sample_count': self.motion_evidence.sample_count,
                 'motion_range_valid': motion_range is not None,

@@ -13,7 +13,7 @@ from .participants import plain_label
 from .widgets import NoticeLabel
 
 
-STAGES = {'ACTIVE': '本组训练', 'RECOVERY': '本组完成 · 回位', 'RESTING': '组间休息',
+STAGES = {'ACTIVE': '本组训练', 'RECOVERY': '本组次数完成', 'RESTING': '组间休息',
           'PAUSED': '训练暂停', 'COMPLETE': '计划次数已完成', 'FINISHED': '训练已结束'}
 
 
