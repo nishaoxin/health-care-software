@@ -1,0 +1,3968 @@
+{
+  "schema_version": 1,
+  "action_count": 53,
+  "body_part_count": 9,
+  "side_entries": 106,
+  "image_slots": 318,
+  "present_images": 0,
+  "content_structure_errors": [],
+  "unsupported_coverage": [
+    [
+      "肩内/外旋、水平内/外收",
+      "单目常用机位存在离面运动与肢段重叠，不能可靠分离肩关节旋转。"
+    ],
+    [
+      "前臂旋前/旋后",
+      "手掌朝向变化不能直接当成桡尺关节旋转角；暂不输出角度。"
+    ],
+    [
+      "髋内/外旋",
+      "二维骨架不能可靠区分髋轴向旋转、骨盆转动与机位变化。"
+    ],
+    [
+      "踝内/外翻、足弓",
+      "现有足跟/足尖不足以独立量化后足与距下关节运动。"
+    ],
+    [
+      "拇指腕掌关节、对掌、手指侧向外展",
+      "涉及多平面与遮挡，未建立可验证的单目测量契约。"
+    ],
+    [
+      "颈椎、胸腰椎各节段及轴向旋转",
+      "已提供头颈/躯干整体屈伸和侧屈观察；没有椎体关键点，不输出节段活动度或轴向旋转角。"
+    ],
+    [
+      "足趾各关节",
+      "现有足部点没有各足趾的关节链；不以足尖位移冒充足趾屈伸。"
+    ],
+    [
+      "肌力、疼痛、关节稳定性、病种诊断",
+      "不能从摄像头投影角推断；需要用户自述或专业检查。"
+    ]
+  ],
+  "rows": [
+    {
+      "exercise_id": "shoulder_abduction",
+      "exercise_label": "肩外展",
+      "joint": "shoulder",
+      "side": "left",
+      "view": "frontal",
+      "primary_metric": "raise_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "坐稳或按已确认的支撑安排站稳。 手臂自然下垂。",
+      "move": "向身体侧方缓慢抬臂。",
+      "return_step": "缓慢放下，回到起始位置。",
+      "camera": "正对镜头，髋、肩、肘完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录上臂相对躯干的二维变化，不分离肩胛与盂肱关节。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "shoulder_abduction/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "shoulder_abduction/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "shoulder_abduction/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "shoulder_abduction",
+      "exercise_label": "肩外展",
+      "joint": "shoulder",
+      "side": "right",
+      "view": "frontal",
+      "primary_metric": "raise_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "坐稳或按已确认的支撑安排站稳。 手臂自然下垂。",
+      "move": "向身体侧方缓慢抬臂。",
+      "return_step": "缓慢放下，回到起始位置。",
+      "camera": "正对镜头，髋、肩、肘完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录上臂相对躯干的二维变化，不分离肩胛与盂肱关节。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "shoulder_abduction/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "shoulder_abduction/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "shoulder_abduction/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "sit_to_stand",
+      "exercise_label": "居家坐站",
+      "joint": "knee",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "knee_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "使用稳定坐位或已确认的支撑姿势。 坐在固定座椅上，按计划使用扶手或支撑。",
+      "move": "按已确认计划缓慢起立，到达已记录的站位。",
+      "return_step": "缓慢回坐。回坐后才可开始下一次。",
+      "camera": "从测试侧拍摄，髋、膝、踝完整入镜。",
+      "count": "到达已记录的站位计 1 次；回坐后可再计数。",
+      "boundary": "记录髋—膝—踝的二维屈曲角；不测超伸、肌力或支撑受力。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "sit_to_stand/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "sit_to_stand/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "sit_to_stand/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "sit_to_stand",
+      "exercise_label": "居家坐站",
+      "joint": "knee",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "knee_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "使用稳定坐位或已确认的支撑姿势。 坐在固定座椅上，按计划使用扶手或支撑。",
+      "move": "按已确认计划缓慢起立，到达已记录的站位。",
+      "return_step": "缓慢回坐。回坐后才可开始下一次。",
+      "camera": "从测试侧拍摄，髋、膝、踝完整入镜。",
+      "count": "到达已记录的站位计 1 次；回坐后可再计数。",
+      "boundary": "记录髋—膝—踝的二维屈曲角；不测超伸、肌力或支撑受力。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "sit_to_stand/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "sit_to_stand/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "sit_to_stand/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "shoulder_flexion",
+      "exercise_label": "肩前屈",
+      "joint": "shoulder",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "raise_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "坐稳或按已确认的支撑安排站稳。 手臂自然下垂。",
+      "move": "向身体前方缓慢抬臂。",
+      "return_step": "缓慢放下，回到起始位置。",
+      "camera": "测试侧朝向镜头，髋、肩、肘完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录上臂相对躯干的二维变化，不分离肩胛与盂肱关节。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "shoulder_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "shoulder_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "shoulder_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "shoulder_flexion",
+      "exercise_label": "肩前屈",
+      "joint": "shoulder",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "raise_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "坐稳或按已确认的支撑安排站稳。 手臂自然下垂。",
+      "move": "向身体前方缓慢抬臂。",
+      "return_step": "缓慢放下，回到起始位置。",
+      "camera": "测试侧朝向镜头，髋、肩、肘完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录上臂相对躯干的二维变化，不分离肩胛与盂肱关节。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "shoulder_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "shoulder_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "shoulder_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "elbow_flexion",
+      "exercise_label": "肘屈伸",
+      "joint": "elbow",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "elbow_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "坐稳，让上臂保持舒适且稳定的位置。 舒适伸肘，不要用力绷直。",
+      "move": "上臂保持原位，缓慢屈肘。",
+      "return_step": "缓慢伸肘，回到起点。",
+      "camera": "从测试侧拍摄，肩、肘、腕完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录肩—肘—腕的二维屈曲角；不测前臂旋转或超伸。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "elbow_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "elbow_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "elbow_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "elbow_flexion",
+      "exercise_label": "肘屈伸",
+      "joint": "elbow",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "elbow_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "坐稳，让上臂保持舒适且稳定的位置。 舒适伸肘，不要用力绷直。",
+      "move": "上臂保持原位，缓慢屈肘。",
+      "return_step": "缓慢伸肘，回到起点。",
+      "camera": "从测试侧拍摄，肩、肘、腕完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录肩—肘—腕的二维屈曲角；不测前臂旋转或超伸。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "elbow_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "elbow_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "elbow_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "knee_extension",
+      "exercise_label": "坐位膝屈伸",
+      "joint": "knee",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "knee_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "使用稳定坐位或已确认的支撑姿势。 坐稳，膝盖保持舒适弯曲。",
+      "move": "保持坐稳，缓慢伸膝。",
+      "return_step": "缓慢屈膝，回到起始坐位。",
+      "camera": "从测试侧拍摄，髋、膝、踝完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录髋—膝—踝的二维屈曲角；不测超伸、肌力或支撑受力。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "knee_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "knee_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "knee_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "knee_extension",
+      "exercise_label": "坐位膝屈伸",
+      "joint": "knee",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "knee_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "使用稳定坐位或已确认的支撑姿势。 坐稳，膝盖保持舒适弯曲。",
+      "move": "保持坐稳，缓慢伸膝。",
+      "return_step": "缓慢屈膝，回到起始坐位。",
+      "camera": "从测试侧拍摄，髋、膝、踝完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录髋—膝—踝的二维屈曲角；不测超伸、肌力或支撑受力。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "knee_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "knee_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "knee_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "hip_abduction",
+      "exercise_label": "髋外展",
+      "joint": "hip",
+      "side": "left",
+      "view": "frontal",
+      "primary_metric": "hip_abduction_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "使用已确认的稳定姿势、支撑和陪同安排。 按已确认的支撑安排站稳，测试腿自然下垂。",
+      "move": "向身体侧方缓慢移腿。",
+      "return_step": "缓慢收回，回到起始位置。",
+      "camera": "正对镜头，双髋与测试侧膝入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录腿部相对身体参考线的二维变化；骨盆或躯干转动会影响结果。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "hip_abduction/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "hip_abduction/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "hip_abduction/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "hip_abduction",
+      "exercise_label": "髋外展",
+      "joint": "hip",
+      "side": "right",
+      "view": "frontal",
+      "primary_metric": "hip_abduction_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": false,
+      "content_fields_complete": true,
+      "start": "使用已确认的稳定姿势、支撑和陪同安排。 按已确认的支撑安排站稳，测试腿自然下垂。",
+      "move": "向身体侧方缓慢移腿。",
+      "return_step": "缓慢收回，回到起始位置。",
+      "camera": "正对镜头，双髋与测试侧膝入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录腿部相对身体参考线的二维变化；骨盆或躯干转动会影响结果。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "hip_abduction/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "hip_abduction/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "hip_abduction/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "shoulder_adduction",
+      "exercise_label": "肩内收回位",
+      "joint": "shoulder",
+      "side": "left",
+      "view": "frontal",
+      "primary_metric": "raise_deg",
+      "measurement_contract": "shoulder-adduction-start-2",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳或按已确认的支撑安排站稳。 手臂侧抬到舒适位置，不要求达到水平。",
+      "move": "向身体方向缓慢收回手臂。",
+      "return_step": "向侧方抬回刚才记录的起点。",
+      "camera": "正对镜头，髋、肩、肘完整入镜。 先侧抬臂记录起点，再向身体收回；不是横向抱胸。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录上臂相对躯干的二维变化，不分离肩胛与盂肱关节。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "shoulder_adduction/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "shoulder_adduction/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "shoulder_adduction/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "shoulder_adduction",
+      "exercise_label": "肩内收回位",
+      "joint": "shoulder",
+      "side": "right",
+      "view": "frontal",
+      "primary_metric": "raise_deg",
+      "measurement_contract": "shoulder-adduction-start-2",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳或按已确认的支撑安排站稳。 手臂侧抬到舒适位置，不要求达到水平。",
+      "move": "向身体方向缓慢收回手臂。",
+      "return_step": "向侧方抬回刚才记录的起点。",
+      "camera": "正对镜头，髋、肩、肘完整入镜。 先侧抬臂记录起点，再向身体收回；不是横向抱胸。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录上臂相对躯干的二维变化，不分离肩胛与盂肱关节。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "shoulder_adduction/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "shoulder_adduction/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "shoulder_adduction/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "elbow_extension",
+      "exercise_label": "肘伸展",
+      "joint": "elbow",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "elbow_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳，让上臂保持舒适且稳定的位置。 保持舒适屈肘姿势。",
+      "move": "上臂保持原位，缓慢伸肘。",
+      "return_step": "缓慢屈肘，回到起点。",
+      "camera": "从测试侧拍摄，肩、肘、腕完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录肩—肘—腕的二维屈曲角；不测前臂旋转或超伸。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "elbow_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "elbow_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "elbow_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "elbow_extension",
+      "exercise_label": "肘伸展",
+      "joint": "elbow",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "elbow_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳，让上臂保持舒适且稳定的位置。 保持舒适屈肘姿势。",
+      "move": "上臂保持原位，缓慢伸肘。",
+      "return_step": "缓慢屈肘，回到起点。",
+      "camera": "从测试侧拍摄，肩、肘、腕完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录肩—肘—腕的二维屈曲角；不测前臂旋转或超伸。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "elbow_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "elbow_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "elbow_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "knee_flexion",
+      "exercise_label": "膝屈曲",
+      "joint": "knee",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "knee_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "使用稳定坐位或已确认的支撑姿势。 在已确认的稳定坐位或支撑姿势中，记录舒适起点。",
+      "move": "保持身体稳定，缓慢屈膝。",
+      "return_step": "缓慢伸膝，回到起点。",
+      "camera": "从测试侧拍摄，髋、膝、踝完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录髋—膝—踝的二维屈曲角；不测超伸、肌力或支撑受力。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "knee_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "knee_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "knee_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "knee_flexion",
+      "exercise_label": "膝屈曲",
+      "joint": "knee",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "knee_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "使用稳定坐位或已确认的支撑姿势。 在已确认的稳定坐位或支撑姿势中，记录舒适起点。",
+      "move": "保持身体稳定，缓慢屈膝。",
+      "return_step": "缓慢伸膝，回到起点。",
+      "camera": "从测试侧拍摄，髋、膝、踝完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录髋—膝—踝的二维屈曲角；不测超伸、肌力或支撑受力。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "knee_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "knee_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "knee_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "shoulder_extension",
+      "exercise_label": "肩后伸",
+      "joint": "shoulder",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "shoulder_extension_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳或按已确认的支撑安排站稳。 手臂停在舒适的起始位置。",
+      "move": "向身体后方缓慢移臂。",
+      "return_step": "缓慢回到起始位置。",
+      "camera": "测试侧朝向镜头，髋、肩、肘完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录上臂相对躯干的二维变化，不分离肩胛与盂肱关节。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "shoulder_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "shoulder_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "shoulder_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "shoulder_extension",
+      "exercise_label": "肩后伸",
+      "joint": "shoulder",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "shoulder_extension_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳或按已确认的支撑安排站稳。 手臂停在舒适的起始位置。",
+      "move": "向身体后方缓慢移臂。",
+      "return_step": "缓慢回到起始位置。",
+      "camera": "测试侧朝向镜头，髋、肩、肘完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录上臂相对躯干的二维变化，不分离肩胛与盂肱关节。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "shoulder_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "shoulder_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "shoulder_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "hip_flexion",
+      "exercise_label": "髋屈曲",
+      "joint": "hip",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "hip_flexion_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "使用已确认的稳定姿势、支撑和陪同安排。 按已确认的支撑安排保持稳定起始姿势。",
+      "move": "向身体前方缓慢移腿。",
+      "return_step": "缓慢回到起始位置。",
+      "camera": "测试侧朝向镜头，肩、髋、膝入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录腿部相对身体参考线的二维变化；骨盆或躯干转动会影响结果。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "hip_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "hip_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "hip_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "hip_flexion",
+      "exercise_label": "髋屈曲",
+      "joint": "hip",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "hip_flexion_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "使用已确认的稳定姿势、支撑和陪同安排。 按已确认的支撑安排保持稳定起始姿势。",
+      "move": "向身体前方缓慢移腿。",
+      "return_step": "缓慢回到起始位置。",
+      "camera": "测试侧朝向镜头，肩、髋、膝入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录腿部相对身体参考线的二维变化；骨盆或躯干转动会影响结果。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "hip_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "hip_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "hip_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "hip_extension",
+      "exercise_label": "髋后伸",
+      "joint": "hip",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "hip_extension_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "使用已确认的稳定姿势、支撑和陪同安排。 按已确认的支撑安排保持稳定起始姿势。",
+      "move": "向身体后方缓慢移腿。",
+      "return_step": "缓慢回到起始位置。",
+      "camera": "测试侧朝向镜头，肩、髋、膝入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录腿部相对身体参考线的二维变化；骨盆或躯干转动会影响结果。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "hip_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "hip_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "hip_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "hip_extension",
+      "exercise_label": "髋后伸",
+      "joint": "hip",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "hip_extension_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "使用已确认的稳定姿势、支撑和陪同安排。 按已确认的支撑安排保持稳定起始姿势。",
+      "move": "向身体后方缓慢移腿。",
+      "return_step": "缓慢回到起始位置。",
+      "camera": "测试侧朝向镜头，肩、髋、膝入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录腿部相对身体参考线的二维变化；骨盆或躯干转动会影响结果。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "hip_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "hip_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "hip_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "hip_adduction",
+      "exercise_label": "髋内收",
+      "joint": "hip",
+      "side": "left",
+      "view": "frontal",
+      "primary_metric": "hip_adduction_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "使用已确认的稳定姿势、支撑和陪同安排。 按已确认的支撑安排站稳，测试腿停在舒适外展位置。",
+      "move": "向身体中线方向缓慢收腿。",
+      "return_step": "缓慢移回刚才记录的外展起点。",
+      "camera": "正对镜头，双髋与测试侧膝入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录腿部相对身体参考线的二维变化；骨盆或躯干转动会影响结果。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "hip_adduction/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "hip_adduction/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "hip_adduction/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "hip_adduction",
+      "exercise_label": "髋内收",
+      "joint": "hip",
+      "side": "right",
+      "view": "frontal",
+      "primary_metric": "hip_adduction_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "使用已确认的稳定姿势、支撑和陪同安排。 按已确认的支撑安排站稳，测试腿停在舒适外展位置。",
+      "move": "向身体中线方向缓慢收腿。",
+      "return_step": "缓慢移回刚才记录的外展起点。",
+      "camera": "正对镜头，双髋与测试侧膝入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "记录腿部相对身体参考线的二维变化；骨盆或躯干转动会影响结果。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "hip_adduction/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "hip_adduction/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "hip_adduction/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "wrist_flexion",
+      "exercise_label": "腕屈曲",
+      "joint": "wrist",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "wrist_flexion_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳，前臂保持稳定，手腕留出活动空间。 前臂保持稳定，手腕处于舒适起点。",
+      "move": "向掌侧缓慢弯腕，手指姿势尽量不变。",
+      "return_step": "缓慢回到起点，避免整条手臂一起移动。",
+      "camera": "肘、腕和整只测试手入镜，另一只手移出画面。 从手的侧缘拍摄。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "wrist_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "wrist_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "wrist_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "wrist_flexion",
+      "exercise_label": "腕屈曲",
+      "joint": "wrist",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "wrist_flexion_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳，前臂保持稳定，手腕留出活动空间。 前臂保持稳定，手腕处于舒适起点。",
+      "move": "向掌侧缓慢弯腕，手指姿势尽量不变。",
+      "return_step": "缓慢回到起点，避免整条手臂一起移动。",
+      "camera": "肘、腕和整只测试手入镜，另一只手移出画面。 从手的侧缘拍摄。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "wrist_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "wrist_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "wrist_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "wrist_extension",
+      "exercise_label": "腕伸展",
+      "joint": "wrist",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "wrist_extension_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳，前臂保持稳定，手腕留出活动空间。 前臂保持稳定，手腕处于舒适起点。",
+      "move": "向手背侧缓慢弯腕，手指姿势尽量不变。",
+      "return_step": "缓慢回到起点，避免整条手臂一起移动。",
+      "camera": "肘、腕和整只测试手入镜，另一只手移出画面。 从手的侧缘拍摄。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "wrist_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "wrist_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "wrist_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "wrist_extension",
+      "exercise_label": "腕伸展",
+      "joint": "wrist",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "wrist_extension_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳，前臂保持稳定，手腕留出活动空间。 前臂保持稳定，手腕处于舒适起点。",
+      "move": "向手背侧缓慢弯腕，手指姿势尽量不变。",
+      "return_step": "缓慢回到起点，避免整条手臂一起移动。",
+      "camera": "肘、腕和整只测试手入镜，另一只手移出画面。 从手的侧缘拍摄。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "wrist_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "wrist_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "wrist_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "wrist_radial_deviation",
+      "exercise_label": "腕桡偏",
+      "joint": "wrist",
+      "side": "left",
+      "view": "frontal",
+      "primary_metric": "wrist_radial_deviation_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳，前臂保持稳定，手腕留出活动空间。 前臂保持稳定，手腕处于舒适起点。",
+      "move": "向拇指侧缓慢偏腕。",
+      "return_step": "缓慢回到起点，手掌保持原来的朝向。",
+      "camera": "肘、腕和整只测试手入镜，另一只手移出画面。 手掌或手背正对镜头。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "wrist_radial_deviation/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "wrist_radial_deviation/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "wrist_radial_deviation/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "wrist_radial_deviation",
+      "exercise_label": "腕桡偏",
+      "joint": "wrist",
+      "side": "right",
+      "view": "frontal",
+      "primary_metric": "wrist_radial_deviation_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳，前臂保持稳定，手腕留出活动空间。 前臂保持稳定，手腕处于舒适起点。",
+      "move": "向拇指侧缓慢偏腕。",
+      "return_step": "缓慢回到起点，手掌保持原来的朝向。",
+      "camera": "肘、腕和整只测试手入镜，另一只手移出画面。 手掌或手背正对镜头。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "wrist_radial_deviation/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "wrist_radial_deviation/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "wrist_radial_deviation/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "wrist_ulnar_deviation",
+      "exercise_label": "腕尺偏",
+      "joint": "wrist",
+      "side": "left",
+      "view": "frontal",
+      "primary_metric": "wrist_ulnar_deviation_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳，前臂保持稳定，手腕留出活动空间。 前臂保持稳定，手腕处于舒适起点。",
+      "move": "向小指侧缓慢偏腕。",
+      "return_step": "缓慢回到起点，手掌保持原来的朝向。",
+      "camera": "肘、腕和整只测试手入镜，另一只手移出画面。 手掌或手背正对镜头。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "wrist_ulnar_deviation/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "wrist_ulnar_deviation/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "wrist_ulnar_deviation/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "wrist_ulnar_deviation",
+      "exercise_label": "腕尺偏",
+      "joint": "wrist",
+      "side": "right",
+      "view": "frontal",
+      "primary_metric": "wrist_ulnar_deviation_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "坐稳，前臂保持稳定，手腕留出活动空间。 前臂保持稳定，手腕处于舒适起点。",
+      "move": "向小指侧缓慢偏腕。",
+      "return_step": "缓慢回到起点，手掌保持原来的朝向。",
+      "camera": "肘、腕和整只测试手入镜，另一只手移出画面。 手掌或手背正对镜头。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "wrist_ulnar_deviation/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "wrist_ulnar_deviation/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "wrist_ulnar_deviation/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ankle_dorsiflexion",
+      "exercise_label": "踝背屈",
+      "joint": "ankle",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "ankle_dorsiflexion_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位；不要站立踮脚测试。 坐稳，让测试脚处于舒适起点。",
+      "move": "向小腿方向缓慢抬脚尖。",
+      "return_step": "缓慢放回起点，不以抬腿代替踝部活动。",
+      "camera": "从测试侧拍摄，小腿、踝、足跟和足尖完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性小腿—足部二维观察，不测后足内外翻或足弓。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ankle_dorsiflexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ankle_dorsiflexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ankle_dorsiflexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ankle_dorsiflexion",
+      "exercise_label": "踝背屈",
+      "joint": "ankle",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "ankle_dorsiflexion_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位；不要站立踮脚测试。 坐稳，让测试脚处于舒适起点。",
+      "move": "向小腿方向缓慢抬脚尖。",
+      "return_step": "缓慢放回起点，不以抬腿代替踝部活动。",
+      "camera": "从测试侧拍摄，小腿、踝、足跟和足尖完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性小腿—足部二维观察，不测后足内外翻或足弓。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ankle_dorsiflexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ankle_dorsiflexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ankle_dorsiflexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ankle_plantarflexion",
+      "exercise_label": "踝跖屈",
+      "joint": "ankle",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "ankle_plantarflexion_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位；不要站立踮脚测试。 坐稳，让测试脚处于舒适起点。",
+      "move": "向远离小腿的方向缓慢下压脚尖。",
+      "return_step": "缓慢回到起点，不以踮脚站立代替。",
+      "camera": "从测试侧拍摄，小腿、踝、足跟和足尖完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性小腿—足部二维观察，不测后足内外翻或足弓。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ankle_plantarflexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ankle_plantarflexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ankle_plantarflexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ankle_plantarflexion",
+      "exercise_label": "踝跖屈",
+      "joint": "ankle",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "ankle_plantarflexion_excursion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位；不要站立踮脚测试。 坐稳，让测试脚处于舒适起点。",
+      "move": "向远离小腿的方向缓慢下压脚尖。",
+      "return_step": "缓慢回到起点，不以踮脚站立代替。",
+      "camera": "从测试侧拍摄，小腿、踝、足跟和足尖完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性小腿—足部二维观察，不测后足内外翻或足弓。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ankle_plantarflexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ankle_plantarflexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ankle_plantarflexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "thumb_mcp_flexion",
+      "exercise_label": "拇指掌指关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "thumb_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 拇指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲拇指指根的掌指关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "thumb_mcp_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "thumb_mcp_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "thumb_mcp_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "thumb_mcp_flexion",
+      "exercise_label": "拇指掌指关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "thumb_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 拇指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲拇指指根的掌指关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "thumb_mcp_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "thumb_mcp_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "thumb_mcp_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "thumb_mcp_extension",
+      "exercise_label": "拇指掌指关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "thumb_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 拇指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展拇指指根的掌指关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "thumb_mcp_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "thumb_mcp_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "thumb_mcp_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "thumb_mcp_extension",
+      "exercise_label": "拇指掌指关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "thumb_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 拇指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展拇指指根的掌指关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "thumb_mcp_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "thumb_mcp_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "thumb_mcp_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "thumb_ip_flexion",
+      "exercise_label": "拇指指间关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "thumb_ip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 拇指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲拇指拇指的指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "thumb_ip_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "thumb_ip_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "thumb_ip_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "thumb_ip_flexion",
+      "exercise_label": "拇指指间关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "thumb_ip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 拇指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲拇指拇指的指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "thumb_ip_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "thumb_ip_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "thumb_ip_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "thumb_ip_extension",
+      "exercise_label": "拇指指间关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "thumb_ip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 拇指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展拇指拇指的指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "thumb_ip_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "thumb_ip_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "thumb_ip_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "thumb_ip_extension",
+      "exercise_label": "拇指指间关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "thumb_ip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 拇指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展拇指拇指的指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "thumb_ip_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "thumb_ip_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "thumb_ip_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_mcp_flexion",
+      "exercise_label": "食指掌指关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "index_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲食指指根的掌指关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_mcp_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_mcp_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_mcp_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_mcp_flexion",
+      "exercise_label": "食指掌指关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "index_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲食指指根的掌指关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_mcp_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_mcp_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_mcp_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_mcp_extension",
+      "exercise_label": "食指掌指关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "index_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展食指指根的掌指关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_mcp_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_mcp_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_mcp_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_mcp_extension",
+      "exercise_label": "食指掌指关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "index_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展食指指根的掌指关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_mcp_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_mcp_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_mcp_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_pip_flexion",
+      "exercise_label": "食指近端指间关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "index_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲食指中间的近端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_pip_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_pip_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_pip_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_pip_flexion",
+      "exercise_label": "食指近端指间关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "index_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲食指中间的近端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_pip_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_pip_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_pip_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_pip_extension",
+      "exercise_label": "食指近端指间关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "index_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展食指中间的近端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_pip_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_pip_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_pip_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_pip_extension",
+      "exercise_label": "食指近端指间关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "index_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展食指中间的近端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_pip_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_pip_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_pip_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_dip_flexion",
+      "exercise_label": "食指远端指间关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "index_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲食指靠近指尖的远端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_dip_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_dip_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_dip_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_dip_flexion",
+      "exercise_label": "食指远端指间关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "index_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲食指靠近指尖的远端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_dip_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_dip_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_dip_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_dip_extension",
+      "exercise_label": "食指远端指间关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "index_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展食指靠近指尖的远端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_dip_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_dip_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_dip_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "index_dip_extension",
+      "exercise_label": "食指远端指间关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "index_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 食指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展食指靠近指尖的远端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "index_dip_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "index_dip_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "index_dip_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_mcp_flexion",
+      "exercise_label": "中指掌指关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "middle_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲中指指根的掌指关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_mcp_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_mcp_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_mcp_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_mcp_flexion",
+      "exercise_label": "中指掌指关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "middle_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲中指指根的掌指关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_mcp_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_mcp_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_mcp_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_mcp_extension",
+      "exercise_label": "中指掌指关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "middle_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展中指指根的掌指关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_mcp_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_mcp_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_mcp_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_mcp_extension",
+      "exercise_label": "中指掌指关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "middle_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展中指指根的掌指关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_mcp_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_mcp_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_mcp_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_pip_flexion",
+      "exercise_label": "中指近端指间关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "middle_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲中指中间的近端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_pip_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_pip_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_pip_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_pip_flexion",
+      "exercise_label": "中指近端指间关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "middle_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲中指中间的近端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_pip_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_pip_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_pip_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_pip_extension",
+      "exercise_label": "中指近端指间关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "middle_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展中指中间的近端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_pip_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_pip_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_pip_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_pip_extension",
+      "exercise_label": "中指近端指间关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "middle_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展中指中间的近端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_pip_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_pip_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_pip_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_dip_flexion",
+      "exercise_label": "中指远端指间关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "middle_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲中指靠近指尖的远端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_dip_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_dip_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_dip_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_dip_flexion",
+      "exercise_label": "中指远端指间关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "middle_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲中指靠近指尖的远端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_dip_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_dip_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_dip_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_dip_extension",
+      "exercise_label": "中指远端指间关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "middle_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展中指靠近指尖的远端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_dip_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_dip_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_dip_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "middle_dip_extension",
+      "exercise_label": "中指远端指间关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "middle_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 中指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展中指靠近指尖的远端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "middle_dip_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "middle_dip_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "middle_dip_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_mcp_flexion",
+      "exercise_label": "无名指掌指关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "ring_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲无名指指根的掌指关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_mcp_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_mcp_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_mcp_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_mcp_flexion",
+      "exercise_label": "无名指掌指关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "ring_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲无名指指根的掌指关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_mcp_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_mcp_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_mcp_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_mcp_extension",
+      "exercise_label": "无名指掌指关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "ring_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展无名指指根的掌指关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_mcp_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_mcp_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_mcp_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_mcp_extension",
+      "exercise_label": "无名指掌指关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "ring_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展无名指指根的掌指关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_mcp_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_mcp_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_mcp_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_pip_flexion",
+      "exercise_label": "无名指近端指间关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "ring_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲无名指中间的近端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_pip_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_pip_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_pip_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_pip_flexion",
+      "exercise_label": "无名指近端指间关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "ring_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲无名指中间的近端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_pip_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_pip_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_pip_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_pip_extension",
+      "exercise_label": "无名指近端指间关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "ring_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展无名指中间的近端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_pip_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_pip_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_pip_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_pip_extension",
+      "exercise_label": "无名指近端指间关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "ring_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展无名指中间的近端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_pip_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_pip_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_pip_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_dip_flexion",
+      "exercise_label": "无名指远端指间关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "ring_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲无名指靠近指尖的远端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_dip_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_dip_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_dip_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_dip_flexion",
+      "exercise_label": "无名指远端指间关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "ring_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲无名指靠近指尖的远端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_dip_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_dip_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_dip_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_dip_extension",
+      "exercise_label": "无名指远端指间关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "ring_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展无名指靠近指尖的远端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_dip_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_dip_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_dip_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "ring_dip_extension",
+      "exercise_label": "无名指远端指间关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "ring_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 无名指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展无名指靠近指尖的远端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "ring_dip_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "ring_dip_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "ring_dip_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_mcp_flexion",
+      "exercise_label": "小指掌指关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "pinky_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲小指指根的掌指关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_mcp_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_mcp_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_mcp_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_mcp_flexion",
+      "exercise_label": "小指掌指关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "pinky_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲小指指根的掌指关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_mcp_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_mcp_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_mcp_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_mcp_extension",
+      "exercise_label": "小指掌指关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "pinky_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展小指指根的掌指关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_mcp_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_mcp_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_mcp_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_mcp_extension",
+      "exercise_label": "小指掌指关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "pinky_mcp_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展小指指根的掌指关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。 掌指角使用腕—掌指连线作为近端参考，不是骨性关节角。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_mcp_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_mcp_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_mcp_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_pip_flexion",
+      "exercise_label": "小指近端指间关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "pinky_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲小指中间的近端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_pip_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_pip_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_pip_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_pip_flexion",
+      "exercise_label": "小指近端指间关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "pinky_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲小指中间的近端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_pip_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_pip_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_pip_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_pip_extension",
+      "exercise_label": "小指近端指间关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "pinky_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展小指中间的近端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_pip_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_pip_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_pip_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_pip_extension",
+      "exercise_label": "小指近端指间关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "pinky_pip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展小指中间的近端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_pip_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_pip_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_pip_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_dip_flexion",
+      "exercise_label": "小指远端指间关节屈伸",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "pinky_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲小指靠近指尖的远端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_dip_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_dip_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_dip_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_dip_flexion",
+      "exercise_label": "小指远端指间关节屈伸",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "pinky_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适伸展，不要强行掰直。",
+      "move": "缓慢弯曲小指靠近指尖的远端指间关节，保持该关节两侧指段可见。",
+      "return_step": "缓慢伸回起始姿势，不要求所有手指同时握拳。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_dip_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_dip_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_dip_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_dip_extension",
+      "exercise_label": "小指远端指间关节伸展",
+      "joint": "finger",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "pinky_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展小指靠近指尖的远端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_dip_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_dip_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_dip_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "pinky_dip_extension",
+      "exercise_label": "小指远端指间关节伸展",
+      "joint": "finger",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "pinky_dip_flexion_deg",
+      "measurement_contract": "joint-projection-0.3",
+      "target_direction": "decrease",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "手保持稳定，其余手指不要挡住所测关节。 小指保持舒适屈曲姿势，记录起点。",
+      "move": "缓慢伸展小指靠近指尖的远端指间关节，不强行掰直。",
+      "return_step": "缓慢屈回刚才记录的起点，其他手指不要遮挡。",
+      "camera": "单只手近景；从所测手指侧面拍摄，让各关节展开在画面内。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性二维观察。手部点没有逐点置信度；遮挡和离面运动可能无法自动发现。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "pinky_dip_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "pinky_dip_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "pinky_dip_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "neck_lateral_flexion",
+      "exercise_label": "头颈侧屈观察",
+      "joint": "neck",
+      "side": "left",
+      "view": "frontal",
+      "primary_metric": "neck_lateral_flexion_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位；仅按已确认的活动安排测试，不做快速转头或环绕。 坐稳，头部保持舒适起点。",
+      "move": "向所选侧缓慢小幅侧屈头部，不转头或耸肩。",
+      "return_step": "缓慢回到起点。",
+      "camera": "正对镜头，双眼与双肩清楚入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性头部相对身体参考线的二维变化，不是颈椎节段活动度，也不测旋转。疼痛、头晕或不适立即停止。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "neck_lateral_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "neck_lateral_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "neck_lateral_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "neck_lateral_flexion",
+      "exercise_label": "头颈侧屈观察",
+      "joint": "neck",
+      "side": "right",
+      "view": "frontal",
+      "primary_metric": "neck_lateral_flexion_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位；仅按已确认的活动安排测试，不做快速转头或环绕。 坐稳，头部保持舒适起点。",
+      "move": "向所选侧缓慢小幅侧屈头部，不转头或耸肩。",
+      "return_step": "缓慢回到起点。",
+      "camera": "正对镜头，双眼与双肩清楚入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性头部相对身体参考线的二维变化，不是颈椎节段活动度，也不测旋转。疼痛、头晕或不适立即停止。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "neck_lateral_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "neck_lateral_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "neck_lateral_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "neck_flexion",
+      "exercise_label": "头颈前屈观察",
+      "joint": "neck",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "neck_flexion_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位；仅按已确认的活动安排测试，不做快速转头或环绕。 坐稳，头部处于舒适起点。",
+      "move": "按已确认安排缓慢小幅低头。",
+      "return_step": "缓慢回到起点，不强行抬高。",
+      "camera": "测试侧朝向镜头，同侧眼、耳、肩、髋清楚入镜；不要求另一侧肩膀可见。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性头部相对身体参考线的二维变化，不是颈椎节段活动度，也不测旋转。疼痛、头晕或不适立即停止。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "neck_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "neck_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "neck_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "neck_flexion",
+      "exercise_label": "头颈前屈观察",
+      "joint": "neck",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "neck_flexion_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位；仅按已确认的活动安排测试，不做快速转头或环绕。 坐稳，头部处于舒适起点。",
+      "move": "按已确认安排缓慢小幅低头。",
+      "return_step": "缓慢回到起点，不强行抬高。",
+      "camera": "测试侧朝向镜头，同侧眼、耳、肩、髋清楚入镜；不要求另一侧肩膀可见。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性头部相对身体参考线的二维变化，不是颈椎节段活动度，也不测旋转。疼痛、头晕或不适立即停止。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "neck_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "neck_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "neck_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "neck_extension",
+      "exercise_label": "头颈后伸观察",
+      "joint": "neck",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "neck_extension_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位；仅按已确认的活动安排测试，不做快速转头或环绕。 坐稳，头部处于舒适起点。",
+      "move": "仅在已获准的舒适范围内小幅抬头，不追求后仰极限。",
+      "return_step": "缓慢回到起点。",
+      "camera": "测试侧朝向镜头，同侧眼、耳、肩、髋清楚入镜；不要求另一侧肩膀可见。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性头部相对身体参考线的二维变化，不是颈椎节段活动度，也不测旋转。疼痛、头晕或不适立即停止。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "neck_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "neck_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "neck_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "neck_extension",
+      "exercise_label": "头颈后伸观察",
+      "joint": "neck",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "neck_extension_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位；仅按已确认的活动安排测试，不做快速转头或环绕。 坐稳，头部处于舒适起点。",
+      "move": "仅在已获准的舒适范围内小幅抬头，不追求后仰极限。",
+      "return_step": "缓慢回到起点。",
+      "camera": "测试侧朝向镜头，同侧眼、耳、肩、髋清楚入镜；不要求另一侧肩膀可见。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性头部相对身体参考线的二维变化，不是颈椎节段活动度，也不测旋转。疼痛、头晕或不适立即停止。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "neck_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "neck_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "neck_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "trunk_lateral_flexion",
+      "exercise_label": "躯干侧屈观察",
+      "joint": "trunk",
+      "side": "left",
+      "view": "frontal",
+      "primary_metric": "trunk_lateral_flexion_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位，按已确认安排使用支撑或陪同；保持机位固定。 稳定坐位，保持已确认的支撑。",
+      "move": "向所选侧小幅侧屈，不追求接近地面。",
+      "return_step": "缓慢回到起点，保持坐稳。",
+      "camera": "正对镜头，双肩、双髋完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性躯干整体二维变化，不能分离脊柱、骨盆和髋部贡献，不是胸腰椎节段活动度。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "trunk_lateral_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "trunk_lateral_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "trunk_lateral_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "trunk_lateral_flexion",
+      "exercise_label": "躯干侧屈观察",
+      "joint": "trunk",
+      "side": "right",
+      "view": "frontal",
+      "primary_metric": "trunk_lateral_flexion_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位，按已确认安排使用支撑或陪同；保持机位固定。 稳定坐位，保持已确认的支撑。",
+      "move": "向所选侧小幅侧屈，不追求接近地面。",
+      "return_step": "缓慢回到起点，保持坐稳。",
+      "camera": "正对镜头，双肩、双髋完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性躯干整体二维变化，不能分离脊柱、骨盆和髋部贡献，不是胸腰椎节段活动度。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "trunk_lateral_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "trunk_lateral_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "trunk_lateral_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "trunk_flexion",
+      "exercise_label": "躯干前屈观察",
+      "joint": "trunk",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "trunk_flexion_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位，按已确认安排使用支撑或陪同；保持机位固定。 稳定坐位，躯干保持舒适起点。",
+      "move": "按已确认安排小幅前倾，保持支撑。",
+      "return_step": "缓慢回到起点。",
+      "camera": "测试侧朝向镜头，同侧肩、髋完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性躯干整体二维变化，不能分离脊柱、骨盆和髋部贡献，不是胸腰椎节段活动度。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "trunk_flexion/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "trunk_flexion/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "trunk_flexion/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "trunk_flexion",
+      "exercise_label": "躯干前屈观察",
+      "joint": "trunk",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "trunk_flexion_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位，按已确认安排使用支撑或陪同；保持机位固定。 稳定坐位，躯干保持舒适起点。",
+      "move": "按已确认安排小幅前倾，保持支撑。",
+      "return_step": "缓慢回到起点。",
+      "camera": "测试侧朝向镜头，同侧肩、髋完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性躯干整体二维变化，不能分离脊柱、骨盆和髋部贡献，不是胸腰椎节段活动度。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "trunk_flexion/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "trunk_flexion/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "trunk_flexion/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "trunk_extension",
+      "exercise_label": "躯干后伸观察",
+      "joint": "trunk",
+      "side": "left",
+      "view": "sagittal",
+      "primary_metric": "trunk_extension_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位，按已确认安排使用支撑或陪同；保持机位固定。 稳定坐位，躯干保持舒适起点。",
+      "move": "仅按已确认安排小幅向后移动躯干，不追求后仰极限。",
+      "return_step": "缓慢回到起点。",
+      "camera": "测试侧朝向镜头，同侧肩、髋完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性躯干整体二维变化，不能分离脊柱、骨盆和髋部贡献，不是胸腰椎节段活动度。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "trunk_extension/left/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "trunk_extension/left/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "trunk_extension/left/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    },
+    {
+      "exercise_id": "trunk_extension",
+      "exercise_label": "躯干后伸观察",
+      "joint": "trunk",
+      "side": "right",
+      "view": "sagittal",
+      "primary_metric": "trunk_extension_excursion_deg",
+      "measurement_contract": "whole-segment-projection-1",
+      "target_direction": "increase",
+      "baseline_required": true,
+      "content_fields_complete": true,
+      "start": "稳定坐位，按已确认安排使用支撑或陪同；保持机位固定。 稳定坐位，躯干保持舒适起点。",
+      "move": "仅按已确认安排小幅向后移动躯干，不追求后仰极限。",
+      "return_step": "缓慢回到起点。",
+      "camera": "测试侧朝向镜头，同侧肩、髋完整入镜。",
+      "count": "完成出程并返回起点计 1 次；次数与幅度目标分别记录。",
+      "boundary": "实验性躯干整体二维变化，不能分离脊柱、骨盆和髋部贡献，不是胸腰椎节段活动度。",
+      "assets": [
+        {
+          "step": "start",
+          "relative_path": "trunk_extension/right/start.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "move",
+          "relative_path": "trunk_extension/right/move.png",
+          "status": "MISSING"
+        },
+        {
+          "step": "return",
+          "relative_path": "trunk_extension/right/return.png",
+          "status": "MISSING"
+        }
+      ],
+      "expert_content_review": "EVIDENCE_NOT_PROVIDED",
+      "human_accuracy": "EVIDENCE_NOT_PROVIDED"
+    }
+  ],
+  "evidence_scope": "Registered text/measurement structure and local file presence only; no expert or human-accuracy sign-off."
+}

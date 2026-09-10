@@ -11,6 +11,7 @@
 | [计划库功能与验收](history/TRAINING_PLAN_LIBRARY_V0_10.md) | 个人多项计划、重开复用、数据迁移与本轮验证 |
 | [动作时间与验收](history/MOVEMENT_TIMING_V0_11.md) | 独立时间证据、目标、原生指导、报告与导出 |
 | [纵向历史与验收](history/LONGITUDINAL_HISTORY_V0_12.md) | 记录条件核对、原生曲线、缺失保留与一致导出 |
+| [真实验收入口与内容清单](validation/ACCEPTANCE_READINESS_2026-09-10.md) | 53 项内容实查、空样本模板、输入检查和未验证依赖 |
 | [长期目标续建](plans/PRODUCT_CONTINUATION_2026-09-10.md) | 当前阶段、后续节奏与趋势工作及验收条件 |
 
 | 分类 | 内容 |
