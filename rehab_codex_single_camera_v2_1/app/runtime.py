@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import copy
+import math
 from dataclasses import asdict
 from pathlib import Path
 import queue
-from statistics import median
 import threading
 import time
 
@@ -14,7 +14,8 @@ from .domain import digest, dumps, utc_now, PacketGate
 from .reports import export_session, render_report, render_body_profile, export_body_profile
 from .assessment import build_body_profile
 from .exercises import exercise_spec
-from .measurement_guidance import measurement_hint
+from .measurement_guidance import measurement_hint, adjustment_action
+from .guidance import GuidancePolicy
 from .scene_controller import SceneController
 from .settings import ROOT, load_settings, default_setup
 from .source_worker import put_latest
@@ -42,6 +43,8 @@ class Runtime:
         self.ready = threading.Event()
         self.controller = None
         self.preview_history = []
+        self.guidance_policy = GuidancePolicy()
+        self.preparation = None
         self.connect_started_wall = None
         self.last_frame_wall = None
         self.last_sound_count = 0
@@ -56,7 +59,7 @@ class Runtime:
     def command(self, name, **kw):
         self.commands.put((name, kw))
 
-    def _view(self, packet=None, pose=None, error=None):
+    def _view(self, packet=None, pose=None, error=None, *, operation_error=False):
         c = self.controller
         testing = getattr(self, 'camera_test', False)
         hint = None
@@ -75,24 +78,156 @@ class Runtime:
                              auxiliary_metrics={k: asdict(v) for k, v in auxiliary.metrics.items()} if auxiliary else {})
             if not testing and pose:
                 hint = auxiliary_hint(c) or hint
-        put_latest(self.views, {'state': c.state, 'context': c.context, 'summary': {} if testing else c.summary(),
+        view = {'state': c.state, 'context': c.context, 'summary': {} if testing else c.summary(),
                                'confirmed': False if testing else c.confirmed, 'packet': packet, 'pose': None if testing else pose,
                                'camera_test': testing, 'camera_test_frames': getattr(self, 'camera_test_frames', 0),
-                               'error': error, 'last_saved_id': c.last_saved_id,
+                               'error': error, 'operation_error': operation_error, 'last_saved_id': c.last_saved_id,
                                'pending': c.pending is not None,
                                'dual_camera': dual_view,
                                'measurement_hint': hint,
-                               'observation_status': c.latest_observation.status if pose and c.latest_observation else None})
+                               'observation_status': c.latest_observation.status if pose and c.latest_observation else None}
+        if not testing and c.setup.get('scene_id') == 'rehab':
+            plan = c.setup['plan']
+            obs = c.latest_observation if pose else None
+            spec = exercise_spec(plan['exercise_id'])
+            keys = [spec.get('raw_metric', spec['metric'])] if c.state == 'PREVIEW' else spec['required_metrics']
+            fresh = bool(packet) and (packet.context.source_kind != 'LIVE_CAMERA' or 0 <= time.monotonic()-packet.received_monotonic <= 3)
+            if fresh and packet.paired_frame and packet.context.source_kind == 'LIVE_CAMERA':
+                fresh = 0 <= time.monotonic()-packet.paired_frame.received_monotonic <= 3
+            view['current_measurement_valid'] = bool(fresh and obs and obs.status == 'VALID' and
+                all(isinstance(obs.value(k), (float, int)) and math.isfinite(obs.value(k)) for k in keys))
+            view['adjustment'] = adjustment_action(obs, plan, pose.schema_id if pose else '')
+            view['identity_ambiguous'] = bool(obs and (obs.status == 'MULTI_PERSON' or (obs.track_key is None and pose.people)))
+            auxiliary = c.latest_secondary_observation if pose and c.dual_config else None
+            if auxiliary is not None:
+                from .dual_view import identity_visible
+                view['auxiliary_missing'] = identity_visible(auxiliary) and any(not m.valid for m in auxiliary.metrics.values())
+                view['identity_ambiguous'] |= auxiliary.status == 'MULTI_PERSON' or (auxiliary.track_key is None and bool(pose.paired_pose.people))
+                if not identity_visible(auxiliary):
+                    view['adjustment'] = '请让同一位参与者进入辅助画面。'
+            if c.state == 'PREVIEW':
+                baseline = plan.get('joint_baseline') or {}
+                calibration = plan.get('calibration') or {}
+                instruction = '核对本次参与者与机位，然后确认准备。'
+                if c.confirmed:
+                    instruction = '准备已确认，可以开始'+('训练。' if plan['submode'] == 'training' else '评估。')
+                elif plan['exercise_id'] == 'sit_to_stand':
+                    if 'seated_knee' not in calibration:
+                        instruction = '请在舒适坐位保持，倒计时记录坐位。'
+                    elif 'standing_knee' not in calibration:
+                        instruction = '请在舒适站位保持，倒计时记录站位。'
+                elif not baseline and spec['baseline_required']:
+                    instruction = ('请先舒适侧抬臂，再倒计时记录起点。' if plan['exercise_id'] == 'shoulder_adduction'
+                                   else '保持舒适起点，倒计时记录。')
+                elif baseline and spec['directional_calibration'] and not baseline.get('direction_sign'):
+                    instruction = '按所选动作方向小幅试做，再倒计时记录。'
+                if getattr(self, 'preparation', None):
+                    instruction = '请保持当前舒适姿势，等待采样完成。'
+                view['preparation_instruction'] = instruction
+            if not hasattr(self, 'guidance_policy'):
+                self.guidance_policy = GuidancePolicy()
+            view['guidance'] = self.guidance_policy.render(view, plan, now=time.monotonic())
+        put_latest(self.views, view)
 
     def _message(self, kind, **data):
         self.messages.put({'kind': kind, **data})
 
-    def _inference_failed(self, packet, error):
-        if getattr(self.controller, 'dual_config', None) and self.controller.state == 'ONLINE':
-            had_session = self.controller.session is not None
-            self._record_dual_failure('dual_view_inference_error')
+    def _preparation_binding(self):
+        from .joint_calibration import preparation_binding
+        return preparation_binding(self.controller)
+
+    def _cancel_preparation(self, text='本次采样已取消。'):
+        if getattr(self, 'preparation', None) is not None:
+            self.preparation = None
+            self.preview_history = []
+            self._message('preparation', active=False, text=text, context=self.controller.context)
+
+    def _begin_preparation(self, sample, position):
+        c = self.controller
+        if c.state != 'PREVIEW' or c.setup['scene_id'] != 'rehab':
+            raise ValueError('请先打开当前动作的预览')
+        if sample not in ('baseline', 'joint_baseline') or position not in (
+                ('seated', 'standing') if sample == 'baseline' else ('rest', 'direction')):
+            raise ValueError('未知的准备采样')
+        if sample == 'joint_baseline' and position == 'direction' and not c.live_joint_baseline:
+            raise ValueError('请先记录本次舒适起点，再记录活动方向')
+        binding = self._preparation_binding()
+        if (not binding or not binding['track_key'] or c.latest_observation.status == 'MULTI_PERSON'
+                or (c.dual_config and (not binding['auxiliary']['track_key'] or c.latest_secondary_observation.status == 'MULTI_PERSON'))):
+            raise ValueError('请先让当前参与者清楚入镜，再开始倒计时')
+        self._cancel_preparation()
+        c.confirmed = False
+        self.preview_history = []
+        self.preparation = dict(sample=sample, position=position, binding=binding, context=c.context,
+                                countdown_until=time.monotonic()+3., sampling_until=None, last_count=None)
+        self._tick_preparation()
+
+    def _tick_preparation(self, now=None):
+        import math
+        preparation = getattr(self, 'preparation', None)
+        if preparation is None:
+            return
+        c = self.controller
+        if (c.state != 'PREVIEW' or c.context != preparation['context'] or
+                self._preparation_binding() != preparation['binding'] or
+                c.latest_observation.status in ('NO_PERSON_DETECTED', 'MULTI_PERSON') or
+                (c.dual_config and c.latest_secondary_observation.status in ('NO_PERSON_DETECTED', 'MULTI_PERSON'))):
+            self._cancel_preparation('参与者或机位已变化，请重新准备后采样。')
+            return
+        now = time.monotonic() if now is None else now
+        until = preparation['countdown_until']
+        if now < until:
+            count = math.ceil(until-now)
+            if count != preparation['last_count']:
+                preparation['last_count'] = count
+                self._message('preparation', active=True, text=f'{count} 秒后采样，请保持当前舒适姿势。', context=c.context)
+            return
+        if preparation['sampling_until'] is None:
+            preparation['sampling_until'] = now+4.
+            preparation['sampling_started_wall'] = now
+            self.preview_history = []  # Never sample the pose held before the countdown ended.
+            self._message('preparation', active=True, text='正在采样，请稳定保持约 1 秒。', context=c.context)
+            if c.source['kind'] == 'REPLAY_FILE':
+                try:
+                    self.camera.worker.preview_segment(1.2)
+                except Exception:
+                    self._cancel_preparation('无法读取新的预览片段，请重新打开录像。')
+            return
+        if self.preview_history:
             try:
-                self.controller.stop('dual_view_inference_error')
+                self._execute(preparation['sample'], {'position': preparation['position']})
+            except ValueError:
+                pass  # A bounded fresh window must satisfy the original measurement gates.
+            except Exception:
+                self._cancel_preparation('采样未完成，请重新预览后重试。')
+                return
+            else:
+                self.preparation = None
+                self._message('preparation', active=False, text='已记录。准备好后核对并确认本次准备。', context=c.context)
+                self._view(c.latest_packet, c.latest_pose)
+                return
+        if now >= preparation['sampling_until']:
+            self._cancel_preparation('尚未取得连续稳定画面，请调整取景后重试采样。')
+
+    def _collect_preview_observation(self, packet):
+        c = self.controller
+        if c.state != 'PREVIEW' or c.latest_observation is None:
+            return
+        preparation = getattr(self, 'preparation', None)
+        if preparation and packet.received_monotonic < preparation.get('sampling_started_wall', float('-inf')):
+            return  # Inference completion time cannot turn an earlier captured frame into a new sample.
+        obs = c.latest_observation
+        self.preview_history = [o for o in self.preview_history if 0 <= obs.time_s-o.time_s <= 1.2 and o.track_key == obs.track_key]
+        self.preview_history.append(obs)
+
+    def _inference_failed(self, packet, error):
+        if getattr(self.controller, 'state', None) in ('PREVIEW', 'ONLINE'):
+            had_session = self.controller.session is not None
+            dual = bool(self.controller.dual_config)
+            if dual:
+                self._record_dual_failure('dual_view_inference_error')
+            try:
+                self.controller.stop('dual_view_inference_error' if dual else 'inference_error')
             except Exception as exc:
                 self._message('error', text=str(exc))
             else:
@@ -117,6 +252,8 @@ class Runtime:
 
     def _execute(self, name, kw):
         c, store = self.controller, self.store
+        if name in ('open', 'camera_test', 'confirm', 'unconfirm', 'start', 'stop', 'privacy', 'switch', 'shutdown', 'cancel_preparation'):
+            self._cancel_preparation()
         if getattr(self, 'camera_test', False) and name not in (
                 'stop_camera_test', 'stop', 'privacy', 'switch', 'shutdown', 'enumerate', 'remember_camera', 'remember_camera_pair',
                 'history', 'participants', 'body_profile', 'report', 'profile', 'events', 'training_review',
@@ -209,18 +346,36 @@ class Runtime:
                 raise ValueError('请先打开录像预览')
             self.camera.worker.preview_segment(1.2)
             self._message('notice', text='正在分析 1.2 秒预览片段；不计正式动作，可用于检查稳定机位和坐站基线。')
+        elif name == 'prepare_sample':
+            if kw.get('expected_context', c.context) != c.context:
+                raise ValueError('预览已变化，请重新选择当前起点或方向')
+            self._begin_preparation(kw['sample'], kw['position'])
+        elif name == 'cancel_preparation':
+            self._view(c.latest_packet, c.latest_pose)
         elif name == 'baseline':
             if c.state != 'PREVIEW':
                 raise ValueError('基线只在预览中记录')
-            valid = [o for o in self.preview_history if o.value('knee_flexion_deg') is not None and o.value('hip_y') is not None]
-            if len(valid) < 5 or valid[-1].time_s-valid[0].time_s < .8:
-                raise ValueError('请让指定侧肩、髋、膝、踝完整可见，并稳定保持约 1 秒')
-            knees, hips = [o.value('knee_flexion_deg') for o in valid], [o.value('hip_y') for o in valid]
-            if max(knees)-min(knees) > 10 or max(hips)-min(hips) > .03:
-                raise ValueError('姿势还不稳定，请保持舒适姿势后重新记录')
-            self._message('baseline', position=kw['position'], knee=median(knees), hip=median(hips),
+            from .joint_calibration import stable_preview_value
+            obs = c.latest_observation
+            if obs is None or c.latest_pose is None or c.latest_packet is None or (c.source['kind'] == 'LIVE_CAMERA' and time.monotonic()-c.latest_packet.received_monotonic > 3):
+                raise ValueError('请重新取得当前参与者的预览画面')
+            values = [stable_preview_value(self.preview_history, key, now_time=obs.time_s,
+                      track_key=obs.track_key, tolerance=tolerance)
+                      for key, tolerance in (('knee_flexion_deg', 10), ('hip_y', .03))]
+            identity = self._preparation_binding()
+            calibration = c.setup['plan'].setdefault('calibration', {})
+            if calibration.get('sampling_identity') != identity:
+                calibration = c.setup['plan']['calibration'] = {'sampling_identity': identity}
+            calibration.update({kw['position']+'_knee': values[0], kw['position']+'_hip_y': values[1],
+                                'provenance': {'source_ref': c.source['ref'], 'frame_size': list(c.latest_pose.size),
+                                               'side': c.setup['plan']['side'], 'view': c.setup['view']}})
+            self._message('baseline', position=kw['position'], knee=values[0], hip=values[1],
+                          context=c.context, sampling_identity=self._preparation_binding(),
                           provenance={'source_ref': c.source['ref'], 'frame_size': list(c.latest_pose.size),
                                       'side': c.setup['plan']['side'], 'view': c.setup['view']})
+            self.preview_history = []
+            c.confirmed = False
+            self._view(c.latest_packet, c.latest_pose)
         elif name == 'joint_baseline':
             if (c.latest_packet is None or (c.source['kind'] == 'LIVE_CAMERA' and
                     time.monotonic()-c.latest_packet.received_monotonic > 3)):
@@ -447,10 +602,11 @@ class Runtime:
                         self._execute(name, kw)
                     except Exception as exc:
                         self._message('error', text=str(exc), command=name, request_id=kw.get('request_id'))
-                        self._view(error=str(exc))
+                        self._view(error=str(exc), operation_error=True)
                     finally:
                         self._message('command_done', command=name)
                 c = self.controller
+                self._tick_preparation()
                 worker = self.camera.worker
                 if worker is not None:
                     statuses = worker.read_status()
@@ -516,11 +672,9 @@ class Runtime:
                     self._inference_failed(packet, error)
                     continue
                 try:
-                    c.consume(packet, pose)
-                    if c.state == 'PREVIEW' and c.latest_observation:
-                        obs = c.latest_observation
-                        self.preview_history = [o for o in self.preview_history if 0 <= obs.time_s-o.time_s <= 1.2 and o.track_key == obs.track_key]
-                        self.preview_history.append(obs)
+                    if not c.consume(packet, pose):
+                        continue
+                    self._collect_preview_observation(packet)
                     if c.state == 'ONLINE' and c.setup['plan']['sound_enabled']:
                         summary = c.summary()
                         events = getattr(c.engine, 'events', [])

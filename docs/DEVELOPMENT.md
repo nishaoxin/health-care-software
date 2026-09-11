@@ -26,6 +26,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup-Rehab.ps1 -IncludeLa
 | `app/exercises.py`、`quality.py`、`joint_calibration.py`、`axial_geometry.py` | 动作定义、逐指标可见性、校准、二维几何 |
 | `app/rehab.py`、`training.py`、`assessment.py` | 动作过程、组次执行和评估汇总 |
 | `app/runtime.py`、`scene_controller.py` | 命令、生命周期、开始门禁、配置快照、保存恢复 |
+| `app/guidance.py`、`measurement_guidance.py` | 独立于数据门槛的显示缓冲、单一指导和逐点调整提示 |
 | `app/storage.py`、`participants.py`、`assessment_batches.py`、`reports.py` | 本地数据库、个人档案、评估清单和导出 |
 | `app/training_plans.py`、`app/ui/plan_library.py` | 个人多项目计划、持久化白名单、版本 / 范围门禁和原生编辑器 |
 | `app/ui/` | 原生界面、身体导航、相机测试、大字指导 |
@@ -60,6 +61,7 @@ Set-Location .\rehab_codex_single_camera_v2_1
 .\.venv\Scripts\python.exe scripts\qa_movement_timing.py --output qa-output\timing-review
 .\.venv\Scripts\python.exe scripts\qa_longitudinal.py --output qa-output\history-review
 .\.venv\Scripts\python.exe scripts\qa_dual_camera.py --output qa-output\dual-camera-review
+.\.venv\Scripts\python.exe scripts\qa_quiet_guidance.py --output qa-output\quiet-guidance-review
 .\.venv\Scripts\python.exe scripts\audit_readiness.py --output .runtime\readiness-review
 .\.venv\Scripts\python.exe scripts\check_docs.py
 .\.venv\Scripts\python.exe -m compileall -q app scripts tests

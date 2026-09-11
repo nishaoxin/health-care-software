@@ -111,6 +111,7 @@ class VideoPairPanel(QWidget):
         return f'{w} × {h} · '+(f'{fps:.1f} 帧/秒' if isinstance(fps, (int, float)) and math.isfinite(fps) else '帧率统计中')
 
     def render(self, data, *, mirror=True, enabled=None, primary_view=None):
+        self.central_guidance = bool(data.get('guidance'))
         packet, pose = data.get('packet'), data.get('pose')
         raw_test = bool(data.get('camera_test'))
         if raw_test:
@@ -134,7 +135,8 @@ class VideoPairPanel(QWidget):
             auxiliary_packet = validate_pair(packet, self.primary_view, now=time.monotonic() if self.live else None)
         except ValueError:
             self.clear()
-            self.pair_info.setText('两路画面未就绪或更新超时，请暂停动作')
+            if not self.central_guidance:
+                self.pair_info.setText('两路画面未就绪或更新超时，请暂停动作')
             return False
         self.primary_canvas.set_frame(packet, pose)
         auxiliary_pose = pose.paired_pose if pose else None
@@ -157,7 +159,8 @@ class VideoPairPanel(QWidget):
     def _check_freshness(self):
         if self.dual_enabled and self.live and self.last_received is not None and time.monotonic()-self.last_received > 3:
             self.clear()
-            self.pair_info.setText('双摄画面更新超时，请暂停动作')
+            if not getattr(self, 'central_guidance', False):
+                self.pair_info.setText('双摄画面更新超时，请暂停动作')
 
     def showEvent(self, event):
         super().showEvent(event)

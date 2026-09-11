@@ -40,6 +40,28 @@ def test_rejected_training_command_does_not_disable_subsequent_audio():
     assert runtime.audio.reset.call_args.args == ('test-context',)
 
 
+def test_single_camera_inference_exception_stops_data_before_showing_recovery(tmp_path):
+    import queue
+    from test_app_joint_expansion_flow import SyntheticSession
+    task = SyntheticSession(tmp_path, 'elbow_flexion', 'left')
+    r = Runtime.__new__(Runtime)
+    r.controller, r.audio, r.vision = task.controller, Mock(), Mock()
+    r.messages, r.views = queue.Queue(), queue.Queue(maxsize=1)
+    r.preview_history, r.camera_test = [], False
+    try:
+        task.calibrate()
+        task.controller.start()
+        task.feed(0., count=10)
+        sid = task.controller.session['id']
+        r._inference_failed(task.controller.latest_packet, 'injected model failure')
+        assert task.controller.context is None and task.controller.session is None
+        saved = task.store.get_session(sid)
+        assert saved['stop_reason'] == 'inference_error'
+        assert r.views.get_nowait()['guidance']['level'] == 'critical'
+    finally:
+        task.close()
+
+
 def test_real_runtime_saves_feedback_reopens_report_and_closes_without_camera(tmp_path):
     store = Storage(tmp_path/'home_rehab.sqlite3')
     try:

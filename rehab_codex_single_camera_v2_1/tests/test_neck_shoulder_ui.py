@@ -9,7 +9,7 @@ from test_distance_ui import coach, render, state
 def test_shoulder_setup_names_and_confirmed_start_are_visible(desktop):
     w, runtime, app = desktop
     w._choose_catalog_exercise('shoulder_adduction')
-    assert w.joint_rest_button.text() == '记录侧抬臂起点'
+    assert w.joint_rest_button.text() == '已侧抬臂，倒计时记录起点'
     assert '不是垂臂' in w.joint_baseline_text.text()
     assert '不是横向抱胸' in w.camera_instruction.text()
     w.setup['plan']['joint_baseline'] = {'rest_value': 55.}
@@ -17,21 +17,18 @@ def test_shoulder_setup_names_and_confirmed_start_are_visible(desktop):
     assert '55°' in w.joint_baseline_text.text()
     w._choose_catalog_exercise('neck_flexion')
     assert '另一侧肩膀' in w.camera_instruction.text()
-    assert w.joint_rest_button.text() == '记录舒适起始姿势'
+    assert w.joint_rest_button.text() == '倒计时记录舒适起点'
 
 
-@pytest.mark.parametrize('accepted', [False, True])
-def test_shoulder_recording_requires_explicit_raised_start_confirmation(desktop, monkeypatch, accepted):
+def test_shoulder_recording_uses_explicit_inline_button_and_cancellable_countdown(desktop, monkeypatch):
     w, runtime, app = desktop
     w._choose_catalog_exercise('shoulder_adduction')
-    prompts = []
     def question(*args):
-        prompts.append(args[2])
-        return QMessageBox.StandardButton.Yes if accepted else QMessageBox.StandardButton.No
+        pytest.fail('Preparation must not open a modal confirmation')
     monkeypatch.setattr(QMessageBox, 'question', question)
     w._record_joint_baseline('rest')
-    assert '不是垂臂' in prompts[0]
-    assert runtime.calls == ([('joint_baseline', {'position': 'rest'})] if accepted else [])
+    assert runtime.calls[-1] == ('prepare_sample', {'sample': 'joint_baseline', 'position': 'rest', 'expected_context': None})
+    assert w.preparation_active and not w._confirmed
 
 
 @pytest.mark.parametrize('ui_state', ['PREVIEW', 'ONLINE'])

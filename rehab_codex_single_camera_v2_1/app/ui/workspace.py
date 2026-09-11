@@ -226,8 +226,13 @@ def build_workspace(w):
     w.guide_scroll.setWidget(w.exercise_guide)
     w.setup_tabs.addTab(w.guide_scroll, '怎么做')
     w.setup_tabs.addTab(w.setup_panel, '准备设置')
+    w.setup_tabs.currentChanged.connect(w._refresh_guidance_visibility)
     split.addWidget(w.setup_tabs)
+    # Keep the single final acknowledgement visible beside its footer action,
+    # regardless of the guide/settings tab or the settings scroll position.
+    w.setup_panel.widget().layout().removeWidget(w.preparation_review)
     work.addLayout(split, 1)
+    work.addWidget(w.preparation_review)
 
     actions = QHBoxLayout()
     actions.setSpacing(10)

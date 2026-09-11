@@ -89,7 +89,8 @@ def main():
             missing = runtime.views.get_nowait()
             window._render_view(missing)
             capture('auxiliary-missing', window)
-            assert missing['observation_status'] == 'UNKNOWN' and '辅助机位' in missing['measurement_hint']
+            assert missing['observation_status'] == 'VALID' and '辅助指标' in missing['measurement_hint']
+            assert missing['guidance']['measurement_valid']
             sid = fixture.c.session['id']
             fixture.c.stop('user_stop')
             fixture.close()

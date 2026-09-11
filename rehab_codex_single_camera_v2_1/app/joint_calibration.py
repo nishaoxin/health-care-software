@@ -17,7 +17,7 @@ def validate_start_value(plan, value):
                              '若舒适幅度不足，不要勉强扩大动作。')
 
 
-def stable_preview_value(history, metric, *, now_time, track_key, circular=False):
+def stable_preview_value(history, metric, *, now_time, track_key, circular=False, tolerance=6):
     # Require a continuous suffix. Filtering out missing samples would falsely
     # make an occluded/unstable posture look like a one-second hold.
     run = []
@@ -34,7 +34,7 @@ def stable_preview_value(history, metric, *, now_time, track_key, circular=False
         raise ValueError('请让所测关节清楚可见，在舒适姿势稳定保持约 1 秒后记录')
     reference = run[0][1]
     values = [reference+angle_delta(v, reference) if circular else v for _, v in run]
-    if max(values)-min(values) > 6:
+    if max(values)-min(values) > tolerance:
         raise ValueError('关节画面尚不稳定；请保持舒适姿势，不要追求最大幅度')
     value = median(values)
     return angle_delta(value, 0) if circular else value
@@ -48,3 +48,17 @@ def provenance(controller):
             'model_manifest_id': pose.model_manifest_id, 'track_key': controller.latest_observation.track_key,
             'exercise_id': plan['exercise_id'],
             'side': plan['side'], 'view': controller.setup['view'], 'participant_id': plan['participant_id']}
+
+
+def preparation_binding(controller):
+    c = controller
+    if c.context is None or c.latest_pose is None or c.latest_observation is None:
+        return None
+    binding = provenance(c)
+    if c.dual_config:
+        auxiliary = c.latest_pose.paired_pose
+        obs = c.latest_secondary_observation
+        binding['auxiliary'] = dict(track_key=obs.track_key if obs else None,
+                                    frame_size=list(auxiliary.size) if auxiliary else None,
+                                    source_ref=auxiliary.context.source_ref if auxiliary else None)
+    return binding

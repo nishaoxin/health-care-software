@@ -30,6 +30,8 @@ def test_report_and_csv_keep_two_sources_measured_delta_and_auxiliary_metric_val
     assert float(rows[0]['receive_delta_s']) == pytest.approx(.02)
     assert float(rows[0]['aux_trunk_sagittal_deg']) > 40 and rows[0]['aux_trunk_sagittal_deg_valid'] == 'True'
     assert rows[0]['primary_source_ref'] != rows[0]['secondary_source_ref']
+    assert rows[0]['validity_policy'] == 'primary-with-auxiliary-identity-1'
+    assert rows[0]['primary_used'] == 'True' and rows[0]['identity_confirmed'] == 'True'
     metadata = json.loads((out/'session.json').read_text(encoding='utf-8'))
     assert metadata['capture_mode'] == 'dual'
     assert metadata['dual_camera']['summary'] == dual_session['dual_camera']['summary']
@@ -51,6 +53,14 @@ def test_missing_auxiliary_metrics_are_empty_values_with_reasons_in_csv(dual_ses
         first = next(csv.DictReader(stream))
     assert first['aux_trunk_sagittal_deg'] == '' and first['aux_trunk_sagittal_deg_valid'] == 'False'
     assert first['aux_trunk_sagittal_deg_reason'] == 'low_confidence'
+
+
+def test_old_and_new_dual_validity_rules_are_different_comparison_conditions(dual_session):
+    old = copy.deepcopy(dual_session)
+    old['dual_camera'].pop('validity_policy')
+    comparison = compare_conditions(dual_session, old)
+    assert comparison['status'] != 'MATCH' and 'dual_camera' in comparison['differences']
+    assert compare_conditions(old, copy.deepcopy(old))['status'] == 'MATCH'
 
 
 def test_old_single_camera_report_does_not_acquire_dual_measurements(dual_session, tmp_path):

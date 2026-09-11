@@ -52,6 +52,7 @@ class SceneController:
         self.secondary_analyzer = None
         self.latest_secondary_observation = self.latest_primary_observation = None
         self.active_secondary_track = None
+        self.confirmation_binding = None
         if self.pending_path.is_file():
             self.pending = json.loads(self.pending_path.read_text(encoding='utf-8'))
             self.state = 'SAVE_FAILED'
@@ -89,8 +90,9 @@ class SceneController:
             raise ValueError('请先取得两路有效姿态')
         now = time.monotonic() if self.source['kind'] == 'LIVE_CAMERA' and not self.test_mode else None
         validate_pair_pose(self.latest_packet, self.latest_pose, self.dual_config['primary_view'], now=now)
-        if self.latest_secondary_observation is None or self.latest_secondary_observation.status != 'VALID':
-            raise ValueError('请让两路画面中的同一位参与者和必要肩髋点清楚可见')
+        from .dual_view import identity_visible
+        if not identity_visible(self.latest_secondary_observation):
+            raise ValueError('请让两路画面中的同一位参与者清楚可见，再人工确认归属')
 
     def open(self, source, setup, options=None):
         if self.pending is not None:
@@ -245,6 +247,9 @@ class SceneController:
                             'side': setup['plan']['side'], 'view': setup['view']}
                 if c.get('provenance') != expected:
                     raise ValueError('坐站基线不属于当前来源、尺寸、侧别或机位，请重新记录')
+                from .joint_calibration import preparation_binding
+                if c.get('sampling_identity') is not None and c['sampling_identity'] != preparation_binding(self):
+                    raise ValueError('坐站基线的参与者或预览已变化，请重新记录')
         setup['setup_confirmed_at'] = utc_now()
         setup['actual_size_confirmed'] = list(self.latest_packet.image.shape[1::-1])
         setup['source_ref'] = self.source['ref']
@@ -258,6 +263,8 @@ class SceneController:
             setup['profile_version'] = digest({'primary_profile': setup['profile_version'], 'dual_camera': setup['dual_camera']})[:16]
         self.storage.save_profile(setup)
         self.setup, self.confirmed = setup, True
+        from .joint_calibration import preparation_binding
+        self.confirmation_binding = preparation_binding(self)
         return copy.deepcopy(setup)
 
     def start(self):
@@ -276,6 +283,14 @@ class SceneController:
         if not str(plan.get('participant_id', '')).strip():
             raise ValueError('请先选择当前用户')
         if self.setup['scene_id'] == 'rehab':
+            from .joint_calibration import preparation_binding
+            binding = preparation_binding(self)
+            if self.confirmation_binding != binding:
+                self.confirmed = False
+                raise ValueError('参与者或机位已变化，请重新完成本次机位确认')
+            sampling = (plan.get('calibration') or {}).get('sampling_identity')
+            if sampling is not None and sampling != binding:
+                raise ValueError('坐站基线的参与者或预览已变化，请重新记录')
             self._check_joint_baseline(plan)
             necessary = exercise_spec(plan['exercise_id'])['required_metrics']
             if any(self.latest_observation.value(k) is None for k in necessary):
@@ -427,15 +442,20 @@ class SceneController:
         obs = self.analyzer.analyze(pose)
         primary_observation = obs
         self.latest_primary_observation, self.latest_secondary_observation = obs, auxiliary
-        if auxiliary is not None and auxiliary.status != 'VALID':
+        from .dual_view import identity_visible
+        if auxiliary is not None and not identity_visible(auxiliary):
             obs = replace(obs, status='UNKNOWN', metrics={}, reasons=obs.reasons+['secondary_view_'+auxiliary.status.lower()])
         self.latest_packet, self.latest_pose, self.latest_observation = packet, pose, obs
+        if self.state == 'PREVIEW' and self.confirmed and self.setup['scene_id'] == 'rehab':
+            from .joint_calibration import preparation_binding
+            if self.confirmation_binding != preparation_binding(self):
+                self.confirmed = False
         if self.state == 'CONNECTING':
             self.state = 'PREVIEW'
         if self.state != 'ONLINE' or self.engine is None:
             return True
         if auxiliary is not None:
-            if (auxiliary.status == 'MULTI_PERSON' or
+            if (auxiliary.status == 'MULTI_PERSON' or (auxiliary.track_key is None and pose.paired_pose.people) or
                     self.active_secondary_track and auxiliary.track_key and auxiliary.track_key != self.active_secondary_track):
                 from .dual_view import observation_row
                 invalid = replace(obs, status='UNKNOWN', metrics={}, reasons=['secondary_view_identity_ambiguous'])
@@ -447,7 +467,8 @@ class SceneController:
             if auxiliary.track_key:
                 self.active_secondary_track = auxiliary.track_key
         previous_track = getattr(self, 'active_track', None)
-        if primary_observation.status == 'MULTI_PERSON' or (previous_track and obs.track_key and obs.track_key != previous_track):
+        if (primary_observation.status == 'MULTI_PERSON' or (primary_observation.track_key is None and pose.people)
+                or (previous_track and obs.track_key and obs.track_key != previous_track)):
             self.engine.process(primary_observation)
             if auxiliary is not None:
                 from .dual_view import observation_row

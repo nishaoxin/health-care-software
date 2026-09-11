@@ -121,8 +121,8 @@ class DistanceCoach(QDialog):
         self.training.setVisible(self.training_mode and self.state == 'ONLINE')
         self.training.set_execution(self.training_data, self.state == 'ONLINE', available)
         self.training.progress.hide()
-        self.finish.setEnabled(available and self.state == 'ONLINE')
-        self.privacy.setEnabled(available and self.state in ('ONLINE', 'PREVIEW', 'CONNECTING', 'ERROR'))
+        self.finish.setEnabled(self.state == 'ONLINE')
+        self.privacy.setEnabled(self.state in ('ONLINE', 'PREVIEW', 'CONNECTING', 'ERROR'))
 
     def show_hold(self, text):
         self.hold.setText(text)
@@ -189,6 +189,21 @@ class DistanceCoach(QDialog):
                         and isinstance(timing.get('hold_min_s'), (int, float))
                         and timing['hold_elapsed_s']+1e-8 < timing['hold_min_s'])
         self.set_feedback('')
+        guidance = data.get('guidance')
+        if guidance:
+            self.feedback.setStyleSheet('font-size:20px; font-weight:400; color:#675675;')
+            self.back.setText('返回处理并恢复' if guidance.get('recovery') else '返回普通界面')
+            if self._live_display and not fresh and self.state in ('ONLINE', 'PREVIEW'):
+                self.show_hold('画面更新超时，请重新预览。')
+            elif guidance['level'] in ('critical', 'adjust', 'paused'):
+                self.show_hold(guidance['instruction'])
+                self.hold.setToolTip(guidance.get('detail', guidance['instruction']))
+            else:
+                self.presentation.setCurrentWidget(self.guide)
+                self.guide.apply_guidance(guidance)
+                self.set_feedback(guidance['status'])
+            self.set_controls(available)
+            return
         if data.get('error'):
             self.show_hold('请暂停动作\n检查输入或操作提示')
             self.set_feedback(data['error'])

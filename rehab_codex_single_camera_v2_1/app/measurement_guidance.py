@@ -7,6 +7,27 @@ SUPPORTED = ('neck_flexion', 'neck_extension', 'neck_lateral_flexion', 'shoulder
 PARTS = {'eye': '眼', 'ear': '耳', 'shoulder': '肩', 'hip': '髋', 'elbow': '肘'}
 
 
+def adjustment_action(observation, plan, schema_id):
+    """Choose one evidenced missing point, with no inferred camera position."""
+    if observation is None or observation.status == 'NO_PERSON_DETECTED':
+        return '请让测试部位清楚进入画面。'
+    spec = exercise_spec(plan['exercise_id'])
+    names = SCHEMAS.get(schema_id, ())
+    parts = dict(PARTS, wrist='腕', knee='膝', ankle='踝', heel='脚跟', foot_index='前脚掌')
+    for key in dict.fromkeys([spec.get('raw_metric', spec['metric'])]+list(spec['required_metrics'])):
+        metric = observation.metrics.get(key)
+        for item in (metric.reason if metric and not metric.valid else '').split(','):
+            index = item.partition(':')[0]
+            if index.isdigit() and int(index) < len(names):
+                side, _, part = names[int(index)].partition('_')
+                if side in ('left', 'right') and part in parts:
+                    view = '侧面' if spec['view'] == 'sagittal' else '正面'
+                    return '请调整'+view+'取景，让'+('左' if side == 'left' else '右')+parts[part]+'也进入画面。'
+    if spec['backend'] in ('mediapipe_hand', 'mediapipe_wrist'):
+        return '请让测试手和所测关节分开可见。'
+    return '请调整取景，让测试部位清楚可见。'
+
+
 def measurement_hint(observation, plan, schema_id, *, preview=False):
     eid = plan['exercise_id']
     if eid not in SUPPORTED:

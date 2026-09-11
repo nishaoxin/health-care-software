@@ -15,7 +15,7 @@ from .exercises import EXERCISE_IDS, exercise_spec
 from .movement_timing import timing_for_plan, TIMING_VERSION
 
 
-COMPARISON_VERSION = 'recorded-conditions-2'
+COMPARISON_VERSION = 'recorded-conditions-3'
 SCOPE_KEYS = ('participant_id', 'source_kind', 'usage_context', 'exercise_id', 'side', 'submode')
 METRICS = {'range_deg': '观察幅度 °', 'peak_angle_deg': '最大投影角 °', 'completed': '完整次数',
            'outbound_s': '出程中位数 s', 'endpoint_dwell_s': '峰区 / 站位停留中位数 s',

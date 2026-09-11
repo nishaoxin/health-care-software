@@ -149,7 +149,29 @@ class ExerciseGuide(QFrame):
         super().resizeEvent(event)
         self._fit_picture()
 
+    def apply_guidance(self, guidance):
+        phase = guidance.get('phase')
+        index = {'REST': 0, 'WAIT_READY': 0, 'SEATED_READY': 0, 'RAISING': 1, 'RISING': 1,
+                 'PEAK_OR_HOLD': 1, 'LOWERING': 2}.get(phase)
+        if index is not None and guidance['measurement_valid'] and guidance['level'] == 'action':
+            if index != self.step_index or not getattr(self, '_guidance_image_active', False):
+                self.select_step(index)
+            self._guidance_image_active = True
+        else:
+            self._guidance_image_active = False
+            self.image_available = False
+            self._pixmap = QPixmap()
+            self.picture.clear()
+            self.picture.setText('示意图待补充')
+            for button in self.step_buttons:
+                button.setChecked(False)
+        self.instruction.setText(guidance['instruction'])
+        self.instruction.setToolTip(guidance.get('detail', guidance['instruction']))
+        self.status.clear()
+        self.status.hide()
+
     def follow_observation(self, state, phase, *, valid=False, training_stage=None):
+        self.status.show()
         if state in ('OFFLINE', 'ERROR', 'SAVE_FAILED', 'PRIVACY_PAUSED'):
             self.status.setText('采集已中断或停止，请暂停动作。')
             return

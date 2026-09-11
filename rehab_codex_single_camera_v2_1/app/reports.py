@@ -370,6 +370,14 @@ def _dual_camera_html(session):
                    +fmt(actual.get('received_fps'))+'</td><td>'+fmt(_public_ref(stream.get('source_ref')))+'</td></tr>')
     result += '</table>'
     failure = dual.get('input_failure')
+    if dual.get('validity_policy') == 'primary-with-auxiliary-identity-1':
+        result += ('<p>有效性规则：主测量与辅助指标分别判定；两路人员归属明确且主路必要点满足原门槛时，'
+                   '辅助几何缺测不否定主测量。主测量实际纳入 '+fmt(summary.get('primary_used_observations'), 0)
+                   +' 帧，其中辅助整体缺测 '+fmt(summary.get('main_only_observations'), 0)
+                   +' 帧。单项辅助缺测表示本项无法评价，不表示动作不合格。身份不明和断流仍停用；'
+                   '此规则与旧版要求两路均有效的记录不同。</p>')
+    else:
+        result += '<p>历史有效性规则：沿用保存时的双摄门槛；未按新版逐项规则重新计算。</p>'
     if failure:
         reasons = {'input_error': '输入失效', 'dual_view_inference_error': '姿态推理失败',
                    'stream_stale': '新配对画面超时', 'connect_timeout': '启动超时'}
@@ -564,6 +572,7 @@ def _export_dual_camera_csv(session, path):
     columns = ['primary_view', 'secondary_view', 'primary_source_ref', 'secondary_source_ref',
                'primary_seq', 'secondary_seq', 'primary_time_s', 'secondary_time_s', 'receive_delta_s',
                'phase', 'included_in_training', 'primary_status', 'auxiliary_status', 'jointly_valid',
+               'validity_policy', 'identity_confirmed', 'main_measurement_usable', 'primary_used',
                'primary_metric', 'primary_value', 'primary_valid', 'primary_reason', 'auxiliary_reasons',
                'source_kind', 'usage_context', 'annotation_origin']
     columns += [key+suffix for key in auxiliary_metrics for suffix in ('', '_valid', '_reason')]
@@ -573,6 +582,7 @@ def _export_dual_camera_csv(session, path):
         for observation in dual.get('observations') or []:
             metric = (observation.get('primary_metrics') or {}).get(primary_metric) or {}
             row = dict(observation, primary_view=primary, secondary_view=secondary,
+                       validity_policy=dual.get('validity_policy', 'all-views-required-1'),
                        primary_source_ref=((dual.get('streams') or {}).get(primary) or {}).get('source_ref'),
                        secondary_source_ref=((dual.get('streams') or {}).get(secondary) or {}).get('source_ref'),
                        primary_metric=primary_metric, primary_value=metric.get('value') if metric.get('valid') else None,

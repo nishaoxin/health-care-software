@@ -111,7 +111,8 @@ def test_training_resume_and_next_set_keep_manual_confirm_and_busy_gates(coach):
     assert not c.training.confirm.isChecked() and not c.training.next_set.isEnabled()
     c.training.confirm.setChecked(True)
     c.set_controls(False)
-    assert not c.training.next_set.isEnabled() and not c.finish.isEnabled() and not c.privacy.isEnabled()
+    assert not c.training.next_set.isEnabled()
+    assert c.finish.isEnabled() and c.privacy.isEnabled()  # Stop remains available while other commands are busy.
     c.set_controls(True)
     c.training.next_set.click()
     assert calls[-1] == ('next_set', True)

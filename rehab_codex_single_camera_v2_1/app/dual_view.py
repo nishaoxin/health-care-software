@@ -8,6 +8,13 @@ from .dual_camera import DUAL_VERSION, VIEWS, other_view, validate_pair
 from .exercises import exercise_spec
 
 AUXILIARY_VERSION = 'auxiliary-projection-1'
+VALIDITY_POLICY = 'primary-with-auxiliary-identity-1'
+
+
+def identity_visible(observation):
+    return bool(observation and observation.track_key is not None and observation.status in ('VALID', 'UNKNOWN'))
+
+
 AUXILIARY_METRICS = {
     'aux_shoulder_line_deg': dict(label='肩线倾角（正面）', view='frontal',
                                  definition='两肩连线与画面水平线的无符号夹角；肩距至少 40 像素'),
@@ -55,7 +62,7 @@ def session_snapshot(controller):
                                                  received_fps=packet.received_fps, inference_ms=pose.inference_ms))
     return dict(version=DUAL_VERSION, primary_view=primary, secondary_view=secondary,
                 pairing_version=config['pairing_version'], max_receive_delta_s=config['max_receive_delta_s'],
-                auxiliary_version=AUXILIARY_VERSION, same_participant_manually_confirmed=True,
+                auxiliary_version=AUXILIARY_VERSION, validity_policy=VALIDITY_POLICY, same_participant_manually_confirmed=True,
                 auxiliary_metrics={k: copy.deepcopy(v) for k, v in AUXILIARY_METRICS.items() if v['view'] == secondary},
                 streams=streams, observations=[], summary={},
                 limitations='两路独立二维观察；人工确认同一人；仅接收时间配对，未验证曝光同步，未作空间标定或三维重建。')
@@ -66,13 +73,19 @@ def observation_row(controller, packet, primary_observation, auxiliary_observati
     required = spec['required_metrics']
     primary_keys = set(required) | {spec['metric'], spec.get('raw_metric', spec['metric'])}
     main_valid = primary_observation.status == 'VALID' and all(primary_observation.value(k) is not None for k in required)
+    identity = (identity_visible(primary_observation) and identity_visible(auxiliary_observation)
+                and getattr(controller, 'active_track', None) in (None, primary_observation.track_key)
+                and controller.active_secondary_track in (None, auxiliary_observation.track_key))
+    main_usable = main_valid and identity
     return dict(primary_seq=packet.seq, secondary_seq=packet.paired_frame.seq,
                 primary_time_s=packet.time_s, secondary_time_s=packet.paired_frame.time_s,
                 receive_delta_s=packet.pairing['receive_delta_s'],
                 phase=controller.engine.phase if controller.engine else None,
                 included_in_training=included,
                 primary_status=primary_observation.status, auxiliary_status=auxiliary_observation.status,
-                jointly_valid=main_valid and auxiliary_observation.status == 'VALID',
+                identity_confirmed=identity, main_measurement_usable=main_usable,
+                primary_used=main_usable and included is not False,
+                jointly_valid=main_usable and auxiliary_observation.status == 'VALID',
                 primary_metrics={k: asdict(primary_observation.metrics.get(k, Metric.missing('not_observed'))) for k in sorted(primary_keys)},
                 auxiliary_metrics={k: asdict(v) for k, v in auxiliary_observation.metrics.items()},
                 auxiliary_reasons=list(auxiliary_observation.reasons), annotation_origin='prediction')
@@ -86,11 +99,14 @@ def update_summary(session):
     deltas = [row['receive_delta_s'] for row in rows]
     measured = {}
     for key in dual['auxiliary_metrics']:
-        values = [m['value'] for row in rows if (m := row['auxiliary_metrics'].get(key)) and m['valid']]
+        values = [m['value'] for row in rows if row.get('identity_confirmed', True)
+                  and (m := row['auxiliary_metrics'].get(key)) and m['valid']]
         measured[key] = dict(valid_samples=len(values), total_samples=len(rows),
                              median=median(values) if values else None,
                              min=min(values) if values else None, max=max(values) if values else None)
     dual['summary'] = dict(paired_observations=len(rows), both_views_valid=sum(r['jointly_valid'] for r in rows),
+                           primary_used_observations=sum(bool(r.get('primary_used')) for r in rows),
+                           main_only_observations=sum(bool(r.get('primary_used')) and not r['jointly_valid'] for r in rows),
                            median_receive_delta_s=median(deltas) if deltas else None,
                            max_receive_delta_s=max(deltas) if deltas else None, auxiliary_metrics=measured)
 
@@ -102,6 +118,8 @@ def auxiliary_hint(controller):
     obs = controller.latest_secondary_observation
     if obs is None:
         return '等待'+VIEWS[view]+'辅助机位的有效姿态。'
+    if identity_visible(obs) and obs.status != 'VALID':
+        return VIEWS[view]+'辅助指标：本项无法评价。'
     message = {'NO_PERSON_DETECTED': '未检测到人，请让同一位参与者入镜',
                'MULTI_PERSON': '检测到多人，请停止并重新确认参与者',
                'UNKNOWN': '姿态暂不清楚，请检查所需肩髋点和遮挡'}.get(obs.status)
@@ -123,6 +141,7 @@ def capture_conditions(session):
     common_keys = ('version', 'primary_view', 'secondary_view', 'pairing_version', 'max_receive_delta_s',
                    'auxiliary_version', 'same_participant_manually_confirmed')
     values['dual_camera'] = {k: dual.get(k) for k in common_keys}
+    values['dual_camera']['validity_policy'] = dual.get('validity_policy', 'all-views-required-1' if dual.get('version') == 'dual-2d-1' else None)
     streams = dual.get('streams') or {}
     for view in VIEWS:
         stream = streams.get(view)

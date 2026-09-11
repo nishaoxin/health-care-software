@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from PySide6.QtCore import Qt, Signal, QRectF, QPointF
+from PySide6.QtCore import Qt, Signal, QRectF, QPointF, QTimer
 from PySide6.QtGui import QColor, QPainter, QPen, QFont, QImage
 from PySide6.QtWidgets import QWidget, QFrame, QVBoxLayout, QLabel, QToolButton
 
@@ -16,7 +16,19 @@ ROI_LABELS = {'chair': '座椅', 'bed': '床', 'bed_edge': '床边', 'exit': '�
 
 
 class NoticeLabel(QLabel):
+    def flash(self, text, milliseconds=4000):
+        if not hasattr(self, '_expiry'):
+            self._expiry = QTimer(self)
+            self._expiry.setSingleShot(True)
+            self._expiry.timeout.connect(lambda: self.setText(''))
+        if text == self.text() and self._expiry.isActive():
+            return
+        self.setText(text)
+        self._expiry.start(milliseconds)
+
     def setText(self, text):
+        if hasattr(self, '_expiry'):
+            self._expiry.stop()
         super().setText(text)
         self.setVisible(bool(text))
 

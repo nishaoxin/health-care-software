@@ -98,9 +98,30 @@ def test_auxiliary_hint_names_the_failed_view_instead_of_claiming_main_joints_ar
         f.emit(.3, auxiliary_missing=True)
         r._view(f.c.latest_packet, f.c.latest_pose)
         view = r.views.get_nowait()
-        assert '侧面辅助机位' in view['measurement_hint']
-        assert view['observation_status'] == 'UNKNOWN'
+        assert '侧面辅助指标' in view['measurement_hint']
+        assert view['observation_status'] == 'VALID'
+        assert view['current_measurement_valid']
+        assert view['guidance']['status'] == '辅助指标：本项无法评价'
         assert view['dual_camera']['auxiliary_status'] == 'UNKNOWN'
+    finally:
+        f.close()
+
+
+def test_required_primary_missing_is_not_masked_by_an_unrelated_valid_metric(tmp_path):
+    f = DualFixture(tmp_path)
+    r = Runtime.__new__(Runtime)
+    r.controller, r.views, r.camera_test = f.c, queue.Queue(maxsize=1), False
+    try:
+        f.start()
+        packet, pose = f.emit(1., return_input=True)
+        pose.people[0].conf[11] = .01
+        f.c.consume(packet, pose)
+        r._view(packet, pose)
+        data = r.views.get_nowait()
+        assert data['observation_status'] == 'VALID'  # Another, non-required metric still exists.
+        assert not data['current_measurement_valid'] and data['guidance']['phase'] is None
+        assert data['guidance']['level'] == 'status'
+        assert f.c.engine.completed == 0
     finally:
         f.close()
 
