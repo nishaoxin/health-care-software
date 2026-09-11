@@ -10,6 +10,7 @@ from .training_hub import TrainingHub
 from .exercise_guide import ExerciseGuide
 from .widgets import VideoCanvas, MetricCard, Disclosure, NoticeLabel
 from .video_pair import VideoPairPanel
+from .journey import JourneyPanel
 
 
 def build_workspace(w):
@@ -218,14 +219,26 @@ def build_workspace(w):
     w.setup_panel = w._setup_panel()
     w.setup_tabs = QTabWidget()
     w.setup_tabs.setObjectName('coachTabs')
+    w.setup_tabs.tabBar().setObjectName('journeyTabs')
     w.setup_tabs.setFixedWidth(344)
     w.guide_scroll = QScrollArea()
     w.guide_scroll.setWidgetResizable(True)
     w.guide_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
     w.exercise_guide = ExerciseGuide()
     w.guide_scroll.setWidget(w.exercise_guide)
-    w.setup_tabs.addTab(w.guide_scroll, '怎么做')
-    w.setup_tabs.addTab(w.setup_panel, '准备设置')
+    w.setup_tabs.addTab(w.guide_scroll, '动作图解')
+    w.setup_tabs.addTab(w.setup_panel, '设置')
+    w.journey = JourneyPanel()
+    journey_scroll = QScrollArea()
+    w.journey_scroll = journey_scroll
+    journey_scroll.setWidgetResizable(True)
+    journey_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+    journey_scroll.setWidget(w.journey)
+    w.setup_tabs.addTab(journey_scroll, '步骤')
+    w.journey.manual.toggled.connect(w.manual.setChecked)
+    w.journey.companion.toggled.connect(w.companion.setChecked)
+    w.journey.settings.clicked.connect(lambda: w.setup_tabs.setCurrentIndex(1))
+    w.journey.repeat.clicked.connect(w._preview)
     split.addWidget(w.setup_tabs)
     work.addLayout(split, 1)
 
@@ -242,12 +255,12 @@ def build_workspace(w):
     w.next_step_hint.setObjectName('muted')
     actions.addWidget(w.next_step_hint, 1)
     w.preview_button = QPushButton('打开预览')
-    w.preview_button.clicked.connect(w._preview)
+    w.preview_button.clicked.connect(w._journey_next)
     w.confirm_button = QPushButton('确认准备')
-    w.confirm_button.clicked.connect(w._confirm)
+    w.confirm_button.clicked.connect(w._journey_next)
     w.start_button = QPushButton('开始评估')
     w.start_button.setObjectName('primary')
-    w.start_button.clicked.connect(lambda: w._send('start'))
+    w.start_button.clicked.connect(w._journey_next)
     w.stop_button = QPushButton('完成并保存')
     w.stop_button.clicked.connect(w._finish_task)
     w.privacy_button = QPushButton('停止采集')

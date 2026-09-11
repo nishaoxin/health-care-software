@@ -107,6 +107,8 @@ def exercise_instructions(exercise_id: str) -> dict:
         camera = '正对镜头，双髋与测试侧膝入镜。' if spec['view'] == 'frontal' else '测试侧朝向镜头，肩、髋、膝入镜。'
     elif joint == 'wrist':
         camera += ' 从手的侧缘拍摄。' if spec['view'] == 'sagittal' else ' 手掌或手背正对镜头。'
+    if exercise_id in ('neck_flexion', 'neck_extension'):
+        boundary += ' 肩—髋连线用于躯干参考，区分低头与身体前倾；髋点不是本次被测关节。穿衣即可，仍需轮廓清楚，不需露出皮肤。'
     return {
         'label': spec['label'], 'joint': joint, 'position': position,
         'camera': camera, 'start': start, 'move': move, 'return': back,

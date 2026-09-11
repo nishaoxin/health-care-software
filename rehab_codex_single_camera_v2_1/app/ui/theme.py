@@ -93,5 +93,6 @@ QTabWidget#coachTabs::pane { border:0; background:transparent; }
 QTabBar::tab { color:#776389; background:#ede6f5; padding:11px 18px; min-width:110px; border:0; }
 QTabBar::tab:selected { color:#6940c9; background:white; border-bottom:3px solid #7048df; font-weight:700; }
 QTabBar::tab:focus { border:2px solid #7851bb; }
+QTabBar#journeyTabs::tab { min-width:70px; padding:11px 10px; }
 
 '''.replace('__ASSETS__', (ROOT/'assets/ui').as_posix())

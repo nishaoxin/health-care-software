@@ -5,9 +5,9 @@ import copy
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (QDialog, QVBoxLayout, QFormLayout, QLabel, QComboBox, QWidget, QScrollArea,
     QDoubleSpinBox, QSpinBox, QCheckBox, QDialogButtonBox, QLineEdit, QTextBrowser,
-    QPushButton, QHBoxLayout, QListWidget, QInputDialog, QMessageBox)
+    QPushButton, QHBoxLayout, QListWidget, QInputDialog, QMessageBox, QTabWidget)
 
-from ..reports import LABELS
+from ..reports import LABELS, render_result_summary
 from ..exercises import exercise_spec
 from ..movement_timing import timing_for_plan, validate_timing_plan
 
@@ -152,7 +152,18 @@ class ReportDialog(QDialog):
         self.browser = browser
         browser.setOpenExternalLinks(False)
         browser.setHtml(html)
-        box.addWidget(browser)
+        self.overview = None
+        if snapshot.get('scene_id') == 'rehab':
+            tabs = QTabWidget()
+            self.overview = QTextBrowser()
+            self.overview.setOpenExternalLinks(False)
+            self.overview.setHtml(render_result_summary(snapshot))
+            self.overview.setStyleSheet('font-size:18px;')
+            tabs.addTab(self.overview, '结果解读')
+            tabs.addTab(browser, '详细数据')
+            box.addWidget(tabs)
+        else:
+            box.addWidget(browser)
         row = QHBoxLayout()
         label = QLabel('原始视频默认不保存；报告中的 — 表示没有有效证据或不适用。')
         row.addWidget(label, 1)
@@ -163,6 +174,9 @@ class ReportDialog(QDialog):
         export = QPushButton('导出 HTML / JSON / CSV')
         export.clicked.connect(lambda: on_export(snapshot['id']))
         row.addWidget(export)
+        close = QPushButton('返回')
+        close.clicked.connect(self.accept)
+        row.addWidget(close)
         box.addLayout(row)
 
 

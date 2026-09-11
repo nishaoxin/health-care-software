@@ -1,0 +1,49 @@
+import copy
+import pytest
+from app.reports import render_result_summary, render_report
+from app.settings import default_setup, default_plan
+
+
+def snapshot(eid='neck_flexion'):
+    setup = default_setup()
+    setup['plan'] = default_plan(eid)
+    setup['view'] = 'sagittal'
+    return dict(id='saved-example', scene_id='rehab', exercise_id=eid, submode='assessment', side='left',
+                source_kind='SYNTHETIC', usage_context='TEST', status='FINISHED', config_snapshot=setup,
+                summary=dict(completed=2, partial=1, invalid=1, valid_ratio=.75, valid_s=9., observed_span_s=12.,
+                             motion_range=dict(min_deg=0., max_deg=25., range_deg=25.), valid_sample_count=6),
+                repetitions=[dict(number=1, completion_status='COMPLETE', target_status='NOT_SET',
+                                  movement_timing=dict(outbound_s=dict(value=2., valid=True),
+                                                       return_s=dict(value=99., valid=False)), issues=[])])
+
+
+def test_plain_language_numbers_and_limits_are_in_dialog_and_export():
+    s = snapshot()
+    before = copy.deepcopy(s)
+    for html in (render_result_summary(s), render_report(s)):
+        for text in ('25.0°', '2 次', '75.0 %', '2.0 秒（1 次记录的中位数）', '未设置目标 1 次',
+                     '肩—髋线', '不是识别准确率', '不是临床关节活动度', '不等于动作完全正常'):
+            assert text in html
+        assert '99.0 秒' not in html
+    assert s == before
+
+
+@pytest.mark.parametrize('ratio,range_value', [(0., dict(min_deg=0., max_deg=25., range_deg=25.)),
+                                              (.75, None), (.75, dict(min_deg=0., max_deg=float('nan'), range_deg=20.))])
+def test_invalid_range_is_absent_not_zero(ratio, range_value):
+    s = snapshot()
+    s['summary'].update(valid_ratio=ratio, motion_range=range_value)
+    html = render_result_summary(s)
+    assert '暂无可解释的角度范围' in html
+    assert '不是活动幅度为零' in html
+
+
+def test_strings_are_escaped_and_unverified_issue_not_called_diagnosis():
+    s = snapshot()
+    s['summary']['primary_metric_label'] = '<script>alert(1)</script>'
+    s['repetitions'][0]['issues'] = [dict(rule_id='elbow_flexion', evidence_valid=False)]
+    html = render_result_summary(s)
+    assert '<script>' not in html and '&lt;script&gt;' in html
+    assert '抬举时可见屈肘' not in html
+    s['dual_camera'] = {'primary_view': 'sagittal'}
+    assert '不是两路角度平均' in render_result_summary(s)

@@ -19,6 +19,7 @@ from ..longitudinal import compare_conditions, CONDITION_LABELS
 from ..settings import ROOT, default_setup, default_plan
 from ..exercises import exercise_spec
 from ..exercise_instructions import exercise_instructions
+from ..journey import current_step
 from ..assessment import build_training_reference
 from ..participants import legacy_participant, new_participant
 from ..camera_selection import choose_camera
@@ -85,6 +86,10 @@ class MainWindow(QMainWindow):
         self.longitudinal_dialog = None
         self._plan_to_activate = None
         self._training_execution = {}
+        self._journey_framed = False
+        self._journey_error = ''
+        self._latest_report_id = None
+        self._result_after_feedback = None
         self.state = 'UNSELECTED'
         self.busy = 0
         self.pending_commands = Counter()
@@ -168,7 +173,7 @@ class MainWindow(QMainWindow):
         self.exercise.setCurrentIndex(self.exercise.findData(exercise_id))
         self.pages.setCurrentIndex(0)
         self._sync_scene()
-        self.setup_tabs.setCurrentIndex(0)
+        self.setup_tabs.setCurrentIndex(2)
         self.setup_panel.verticalScrollBar().setValue(0)
         self.monitor_scroll.verticalScrollBar().setValue(0)
         self.notice.clear()
@@ -241,7 +246,7 @@ class MainWindow(QMainWindow):
                           setup_confirmed_at=None, profile_id='')
         self.setup.pop('profile_version', None)
         self._sync_scene()
-        self.setup_tabs.setCurrentIndex(1)
+        self.setup_tabs.setCurrentIndex(2)
         reference = plan['saved_plan_reference']
         self.notice.setText(f"已载入计划第 {reference['revision']} 版的所选项目。请核对并确认本次计划，再预览和确认机位。")
 
@@ -744,7 +749,7 @@ class MainWindow(QMainWindow):
             self.setup['plan'] = default_plan(self.exercise.currentData())
             self.setup['plan'].update(participant_id=self.participant_id, submode=mode)
         self._select_scene('rehab')
-        self.setup_tabs.setCurrentIndex(1 if mode == 'training' else 0)
+        self.setup_tabs.setCurrentIndex(2)
         self.movement_details.toggle.setChecked(False)
         self.notice.setText('评估：按自己的舒适幅度完成动作，不追求统一正常值。' if mode == 'assessment'
                             else '训练：请从身体档案选择评估，再确认训练计划。')
@@ -770,6 +775,9 @@ class MainWindow(QMainWindow):
 
     def _feedback_closed(self):
         self.feedback_dialog = None
+        pending, self._result_after_feedback = self._result_after_feedback, None
+        if pending and pending[1] == self._body_scope_key():
+            self._send('report', id=pending[0])
 
     def _show_body(self):
         if self.state in ('ONLINE', 'SAVE_FAILED') or self.busy:
@@ -839,7 +847,11 @@ class MainWindow(QMainWindow):
     def _invalidate(self, *args):
         if self.constructing:
             return
+        self._journey_framed = False
+        self._journey_error = ''
+        self._latest_report_id = None
         self._close_distance_coach()
+        self._result_after_feedback = None
         self._last_coach_view = None
         self.manual.setChecked(False)
         self._confirmed = False
@@ -1152,7 +1164,7 @@ class MainWindow(QMainWindow):
             self.feedback.setText(feedback)
             self.canvas.update()
         self.start_button.setText('开始训练' if training else '开始评估' if self.scene == 'rehab' else '开始观察')
-        self.stop_button.setText('完成评估' if self.scene == 'rehab' and not training else '结束训练' if training else '停止并保存')
+        self.stop_button.setText('完成并保存' if self.scene == 'rehab' and not training else '结束并保存' if training else '停止并保存')
         cal = plan.get('calibration', {})
         self.baseline_text.setText('坐位：'+('已记录' if 'seated_knee' in cal else '未记录')+' / 站位：'+('已记录' if 'standing_knee' in cal else '未记录'))
         self.subtitle.setText({'rehab': '按已确认的计划完成训练。' if training else '检查拍摄位置，在舒适范围内完成动作。', 'activity': '只累计画面内有证据的活动时段。',
@@ -1269,7 +1281,10 @@ class MainWindow(QMainWindow):
     def _preview(self):
         if self._camera_testing:
             return
-        self.setup_tabs.setCurrentIndex(1)
+        self._journey_framed = False
+        self._journey_error = ''
+        self._latest_report_id = None
+        self.setup_tabs.setCurrentIndex(2 if self.scene == 'rehab' else 1)
         if self.participant.text().strip() != self.participant_id:
             self.notice.setText('用户编号尚未应用，请先点击“切换 / 新建用户”。')
             return
@@ -1314,6 +1329,89 @@ class MainWindow(QMainWindow):
 
     def _confirm(self):
         self._send('confirm', setup=self._read_setup())
+
+    def _journey_step(self):
+        return current_step(self.setup['plan'], self.state, framed=self._journey_framed,
+                            confirmed=getattr(self, '_confirmed', False), dual=self._dual_enabled(),
+                            saved=bool(self._latest_report_id))
+
+    def _journey_next(self):
+        if self.busy or self._camera_testing or self.state in ('CONNECTING', 'SAVE_FAILED'):
+            return
+        if self.scene != 'rehab':
+            if self.state == 'PREVIEW':
+                self._send('start') if getattr(self, '_confirmed', False) else self._confirm()
+            else:
+                self._preview()
+            return
+        self.setup_tabs.setCurrentIndex(2)
+        self._journey_error = ''
+        step = self._journey_step().key
+        if step == 'reference':
+            self._show_body()
+        elif step == 'plan':
+            self._plan()
+        elif step == 'camera':
+            self._preview()
+        elif step == 'framing':
+            self._journey_framed = True  # A UI acknowledgement, never runtime confirmation.
+        elif step in ('rest', 'direction'):
+            self._record_joint_baseline(step)
+        elif step in ('seated', 'standing'):
+            self._send('baseline', position=step)
+        elif step == 'confirm':
+            if not self.manual.isChecked():
+                self._journey_error = '请核对并勾选上方确认框，再点击“确认准备”。'
+                self.journey.manual.setFocus()
+            elif self.setup['plan'].get('needs_companion') and not self.companion.isChecked():
+                self._journey_error = '本次安排需要陪同，请确认陪同者在场并勾选。'
+                self.journey.companion.setFocus()
+            else:
+                self._confirm()
+        elif step == 'start':
+            self._send('start')
+        elif step == 'active':
+            self._finish_task()
+        elif step == 'result':
+            self._send('report', id=self._latest_report_id)
+        self._buttons()
+
+    def _render_journey(self, available):
+        rehab = self.scene == 'rehab'
+        self.setup_tabs.setTabVisible(2, rehab)
+        if not rehab:
+            self.preview_button.setText('打开预览')
+            self.confirm_button.setText('确认准备')
+            return
+        step = self._journey_step()
+        if getattr(self, '_journey_last_step', None) != step.key:
+            self._journey_last_step = step.key
+            # Reset after Qt recalculates the step height, not on every frame.
+            QTimer.singleShot(0, lambda key=step.key: self.journey_scroll.verticalScrollBar().setValue(0)
+                              if self._journey_last_step == key else None)
+        info = exercise_instructions(self.exercise.currentData())
+        explanation = ''
+        if self.exercise.currentData() in ('neck_flexion', 'neck_extension') and step.key in ('camera', 'framing'):
+            explanation = ('为什么要拍到髋？肩—髋连线是躯干参考，用来区分低头与身体前倾，并非测髋关节。'
+                           '穿着衣服即可，取景到同侧髋部，不必露出皮肤或拍到脚；另一侧肩不用入镜。'
+                           '双摄仍使用侧面这一路完成该测量。')
+            if step.key == 'framing':
+                explanation = '肩—髋连线用于躯干参考，不是测髋。穿衣即可，取景到同侧髋部，不必拍到脚或另一侧肩。'
+        self.journey.explanation.setText(explanation)
+        self.journey.explanation.setVisible(bool(explanation))
+        self.journey.render(step, context=self.side.currentText()+' · '+info['view_label'],
+                            manual=self.manual.isChecked(), companion=self.companion.isChecked(),
+                            needs_companion=self.setup['plan'].get('needs_companion', False),
+                            dual=self._dual_enabled(), enabled=available, message=self._journey_error)
+        self.next_step_hint.setText(f'{step.number} / {step.total}  {step.title}')
+        if self.state in ('UNSELECTED', 'OFFLINE', 'ERROR', 'PRIVACY_PAUSED'):
+            button = self.preview_button
+        elif self.state == 'PREVIEW':
+            button = self.start_button if step.key == 'start' else self.confirm_button
+        else:
+            return
+        button.setText(step.action)
+        button.setEnabled(available and (step.key != 'start' or self.participant.text().strip() == self.participant_id))
 
     def _record_joint_baseline(self, position):
         if position == 'rest' and self.exercise.currentData() == 'shoulder_adduction':
@@ -1403,12 +1501,12 @@ class MainWindow(QMainWindow):
         self.discard_button.setEnabled(available)
         confirmed = getattr(self, '_confirmed', False)
         self.preview_button.setVisible(self.state in ('UNSELECTED', 'OFFLINE', 'ERROR', 'PRIVACY_PAUSED'))
-        self.confirm_button.setVisible(self.state == 'PREVIEW' and not confirmed)
-        self.start_button.setVisible(self.state == 'PREVIEW' and confirmed)
+        self.confirm_button.setVisible(self.state == 'PREVIEW' and (not confirmed or not training_ready))
+        self.start_button.setVisible(self.state == 'PREVIEW' and confirmed and bool(training_ready))
         self.stop_button.setVisible(self.state in ('ONLINE', 'ERROR'))
         self.privacy_button.setVisible(self.state in ('PREVIEW', 'ONLINE', 'CONNECTING'))
         primary = (self.retry_button if self.state == 'SAVE_FAILED' else self.stop_button if self.state == 'ONLINE'
-                   else self.start_button if self.state == 'PREVIEW' and confirmed
+                   else self.start_button if self.state == 'PREVIEW' and confirmed and training_ready
                    else self.confirm_button if self.state == 'PREVIEW' else self.preview_button)
         for button in (self.preview_button, self.confirm_button, self.start_button, self.stop_button, self.retry_button):
             name = 'primary' if button is primary else ''
@@ -1455,6 +1553,7 @@ class MainWindow(QMainWindow):
             self.preview_segment_button.setEnabled(available and self.state == 'PREVIEW' and self.source_kind.currentData() == 'REPLAY_FILE')
             for button in self.task_buttons:
                 button.setEnabled(available and self.state == 'ONLINE' and self.scene == 'activity')
+        self._render_journey(available)
 
     def _poll(self):
         try:
@@ -1515,6 +1614,11 @@ class MainWindow(QMainWindow):
             self._send('enumerate', backend=self.backend.currentData())
         elif kind in ('error', 'fatal'):
             self.notice.setText(m['text'])
+            if self.scene == 'rehab':
+                self._journey_error = m['text']
+                if self.state != 'ONLINE':
+                    self.setup_tabs.setCurrentIndex(2)
+                self._buttons()
             if m.get('command') in ('longitudinal_history', 'export_longitudinal_history') and self.longitudinal_dialog:
                 self.longitudinal_dialog.show_error(m['text'], m.get('request_id'))
             if self.distance_coach and self.distance_coach.isVisible():
@@ -1608,6 +1712,7 @@ class MainWindow(QMainWindow):
                 self.canvas.update()
             self._buttons()
         elif kind == 'confirmed':
+            self._journey_error = ''
             self.setup = m['setup']
             self._confirmed = True
             plan = self.setup['plan']
@@ -1622,6 +1727,7 @@ class MainWindow(QMainWindow):
                     m['context'].generation < self.last_generation):
                 return
             self.setup['plan']['joint_baseline'] = baseline
+            self._journey_error = ''
             self._confirmed = False
             self.manual.setChecked(False)
             self._sync_scene()
@@ -1630,6 +1736,7 @@ class MainWindow(QMainWindow):
             if self.exercise.currentData() == 'shoulder_adduction':
                 self.notice.setText(f"侧抬臂起点已记录：{baseline['rest_value']:.0f}°。开始后先保持此姿势约 1 秒；向身体收回，再抬回此处计 1 次。")
         elif kind == 'baseline':
+            self._journey_error = ''
             self._confirmed = False
             self.runtime.command('unconfirm')
             self.setup['plan']['calibration'][m['position']+'_knee'] = m['knee']
@@ -1637,6 +1744,7 @@ class MainWindow(QMainWindow):
             self.setup['plan']['calibration']['provenance'] = m['provenance']
             self._sync_scene()
         elif kind == 'saved':
+            self._journey_error = ''
             if self._feedback_after_save or self._summarize_after_save:
                 self._close_distance_coach()
                 self._last_coach_view = None
@@ -1645,11 +1753,16 @@ class MainWindow(QMainWindow):
                 participant_id = self._feedback_after_save
                 self._feedback_after_save = None
                 if participant_id == self.participant_id:
+                    self._latest_report_id = m['id']
+                    self._result_after_feedback = (m['id'], self._body_scope_key())
                     self._send('training_review', id=m['id'])
             if self._summarize_after_save:
                 scope = self._summarize_after_save
                 self._summarize_after_save = None
                 if scope == self._body_scope_key():
+                    self._latest_report_id = m['id']
+                    self.setup_tabs.setCurrentIndex(2)
+                    self._send('report', id=m['id'])
                     self._request_body()
         elif kind == 'training_plans':
             if (self.plan_library_dialog and m['scope'] == self._body_scope_key()
@@ -1848,6 +1961,7 @@ class MainWindow(QMainWindow):
             self.feedback.setText('预览中。检查关节是否清楚入镜，再确认准备。' if self.state == 'PREVIEW' else self._idle_copy()[2])
         if data.get('error'):
             self.notice.setText(data['error'])
+            self._journey_error = data['error']
         if self.state in ('OFFLINE', 'ERROR', 'SAVE_FAILED', 'PRIVACY_PAUSED'):
             self.feedback.setText(self._idle_copy()[2])
         observed = data.get('observation_status')
