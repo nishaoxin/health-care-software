@@ -65,6 +65,8 @@ def main():
                 return runtime.views.get_nowait()
 
             window._render_view(view(0))
+            window._journey_framed = True
+            window._buttons()
             window.setup_tabs.setCurrentIndex(0)
             capture('preparation-review', window, (window.preparation_review, window.confirm_button, window.privacy_button))
             window.setup_tabs.setCurrentIndex(1)

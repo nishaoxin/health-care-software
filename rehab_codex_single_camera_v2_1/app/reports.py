@@ -5,6 +5,8 @@ from datetime import datetime, timezone
 import html
 from pathlib import Path
 import re
+from collections import Counter
+from statistics import median
 
 from .assessment import (COMPARISON_NOTE, EXERCISE_IDS, STATUS_LABELS, anonymous_participant,
                          finite_number, session_conditions, session_motion_range, session_value)
@@ -260,6 +262,86 @@ def _timing_html(session):
             '<th>时间目标</th></tr>'+''.join(rows)+'</table>')
 
 
+def render_result_summary(s, *, document=True):
+    """Patient-facing explanations of saved evidence, never a diagnosis or ROM norm."""
+    eid = session_value(s, 'exercise_id')
+    if s.get('scene_id') != 'rehab' or eid not in EXERCISE_IDS:
+        return _document('本次结果', '<p>请查看详细数据。</p>') if document else ''
+    spec = exercise_spec(eid)
+    summary = s.get('summary') or {}
+    motion, origin = session_motion_range(s)
+    metric_label = summary.get('primary_metric_label') or spec['metric_label']
+    rows = []
+
+    def row(term, value, explanation):
+        rows.append('<tr><td><b>'+fmt(term)+'</b><br>'+value+'</td><td>'+fmt(explanation)+'</td></tr>')
+
+    row('任务完成', fmt(summary.get('completed'), 0)+' 次',
+        '到达已记录的站位计一次，回坐后才可再计次。次数不代表起立能力评级。' if eid == 'sit_to_stand' else
+        '观察到动作出程并回到起点才计一次。完成次数与活动幅度、动作质量分别评价。')
+    row('部分尝试 / 中断或无法评价', fmt(summary.get('partial'), 0)+' / '+fmt(summary.get('invalid'), 0),
+        '未完成往返和因遮挡、断流等无法判断的尝试单独保留；不能一概解释为做得差。')
+    if motion:
+        value = f'{fmt(motion["min_deg"])}° ～ {fmt(motion["max_deg"])}°<br>可观察幅度 {fmt(motion["range_deg"])}°'
+        meaning = '前两个数是本次有效观察中的最小、最大投影角；幅度是两者之差，不是临床关节活动度（ROM）。'
+        if spec['directional_calibration']:
+            meaning += ' 角度相对本次记录的舒适起点，方向来自人工试动作。'
+        if origin == 'metrics':
+            meaning += ' 这项范围由旧记录的连续有效样本派生，不是旧会话当时生成的汇总。'
+    else:
+        value = '— · 暂无可解释的角度范围'
+        meaning = '没有足够有效证据，或该旧记录与当前指标不匹配；不是活动幅度为零。请检查机位和遮挡后重测。'
+    row(metric_label, value, meaning)
+    row('有效观察比例', _percent(summary.get('valid_ratio')),
+        '表示观察跨度中有效可见时间所占比例，不是识别准确率，也不是动作合格率；各项指标仍有独立有效性。')
+    row('有效观察时间', fmt(summary.get('valid_s'))+' 秒 / 跨度 '+fmt(summary.get('observed_span_s'))+' 秒',
+        '仅统计有证据的可见时段；缺测、暂停和断流不补算成连续活动。')
+    reps = s.get('repetitions') or []
+    targets = Counter(r.get('target_status') for r in reps)
+    target_text = '；'.join(f'{LABELS[k]} {targets[k]} 次' for k in ('MET', 'NOT_MET', 'NOT_SET', 'UNASSESSABLE') if targets[k])
+    row('个人幅度目标', fmt(target_text or '尚无可评价的动作记录'),
+        '只比较人工设置的个人目标，不与所谓正常值比较。未设置目标不是失败；未达目标也不是疾病判断。')
+    for key, term in (('outbound_s', '出程时间'), ('endpoint_dwell_s', '峰区 / 站位停留时间'),
+                      ('return_s', '回程时间'), ('target_hold_s', '最长连续保持时间')):
+        values = []
+        for rep in reps:
+            metric = (rep.get('movement_timing') or {}).get(key) or {}
+            value = finite_number(metric.get('value'))
+            if metric.get('valid') is True and value is not None and value >= 0:
+                values.append(value)
+        row(term, (fmt(median(values))+' 秒（'+str(len(values))+' 次记录的中位数）') if values else '— · 尚无有效时间记录',
+            {'outbound_s': '从起始方向移动到本次峰区（坐站为确认站位）的分期时间。',
+             'endpoint_dwell_s': '峰区是本次动作峰值附近的一段区间；停留时间不代表平衡或支撑稳定性。',
+             'return_s': '从峰区或站位返回起点的分期时间；回程没看完整时不补算。',
+             'target_hold_s': '每次在人工目标范围内最长的一段连续保持；中断片段不相加，没有保持目标时不评价。'}[key])
+    issues = [issue for rep in reps for issue in rep.get('issues') or [] if issue.get('evidence_valid') is True]
+    issue_names = list(dict.fromkeys(LABELS.get(i.get('rule_id'), '其他已记录的可见规则事件') for i in issues))
+    row('可见动作表现', fmt('；'.join(issue_names) if issue_names else '未记录到有有效证据的规则问题'),
+        '只说明画面中被规则记录的表现。没有记录到问题，不等于动作完全正常，也不能判断肌力或病因。')
+    view = {'frontal': '正面', 'sagittal': '侧面'}.get(session_conditions(s).get('view'), '机位未记录')
+    body = ('<h1>本次结果解读</h1><p>'+fmt(spec['label'])+' · '+fmt(SIDES.get(session_value(s, 'side'), '测试侧未记录'))+
+            ' · '+fmt(view)+' · '+fmt(MODES.get(session_value(s, 'submode'), '模式未记录'))+'</p>'
+            '<p>'+fmt(SOURCES.get(s.get('source_kind'), '来源未记录'))+' / '+fmt(CONTEXTS.get(s.get('usage_context'), '用途未记录'))+
+            ' · '+fmt(s.get('start_utc'))+'</p>'
+            '<p class="note">这是摄像头观察报告，不是诊断或临床活动度鉴定。— 表示缺少有效证据或不适用，不能读成 0。</p>'
+            '<table><tr><th>康复指标与测试数据</th><th>这些数字怎么理解</th></tr>'+''.join(rows)+'</table>')
+    if eid in ('neck_flexion', 'neck_extension'):
+        body += ('<h2>头颈测量说明</h2><p>本项是头部相对躯干的二维投影变化：同侧眼—耳线作为头部参考，'
+                 '肩—髋线作为躯干参考。髋点用于区别头部运动与身体前倾，不是在评估髋关节；'
+                 '不能分离颈椎各节段，也不是三维颈椎 ROM。</p>')
+    if s.get('dual_camera'):
+        body += '<p>双摄由本动作的主机位给出上述数据，辅助机位独立观察；不是两路角度平均，也不是三维重建。</p>'
+        if s['dual_camera'].get('validity_policy') == 'primary-with-auxiliary-identity-1':
+            body += ('<p>辅助指标缺测只表示那一项无法评价，不等于本次动作失败。两路均能确认人员归属、'
+                     '主机位测量有效时，主结果仍可记录；身份不明或画面中断时不会继续计入。</p>')
+        else:
+            body += '<p>本记录沿用保存时的双摄有效性规则，未按新版规则重新计算。</p>'
+    body += ('<h2>下一步</h2><p>可继续评估其他动作，在“身体档案”汇总。进入训练前，需选择可用评估记录并人工确认个人计划；'
+             '本报告不会自动开具处方。复测请尽量保持相同机位、测试侧和测量条件，不凭一次角度变化判断康复改善。'
+             '疼痛、头晕或不适时停止，并向康复专业人员反馈。</p>')
+    return _document('本次结果解读', body) if document else body
+
+
 def render_report(s):
     summary = s.get('summary') or {}
     source = SOURCES.get(s.get('source_kind'), '来源未记录')
@@ -332,6 +414,7 @@ def render_report(s):
             '<p class="note">仅报告所选场景的可见时段。二维投影测量；缺测不是动作差，个人目标不是通用医学标准。'
             '不据此推断疾病、肌力或真实负重。</p>'
             + _participant_html(s.get('participant_snapshot'))
+            + render_result_summary(s, document=False)
             + headline + f'<p>有效观察 {fmt(summary.get("valid_s"))} 秒 / 观察跨度 {fmt(summary.get("observed_span_s"))} 秒。'
             f'会话状态：{fmt(SESSION_STATUSES.get(s.get("status"), s.get("status")))} · '
             f'结束原因：{fmt(s.get("stop_reason"))}。</p>' + detail

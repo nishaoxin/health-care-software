@@ -49,6 +49,8 @@ def test_final_button_is_one_manual_confirmation_and_sampling_does_not_start(des
     w, runtime, app = desktop
     w._choose_catalog_exercise('shoulder_adduction')
     w.state = 'PREVIEW'
+    w._journey_framed = True
+    w.setup['plan']['joint_baseline'] = {'rest_value': 55.}
     w._buttons()
     assert w.manual.isHidden() and w.preparation_review.isVisible()
     assert '核对' in w.confirm_button.text()
@@ -104,3 +106,10 @@ def test_adjustment_stays_visible_when_settings_tab_is_open(desktop):
     assert w.timing_readout.text() == ''
     w.setup_tabs.setCurrentIndex(0)
     assert w.feedback.text() == ''
+    w.setup_tabs.setCurrentIndex(2)
+    assert w.journey.instruction.text() == data['guidance']['instruction']
+    assert not w.feedback.text()
+    recovered = presentation(policy, 2.1, True)
+    w._render_view(recovered)
+    assert w.journey.instruction.text() == recovered['guidance']['instruction']
+    assert '左髋' not in w.journey.instruction.text()

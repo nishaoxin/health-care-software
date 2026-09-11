@@ -34,7 +34,8 @@ def test_assessment_to_training_hub_preserves_selected_reference_not_auto_confir
     w._handle_message({'kind': 'body_profile', 'profile': profile, 'html': 'SYNTHETIC TEST'})
     w._train_from_body()
     assert not w.setup['plan']['training_plan_confirmed']
-    assert w.setup_tabs.currentIndex() == 1
+    assert w.setup_tabs.currentIndex() == 2  # The plan is now an explicit guided step.
+    assert w._journey_step().key == 'plan'
     w._show_training_hub()
     assert w.training_hub.has_reference
     w.training_hub.resume.click()

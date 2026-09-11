@@ -23,6 +23,7 @@ def test_shoulder_setup_names_and_confirmed_start_are_visible(desktop):
 def test_shoulder_recording_uses_explicit_inline_button_and_cancellable_countdown(desktop, monkeypatch):
     w, runtime, app = desktop
     w._choose_catalog_exercise('shoulder_adduction')
+    w.state = 'PREVIEW'
     def question(*args):
         pytest.fail('Preparation must not open a modal confirmation')
     monkeypatch.setattr(QMessageBox, 'question', question)
