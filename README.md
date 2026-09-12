@@ -28,7 +28,7 @@ Windows 本地桌面 Demo，用普通摄像头或本地录像进行动作观察�
 | [纵向历史](docs/history/LONGITUDINAL_HISTORY_V0_12.md) | 按原记录条件比较、查看曲线与缺失、导出同一快照 |
 | [正侧面双摄](docs/history/DUAL_CAMERA_V0_13.md) | 两路选择、独立测量、配对、停止与本轮验证范围 |
 | [长期目标续建](docs/plans/PRODUCT_CONTINUATION_2026-09-10.md) | 当前推进顺序和逐阶段验收状态 |
-| [本次整理与验收](docs/validation/INTEGRATION_2026-09-10.md) | 压缩包校验、保留的提交历史、本机实际测试 |
+| [本次整理与验收](docs/validation/INTEGRATION_2026-09-12.md) | 0.16.0 压缩包校验、3 个新增提交、本机实际测试与备份位置 |
 | [开发说明](docs/DEVELOPMENT.md) | 环境准备、代码结构、分批回归和提交 |
 | [完整文档索引](docs/README.md) | 规格、历史计划、原始实施包和第三方来源 |
 

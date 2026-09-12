@@ -1,0 +1,253 @@
+{
+  "date": "2026-09-12",
+  "application_version": "0.16.0",
+  "archive": {
+    "name": "health-care-software-main.7z",
+    "bytes": 401780203,
+    "sha256": "5da5441880b13a409cc3e79a195b00409b471da40ed9e4268cb9795c8e7808df",
+    "entries": 40936,
+    "categories": {
+      "": 1,
+      ".git": 781,
+      ".gitattributes": 1,
+      ".gitignore": 1,
+      "AGENTS.md": 1,
+      "README.md": 1,
+      "Setup-Rehab.ps1": 1,
+      "Start-Rehab.ps1": 1,
+      "backups": 3,
+      "docs": 77,
+      "rehab_codex_single_camera_v2_1/": 1,
+      "rehab_codex_single_camera_v2_1/.pytest_cache": 8,
+      "rehab_codex_single_camera_v2_1/.runtime": 287,
+      "rehab_codex_single_camera_v2_1/.venv": 33648,
+      "rehab_codex_single_camera_v2_1/.venv-landmarks": 5463,
+      "rehab_codex_single_camera_v2_1/AGENTS.md": 1,
+      "rehab_codex_single_camera_v2_1/README.md": 1,
+      "rehab_codex_single_camera_v2_1/__pycache__": 3,
+      "rehab_codex_single_camera_v2_1/app": 139,
+      "rehab_codex_single_camera_v2_1/assets": 18,
+      "rehab_codex_single_camera_v2_1/camera_reference.py": 1,
+      "rehab_codex_single_camera_v2_1/configs": 7,
+      "rehab_codex_single_camera_v2_1/data": 5,
+      "rehab_codex_single_camera_v2_1/geometry_reference.py": 1,
+      "rehab_codex_single_camera_v2_1/qa-output": 211,
+      "rehab_codex_single_camera_v2_1/requirements-app.txt": 1,
+      "rehab_codex_single_camera_v2_1/requirements.in": 1,
+      "rehab_codex_single_camera_v2_1/requirements.landmarks.lock.txt": 1,
+      "rehab_codex_single_camera_v2_1/requirements.landmarks.txt": 1,
+      "rehab_codex_single_camera_v2_1/requirements.lock.txt": 1,
+      "rehab_codex_single_camera_v2_1/run_app.py": 1,
+      "rehab_codex_single_camera_v2_1/scripts": 52,
+      "rehab_codex_single_camera_v2_1/tests": 215,
+      "������������.cmd": 1
+    }
+  },
+  "baseline": "f7c69bb2dfc4bc6b346561f1fb298144975c0789",
+  "imported_head": "dea7aa13cce9882f703c1058792e8c46658f59ca",
+  "import_method": "verified-bundle-fast-forward",
+  "imported_commits": [
+    {
+      "commit": "199a265cfa2ff672d649632a919e10965d3f959c",
+      "parents": "acd2dd0c8d1880a8c8048a7c4c5ba88c5de5967d",
+      "subject": "feat: guide rehabilitation preparation and explain patient results"
+    },
+    {
+      "commit": "f52ae5b27d4864b4765b5580a3469658a1c8b3a1",
+      "parents": "f7c69bb2dfc4bc6b346561f1fb298144975c0789 199a265cfa2ff672d649632a919e10965d3f959c",
+      "subject": "Merge guided journey and quiet dual-camera workflows for v0.15.0"
+    },
+    {
+      "commit": "dea7aa13cce9882f703c1058792e8c46658f59ca",
+      "parents": "f52ae5b27d4864b4765b5580a3469658a1c8b3a1",
+      "subject": "feat: add silver health activity and family support workflows"
+    }
+  ],
+  "changed_files": [
+    {
+      "status": "M",
+      "path": "README.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/HANDOFF.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/README.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/USER_GUIDE.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/history/CHANGELOG.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/history/SILVER_HEALTH_V0_16.md"
+    },
+    {
+      "status": "M",
+      "path": "docs/specifications/SOFTWARE_SPEC.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/validation/JOURNEY_RESULTS_2026-09-11.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/validation/MERGE_V0_15_2026-09-12.md"
+    },
+    {
+      "status": "A",
+      "path": "docs/validation/SILVER_HEALTH_V0_16_2026-09-12.md"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/AGENTS.md"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/__init__.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/activity.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/app/change_cards.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/exercise_instructions.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/app/family_demo.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/app/journey.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/reports.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/runtime.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/scene_controller.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/app/silver_service.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/app/silver_store.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/storage.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/ui/dialogs.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/app/ui/family_demo.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/app/ui/journey.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/ui/main_window.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/app/ui/silver.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/ui/theme.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/app/ui/workspace.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/scripts/qa_family_browser.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/scripts/qa_family_page.cjs"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/scripts/qa_journey.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/scripts/qa_quiet_guidance.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/scripts/qa_silver.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/tests/test_family_demo.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/tests/test_journey.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/tests/test_journey_ui.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/tests/test_neck_shoulder_ui.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/tests/test_quiet_guidance_ui.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/tests/test_result_summary.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/tests/test_silver_support.py"
+    },
+    {
+      "status": "A",
+      "path": "rehab_codex_single_camera_v2_1/tests/test_silver_ui.py"
+    },
+    {
+      "status": "M",
+      "path": "rehab_codex_single_camera_v2_1/tests/test_sport_ui_flow.py"
+    }
+  ],
+  "incoming_worktree_clean": true,
+  "incoming_fsck_success": true,
+  "incoming_fsck_note": "One unreferenced dangling tree; no corrupt or missing objects.",
+  "application_source_unchanged_after_import": true,
+  "local_data_unchanged": true,
+  "local_data_file_count": 2,
+  "imported_runtime_or_personal_data": false,
+  "backups": "backups/incoming/2026-09-12/",
+  "raw_incremental_plan_in_archive": false
+}

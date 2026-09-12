@@ -1,0 +1,271 @@
+{
+  "started_at_utc": "2026-09-12T04:33:48.916876+00:00",
+  "python_version": "3.13.11",
+  "suite": "all",
+  "partition_file_count": 72,
+  "camera_opened_by_runner": false,
+  "results": [
+    {
+      "batch": "core",
+      "files": [
+        "tests/test_app_assessment.py",
+        "tests/test_app_camera.py",
+        "tests/test_app_contracts.py",
+        "tests/test_app_controller.py",
+        "tests/test_app_joint_exercises.py",
+        "tests/test_app_regression_audio.py",
+        "tests/test_app_rehab.py",
+        "tests/test_app_scenes.py",
+        "tests/test_app_storage.py",
+        "tests/test_assessment_batches.py",
+        "tests/test_axial_and_extension.py",
+        "tests/test_camera_reference.py",
+        "tests/test_camera_selection.py",
+        "tests/test_camera_test_runtime.py",
+        "tests/test_config_contract.py",
+        "tests/test_dual_camera.py",
+        "tests/test_dual_controller.py",
+        "tests/test_dual_diagnostics.py",
+        "tests/test_dual_reports.py",
+        "tests/test_dual_runtime.py",
+        "tests/test_dual_vision.py",
+        "tests/test_family_demo.py",
+        "tests/test_geometry.py",
+        "tests/test_journey.py",
+        "tests/test_longitudinal.py",
+        "tests/test_longitudinal_runtime.py",
+        "tests/test_movement_timing.py",
+        "tests/test_neck_shoulder_repair.py",
+        "tests/test_participant_runtime.py",
+        "tests/test_participants.py",
+        "tests/test_preparation_sampling.py",
+        "tests/test_readiness.py",
+        "tests/test_result_summary.py",
+        "tests/test_saved_plan_runtime.py",
+        "tests/test_saved_training_plans.py",
+        "tests/test_silver_support.py",
+        "tests/test_training_execution.py",
+        "tests/test_training_feedback.py",
+        "tests/test_training_runtime.py",
+        "tests/test_training_timing.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 21.75,
+      "junit": {
+        "tests": 841,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "837 passed, 4 subtests passed in 21.07s",
+      "log": "core.log",
+      "junit_file": "core.xml"
+    },
+    {
+      "batch": "ui",
+      "files": [
+        "tests/test_app_ui.py",
+        "tests/test_assessment_batch_ui.py",
+        "tests/test_body_camera_ui.py",
+        "tests/test_clarity_ui.py",
+        "tests/test_distance_ui.py",
+        "tests/test_dual_ui.py",
+        "tests/test_exercise_guides.py",
+        "tests/test_guidance_policy.py",
+        "tests/test_journey_ui.py",
+        "tests/test_longitudinal_ui.py",
+        "tests/test_neck_shoulder_ui.py",
+        "tests/test_participant_ui.py",
+        "tests/test_plan_library_ui.py",
+        "tests/test_product_body_overview.py",
+        "tests/test_product_catalog.py",
+        "tests/test_product_navigation.py",
+        "tests/test_quiet_guidance_ui.py",
+        "tests/test_quiet_runtime_integration.py",
+        "tests/test_silver_ui.py",
+        "tests/test_sport_ui_flow.py",
+        "tests/test_timing_ui.py",
+        "tests/test_training_hub.py",
+        "tests/test_training_ui.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 49.82,
+      "junit": {
+        "tests": 392,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "392 passed in 44.97s",
+      "log": "ui.log",
+      "junit_file": "ui.xml"
+    },
+    {
+      "batch": "test_app_joint_expansion_flow",
+      "files": [
+        "tests/test_app_joint_expansion_flow.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 8.13,
+      "junit": {
+        "tests": 21,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "21 passed in 7.68s",
+      "log": "test_app_joint_expansion_flow.log",
+      "junit_file": "test_app_joint_expansion_flow.xml"
+    },
+    {
+      "batch": "test_app_landmarks",
+      "files": [
+        "tests/test_app_landmarks.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 4.28,
+      "junit": {
+        "tests": 179,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "179 passed in 3.84s",
+      "log": "test_app_landmarks.log",
+      "junit_file": "test_app_landmarks.xml"
+    },
+    {
+      "batch": "test_app_runtime_integration",
+      "files": [
+        "tests/test_app_runtime_integration.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 5.83,
+      "junit": {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "3 passed in 4.80s",
+      "log": "test_app_runtime_integration.log",
+      "junit_file": "test_app_runtime_integration.xml"
+    },
+    {
+      "batch": "test_app_source_integration",
+      "files": [
+        "tests/test_app_source_integration.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 1.84,
+      "junit": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "1 passed in 1.35s",
+      "log": "test_app_source_integration.log",
+      "junit_file": "test_app_source_integration.xml"
+    },
+    {
+      "batch": "test_app_vision_integration",
+      "files": [
+        "tests/test_app_vision_integration.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 3.73,
+      "junit": {
+        "tests": 2,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "2 passed in 2.66s",
+      "log": "test_app_vision_integration.log",
+      "junit_file": "test_app_vision_integration.xml"
+    },
+    {
+      "batch": "test_camera_test_integration",
+      "files": [
+        "tests/test_camera_test_integration.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 1.0,
+      "junit": {
+        "tests": 3,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "3 passed in 0.56s",
+      "log": "test_camera_test_integration.log",
+      "junit_file": "test_camera_test_integration.xml"
+    },
+    {
+      "batch": "test_dual_runtime_integration",
+      "files": [
+        "tests/test_dual_runtime_integration.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 1.51,
+      "junit": {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "5 passed in 1.07s",
+      "log": "test_dual_runtime_integration.log",
+      "junit_file": "test_dual_runtime_integration.xml"
+    },
+    {
+      "batch": "test_dual_vision_integration",
+      "files": [
+        "tests/test_dual_vision_integration.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 3.2,
+      "junit": {
+        "tests": 1,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "1 passed in 2.27s",
+      "log": "test_dual_vision_integration.log",
+      "junit_file": "test_dual_vision_integration.xml"
+    },
+    {
+      "batch": "test_model_paths_integration",
+      "files": [
+        "tests/test_model_paths_integration.py"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "duration_s": 6.0,
+      "junit": {
+        "tests": 6,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "pytest_summary": "6 passed in 5.57s",
+      "log": "test_model_paths_integration.log",
+      "junit_file": "test_model_paths_integration.xml"
+    }
+  ],
+  "success": true,
+  "completed_at_utc": "2026-09-12T04:35:36.002733+00:00",
+  "completed_batches": 11
+}
