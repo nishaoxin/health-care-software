@@ -505,6 +505,7 @@ class SceneController:
         for event in getattr(self.engine, 'events', []):
             if event['id'] not in self.persisted_events:
                 event.update(run_id=self.context.run_id, source_kind=self.context.source_kind,
+                             participant_id=self.setup['plan']['participant_id'],
                              usage_context=self.context.usage_context, scene_id=self.context.scene_id,
                              source_ref=self.context.source_ref, profile_id=self.setup['profile_id'],
                              time_basis=self.session['time_basis'], rule_version=RULE_VERSION)
@@ -518,6 +519,17 @@ class SceneController:
         if training_event_count is not None and training_event_count != len(self.engine.training_events):
             self._checkpoint_training()
         return True
+
+    def checkpoint_activity(self):
+        if self.session is None or self.setup['scene_id'] != 'activity':
+            return
+        self.session.update(summary=self.engine.summary(), tasks=copy.deepcopy(self.engine.tasks),
+                            intervals=copy.deepcopy(self.engine.intervals))
+        try:
+            self.storage.save_session(self.session)
+        except Exception:
+            self.stop('activity_checkpoint_failed')
+            raise
 
     def _checkpoint_training(self):
         self._update_dual_diagnostics()

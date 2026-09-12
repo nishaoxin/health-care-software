@@ -45,7 +45,12 @@ class ActivityEngine:
 
     def _interrupt_task(self, reason):
         if self.tasks and self.tasks[-1]['status'] == 'ACTIVE':
-            self.tasks[-1].update(status='INTERRUPTED', reason=reason, end_time_s=self.last_t)
+            self._transition(self.tasks[-1], 'INTERRUPTED', self.last_t, reason=reason)
+
+    @staticmethod
+    def _transition(task, status, time_s, **evidence):
+        task.update(status=status, end_time_s=time_s, **evidence)
+        task.setdefault('history', []).append(dict(status=status, time_s=time_s, **evidence))
 
     def process(self, o):
         t = o.time_s
@@ -74,15 +79,17 @@ class ActivityEngine:
         if state != 'SEATED' or broken:
             self.continuous_sitting = 0.
             self.reminder_due = False
-            if state not in ('SEATED', 'UNKNOWN'):
-                self.skip_until_change = False
+            # A refusal applies to this observation run; movement is not consent to remind again.
         else:
             self.continuous_sitting += dt
         if state != self.phase:
             self.intervals.append({'state': state, 'time_s': t, 'track_key': o.track_key})
         self.phase, self.previous, self.last_t = state, o, t
         if (self.continuous_sitting >= self.setup['sedentary_trigger_s'] and t >= self.snooze_until
+                and self.setup.get('allowed_activity_tasks', ('stand', 'walk'))
                 and not self.skip_until_change and not (self.tasks and self.tasks[-1]['status'] == 'ACTIVE')):
+            if not self.reminder_due and not (self.tasks and self.tasks[-1]['status'] == 'OFFERED'):
+                self.tasks.append(self._new_task('offer', 'OFFERED', t, 0.))
             self.reminder_due = True
         if self.tasks and self.tasks[-1]['status'] == 'ACTIVE':
             task = self.tasks[-1]
@@ -90,33 +97,55 @@ class ActivityEngine:
             if state == expected:
                 task['visible_s'] += dt
             if task['visible_s']+1e-8 >= task['target_s']:
-                task.update(status='COMPLETED', visual_verified=True, end_time_s=t)
+                self._transition(task, 'COMPLETED', t, visual_verified=True, evidence_method='VISION_VERIFIED')
         self.message = '已到可见久坐提醒时间，可选择任务、延期或拒绝' if self.reminder_due else '只累计相邻有效观察；缺测与出画不计入活动时间'
-        if self.tasks:
+        if self.tasks and self.tasks[-1]['kind'] != 'offer':
             task = self.tasks[-1]
             label = {'ACTIVE': '进行中', 'COMPLETED': '已完成', 'INTERRUPTED': '已中断'}.get(task['status'], '待确认')
             self.message = f"任务{label} · 已视觉核实 {task['visible_s']:.1f} / {task['target_s']:.1f} 秒"
             if task['self_reported']:
                 self.message += ' · 已另记自报完成'
 
+    def _new_task(self, kind, status, time_s, target):
+        return {'id': uuid4().hex, 'kind': kind, 'status': status, 'start_time_s': time_s,
+                'target_s': target, 'visible_s': 0., 'visual_verified': False, 'self_reported': False,
+                'evidence_method': None, 'threshold_profile': 'DEMO_THRESHOLDS' if self.setup['demo_thresholds'] else 'PERSONAL_SETTINGS',
+                'history': [{'status': status, 'time_s': time_s}]}
+
     def choose_task(self, kind, time_s):
         if kind in ('stand', 'walk'):
+            if kind not in self.setup.get('allowed_activity_tasks', ('stand', 'walk')):
+                raise ValueError('本次未允许这项活动，请先核对本人活动安排')
+            if self.tasks and self.tasks[-1]['status'] == 'ACTIVE' and self.tasks[-1]['kind'] == kind:
+                return
             self._interrupt_task('new_task')
-            self.tasks.append({'id': uuid4().hex, 'kind': kind, 'status': 'ACTIVE', 'start_time_s': time_s,
-                               'target_s': self.setup['stand_target_s' if kind == 'stand' else 'walk_target_s'],
-                               'visible_s': 0., 'visual_verified': False, 'self_reported': False})
+            if self.tasks and self.tasks[-1]['status'] == 'OFFERED':
+                self._transition(self.tasks[-1], 'ACCEPTED', time_s)
+            self.tasks.append(self._new_task(kind, 'ACTIVE', time_s,
+                              self.setup['stand_target_s' if kind == 'stand' else 'walk_target_s']))
             self.reminder_due = False
         elif kind == 'snooze':
             self.snooze_until = time_s+(15 if self.setup['demo_thresholds'] else 300)
             self.reminder_due = False
+            self._reminder_decision('SNOOZED', time_s)
         elif kind == 'skip':
             self.reminder_due, self.skip_until_change = False, True
+            self._reminder_decision('DECLINED', time_s)
         elif kind == 'stop':
             self._interrupt_task('user_stop')
-        elif kind == 'self_report' and self.tasks:
-            self.tasks[-1].update(self_reported=True, self_report_time_s=time_s)
+        elif kind == 'self_report' and self.tasks and self.tasks[-1]['kind'] in ('stand', 'walk'):
+            self._interrupt_task('self_reported_stop')
+            self.tasks[-1].update(self_reported=True, self_report_time_s=time_s, self_report_evidence='SELF_REPORTED')
         else:
             raise ValueError('请选择一个活动任务')
+
+    def _reminder_decision(self, status, time_s):
+        if self.tasks and self.tasks[-1]['status'] == 'ACTIVE':
+            self._interrupt_task('user_'+status.lower())
+        if self.tasks and self.tasks[-1]['status'] == 'OFFERED':
+            self._transition(self.tasks[-1], status, time_s, snooze_until=self.snooze_until)
+        elif not self.tasks or self.tasks[-1]['status'] != status:
+            self.tasks.append(self._new_task('offer', status, time_s, 0.))
 
     def finish(self, reason):
         self._interrupt_task(reason)

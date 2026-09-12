@@ -91,6 +91,9 @@ class MainWindow(QMainWindow):
         self._journey_error = ''
         self._latest_report_id = None
         self._result_after_feedback = None
+        self.silver_dialog = None
+        self.family_demo_dialog = None
+        self._silver_return_device = None
         self.state = 'UNSELECTED'
         self.busy = 0
         self.pending_commands = Counter()
@@ -125,6 +128,60 @@ class MainWindow(QMainWindow):
 
     def _build(self):
         build_workspace(self)
+
+    def _show_silver(self, *, refresh=True):
+        if self.silver_dialog is None:
+            from .silver import SilverDialog
+            self.silver_dialog = SilverDialog(self)
+            self.silver_dialog.operation.connect(self._silver_command)
+            self.silver_dialog.navigate.connect(self._silver_navigate)
+            self.silver_dialog.privacy.connect(lambda: self._send('privacy', reason='silver_privacy_pause'))
+            self.silver_dialog.task.connect(lambda task: self._send('task', task=task))
+            self.silver_dialog.family_demo_requested.connect(self._show_family_demo)
+        self.silver_dialog.show()
+        self.silver_dialog.raise_()
+        if refresh:
+            self.silver_dialog.refresh()
+
+    def _silver_command(self, operation):
+        # Optional page commands do not disable rehabilitation controls or stop inference.
+        self.runtime.command('silver', scope=self._body_scope_key(), **operation)
+
+    def _show_family_demo(self):
+        if self.family_demo_dialog is None:
+            from .family_demo import FamilyDemoDialog
+            self.family_demo_dialog = FamilyDemoDialog(self)
+            self.family_demo_dialog.operation.connect(lambda operation: self.runtime.command('family_demo', **operation))
+        self.family_demo_dialog.show()
+        self.runtime.command('family_demo', action='status')
+
+    def _silver_help(self):
+        self._show_silver(refresh=False)
+        self.silver_dialog.role.blockSignals(True)
+        self.silver_dialog.role.setCurrentIndex(0)
+        self.silver_dialog.role.blockSignals(False)
+        self.silver_dialog.request('help', '本人主动请求帮助')
+
+    def _silver_navigate(self, scene, camera_role):
+        if self.busy or self._camera_testing or self.state in ('ONLINE', 'PREVIEW', 'CONNECTING', 'SAVE_FAILED'):
+            self.silver_dialog.show_error('请先停止采集并保存当前任务，再切换观察场景')
+            return
+        if scene == 'training':
+            self.silver_dialog.close()
+            self._show_training_hub()
+            return
+        if scene not in ('activity', 'bedroom_demo', 'safety_demo'):
+            return
+        device = self.secondary_device.currentData() if camera_role == 'secondary' else (self._silver_return_device or self.device.currentData())
+        if self.source_kind.currentData() != 'LIVE_CAMERA' or not device:
+            self.silver_dialog.show_error('请先选择实时摄像头；B 使用输入设置中已选的第二相机')
+            return
+        if self._silver_return_device is None:
+            self._silver_return_device = self.device.currentData()
+        self._select_scene(scene)
+        self.device.setCurrentIndex(next((i for i in range(self.device.count()) if self.device.itemData(i) == device), 0))
+        self.silver_dialog.close()
+        self.notice.setText('当前只准备所选场景，另一机位未监测。请打开预览、圈定区域并确认活动许可。')
 
     def _idle_copy(self):
         live = self.source_kind.currentData() == 'LIVE_CAMERA'
@@ -465,6 +522,26 @@ class MainWindow(QMainWindow):
         self.permission = QCheckBox('已确认本次站立 / 步行活动许可')
         self.permission.toggled.connect(self._confirmation_changed)
         activity.addWidget(self.permission)
+        self.activity_options = QComboBox()
+        for label, kinds in (('允许站立和步行', ['stand', 'walk']), ('仅允许站立', ['stand']),
+                             ('仅允许步行', ['walk']), ('暂不安排活动任务', [])):
+            self.activity_options.addItem(label, kinds)
+        self.activity_options.currentIndexChanged.connect(self._invalidate)
+        activity.addWidget(self.activity_options)
+        timing = QFormLayout()
+        self.activity_durations = {}
+        for key, label in (('sedentary_trigger_s', '坐位提醒（秒）'), ('stand_target_s', '站立目标（秒）'), ('walk_target_s', '步行目标（秒）')):
+            spin = QDoubleSpinBox()
+            spin.setDecimals(0)
+            spin.setRange(1, 14400)
+            spin.setValue(self.setup[key])
+            spin.valueChanged.connect(self._invalidate)
+            self.activity_durations[key] = spin
+            timing.addRow(label, spin)
+        activity.addLayout(timing)
+        activity_note = QLabel('按本人适合的安排人工填写，不是统一运动处方。演示时使用 15 / 5 / 8 秒并永久标记。')
+        activity_note.setWordWrap(True)
+        activity.addWidget(activity_note)
         self.task_buttons = []
         for label, task in (('选择站立任务', 'stand'), ('选择步行任务', 'walk'), ('延期本次提醒', 'snooze'), ('拒绝本次提醒', 'skip'), ('停止活动任务', 'stop'), ('仅自报已完成', 'self_report')):
             button = QPushButton(label)
@@ -866,6 +943,8 @@ class MainWindow(QMainWindow):
         if self.constructing:
             return
         self._journey_framed = False
+        if self.silver_dialog:
+            self.silver_dialog.close()
         self._journey_error = ''
         self._latest_report_id = None
         self._close_distance_coach()
@@ -1088,6 +1167,11 @@ class MainWindow(QMainWindow):
             self.setup['plan'].update(participant_id=self.participant_id, submode=self.submode.currentData())
             self.canvas.rois = {}
             self.view.setCurrentIndex(self.view.findData(self.setup['view'] if scene == 'rehab' else 'fixed'))
+            if scene == 'rehab' and self._silver_return_device:
+                device, self._silver_return_device = self._silver_return_device, None
+                self.device.blockSignals(True)
+                self.device.setCurrentIndex(next((i for i in range(self.device.count()) if self.device.itemData(i) == device), 0))
+                self.device.blockSignals(False)
         self.pages.setCurrentIndex(0)
         self._sync_scene()
 
@@ -1274,6 +1358,8 @@ class MainWindow(QMainWindow):
                      poses_consent=self.poses.isChecked(), activity_permission=self.permission.isChecked(),
                      demo_thresholds=self.demo.isChecked(), real_bed=self.real_bed.isChecked(),
                      needs_assistance=self.assistance.isChecked(), night_confirmed=self.night.isChecked())
+        setup['allowed_activity_tasks'] = list(self.activity_options.currentData())
+        setup.update({key: control.value() for key, control in self.activity_durations.items()})
         setup['plan'].update(exercise_id=self.exercise.currentData(), side=self.side.currentData(),
                              submode=self.submode.currentData(), view=self.view.currentData(), participant_id=self.participant_id)
         if self._dual_enabled():
@@ -1594,6 +1680,9 @@ class MainWindow(QMainWindow):
             self.roi_select.setEnabled(self.state == 'PREVIEW' and available)
             self.canvas.edit_roi = self.roi_select.currentData() if self.state == 'PREVIEW' else None
             self.permission.setEnabled(self.state != 'ONLINE' and available)
+            self.activity_options.setEnabled(editable)
+            for control in self.activity_durations.values():
+                control.setEnabled(editable and not self.demo.isChecked())
             self.preview_segment_button.setEnabled(available and self.state == 'PREVIEW' and self.source_kind.currentData() == 'REPLAY_FILE')
             for button in self.task_buttons:
                 button.setEnabled(available and self.state == 'ONLINE' and self.scene == 'activity')
@@ -1635,6 +1724,27 @@ class MainWindow(QMainWindow):
 
     def _handle_message(self, m):
         kind = m['kind']
+        if kind == 'family_demo':
+            if self.family_demo_dialog:
+                self.family_demo_dialog.render(m['data'])
+            return
+        if kind == 'error' and m.get('command') == 'family_demo':
+            if self.family_demo_dialog:
+                self.family_demo_dialog.show_error(m['text'])
+            return
+        if kind == 'silver':
+            if self.silver_dialog:
+                if m['data']['scope'] == self._body_scope_key():
+                    self.silver_dialog.render(m['data'])
+                else:
+                    self.silver_dialog.show_error('用户或来源已改变，请刷新当前页面')
+            return
+        if kind == 'error' and m.get('command') == 'silver':
+            if self.silver_dialog:
+                self.silver_dialog.show_error(m['text'])
+            return
+        if kind == 'error' and m.get('command') == 'task' and self.silver_dialog and self.silver_dialog.isVisible():
+            self.silver_dialog.show_error(m['text'])
         if kind == 'command_done':
             if self.pending_commands[m['command']] > 0:
                 self.pending_commands[m['command']] -= 1

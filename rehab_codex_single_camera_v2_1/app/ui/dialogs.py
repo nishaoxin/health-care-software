@@ -209,7 +209,7 @@ class EventsDialog(QDialog):
     def populate(self, events):
         self.events = events
         self.list.clear()
-        titles = {'OPEN': '待查看', 'ACKNOWLEDGED': '已查看 · 待处理', 'RESOLVED': '已处理'}
+        titles = {'OPEN': '待查看', 'ACKNOWLEDGED': '已查看 · 待处理', 'CLAIMED': '已认领 · 待处理', 'RESOLVED': '已处理'}
         for event in events:
             self.list.addItem(f"{titles.get(event['status'], event['status'])}   {event.get('message', '疑似异常事件')}\n{event.get('source_kind', '未记录')} / {event.get('usage_context', '未记录')}")
         if events:
@@ -225,7 +225,7 @@ class EventsDialog(QDialog):
         event = self.events[row]
         self.details.setText(f"{event.get('message', '')}\n证据时间：{event.get('evidence_start_time', '—')} → {event.get('event_emitted_time', '—')}；时间来源：{event.get('time_basis', '未记录')}")
         self.ack.setEnabled(event['status'] == 'OPEN')
-        self.resolve.setEnabled(event['status'] == 'ACKNOWLEDGED')
+        self.resolve.setEnabled(event['status'] in ('ACKNOWLEDGED', 'CLAIMED'))
 
     def _transition(self, status):
         row = self.list.currentRow()

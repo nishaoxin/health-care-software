@@ -54,6 +54,7 @@ def build_workspace(w):
     w.training_nav = nav_button('训练中心', w._show_training_hub)
     w.body_nav = nav_button('身体档案', w._show_body)
     w.history_nav = nav_button('历史记录', w._history)
+    w.silver_nav = nav_button('银发健康守护', lambda: w._show_silver())
     nav.addSpacing(22)
     tools = Disclosure('其他工具')
     for scene, label in (('activity', '日常活动'), ('bedroom_demo', '卧室观察演示'), ('safety_demo', '安全提示演示')):
@@ -61,6 +62,11 @@ def build_workspace(w):
     w.tools_disclosure = tools
     nav.addWidget(tools)
     nav.addStretch()
+    w.silver_help = QPushButton('我需要帮助')
+    w.silver_help.setObjectName('danger')
+    w.silver_help.setMinimumHeight(44)
+    w.silver_help.clicked.connect(w._silver_help)
+    nav.addWidget(w.silver_help)
     events = QPushButton('事件记录')
     events.setObjectName('textButton')
     events.clicked.connect(w._events)

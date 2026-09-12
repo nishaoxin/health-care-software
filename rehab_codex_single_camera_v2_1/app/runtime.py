@@ -7,6 +7,7 @@ from pathlib import Path
 import queue
 import threading
 import time
+from types import SimpleNamespace
 
 from .audio import AudioGate
 from .camera_manager import CameraManager
@@ -58,6 +59,55 @@ class Runtime:
 
     def command(self, name, **kw):
         self.commands.put((name, kw))
+
+    def _dispatch_optional(self, name, kw):
+        # Freeze only structured evidence on the owning thread; never pass live
+        # controllers, frames, cameras or inference objects to optional workers.
+        if name == 'silver':
+            c = self.controller
+            summary = copy.deepcopy(c.summary())
+            frozen = SimpleNamespace(session=copy.deepcopy(c.session), setup=copy.deepcopy(c.setup),
+                source=copy.deepcopy(c.source), state=c.state, context=c.context,
+                summary=lambda: copy.deepcopy(summary))
+            kw = dict(copy.deepcopy(kw), _controller_snapshot=frozen, _snapshot_utc=utc_now(), _generation=c.generation)
+        else:
+            kw = copy.deepcopy(kw)
+        if not getattr(self, '_optional_thread', None):
+            self._optional_jobs = queue.Queue(maxsize=16)
+            self._optional_stopping = threading.Event()
+            self._optional_thread = threading.Thread(target=self._run_optional, name='optional-support', daemon=True)
+            self._optional_thread.start()
+        try:
+            self._optional_jobs.put_nowait((name, kw))
+        except queue.Full:
+            raise ValueError('可选服务正忙，本次操作未接收；请稍后重试')
+
+    def _run_optional(self):
+        try:
+            while not self._optional_stopping.is_set():
+                try:
+                    name, kw = self._optional_jobs.get(timeout=.1)
+                except queue.Empty:
+                    continue
+                try:
+                    self._execute(name, kw)
+                except Exception as exc:
+                    self._message('error', text=str(exc), command=name, request_id=kw.get('request_id'))
+                finally:
+                    self._message('command_done', command=name)
+        finally:
+            if getattr(self, 'family_demo', None):
+                try:
+                    self.family_demo.stop()
+                except Exception:
+                    pass
+
+    def _close_optional(self):
+        if getattr(self, '_optional_thread', None):
+            self._optional_stopping.set()
+            self._optional_thread.join(timeout=25)
+            if self._optional_thread.is_alive():
+                self._message('error', command='silver', text='可选服务退出超时，未确认尚在处理的操作结果')
 
     def _view(self, packet=None, pose=None, error=None, *, operation_error=False):
         c = self.controller
@@ -252,6 +302,41 @@ class Runtime:
 
     def _execute(self, name, kw):
         c, store = self.controller, self.store
+        if name == 'family_demo':
+            demo = getattr(self, 'family_demo', None)
+            action = kw.get('action')
+            if action == 'start':
+                if kw.get('demo_confirmed') is not True or demo:
+                    raise ValueError('请明确确认测试资料与联网边界；已有服务请先关闭')
+                from .family_demo import FamilyDemo
+                self.family_demo = demo = FamilyDemo(self.data_dir/'isolated-family-demo', kw['host'])
+            elif action == 'stop' and demo:
+                try:
+                    demo.stop()
+                finally:
+                    self.family_demo = demo = None
+            elif action == 'approve' and demo:
+                demo.approve(kw['id'])
+            elif action == 'request' and demo:
+                demo.request()
+            elif action not in ('status', 'stop'):
+                raise ValueError('请先开启隔离测试服务')
+            self._message('family_demo', data=demo.status() if demo else dict(running=False))
+            return
+        if name == 'silver':
+            from .silver_store import SilverStore
+            from .silver_service import execute
+            if not getattr(self, 'silver_store', None):
+                self.silver_store = SilverStore(self.data_dir/'silver_support.sqlite3')
+            frozen = kw.pop('_controller_snapshot', c)
+            at = kw.pop('_snapshot_utc', utc_now())
+            generation = kw.pop('_generation', c.generation)
+            result = execute(self.silver_store, store, frozen, **kw)
+            result['observation_snapshot_utc'] = at
+            if c.generation != generation:
+                result.update(state='INACTIVE', active_scene=None, live_summary={})
+            self._message('silver', data=result)
+            return
         if name in ('open', 'camera_test', 'confirm', 'unconfirm', 'start', 'stop', 'privacy', 'switch', 'shutdown', 'cancel_preparation'):
             self._cancel_preparation()
         if getattr(self, 'camera_test', False) and name not in (
@@ -497,6 +582,7 @@ class Runtime:
             if c.state != 'ONLINE' or c.context.scene_id != 'activity':
                 raise ValueError('请先开始活动场景')
             c.engine.choose_task(kw['task'], c.latest_observation.time_s if c.latest_observation else 0)
+            c.checkpoint_activity()
             self._view(c.latest_packet, c.latest_pose)
         elif name == 'profile':
             profiles = store._call(lambda db: [__import__('json').loads(r[0]) for r in db.execute('SELECT payload FROM scene_profiles')])
@@ -598,13 +684,20 @@ class Runtime:
                 except queue.Empty:
                     name = None
                 if name is not None:
+                    dispatched = False
                     try:
-                        self._execute(name, kw)
+                        if name in ('silver', 'family_demo'):
+                            self._dispatch_optional(name, kw)
+                            dispatched = True
+                        else:
+                            self._execute(name, kw)
                     except Exception as exc:
                         self._message('error', text=str(exc), command=name, request_id=kw.get('request_id'))
-                        self._view(error=str(exc), operation_error=True)
+                        if name not in ('silver', 'family_demo'):
+                            self._view(error=str(exc), operation_error=True)
                     finally:
-                        self._message('command_done', command=name)
+                        if not dispatched:
+                            self._message('command_done', command=name)
                 c = self.controller
                 self._tick_preparation()
                 worker = self.camera.worker
@@ -674,6 +767,11 @@ class Runtime:
                 try:
                     if not c.consume(packet, pose):
                         continue
+                    if c.state == 'ONLINE' and c.setup['scene_id'] == 'activity':
+                        signature = (c.context.run_id, tuple((t['id'], t['status']) for t in c.engine.tasks))
+                        if signature != getattr(self, '_activity_checkpoint_signature', None):
+                            c.checkpoint_activity()
+                            self._activity_checkpoint_signature = signature
                     self._collect_preview_observation(packet)
                     if c.state == 'ONLINE' and c.setup['plan']['sound_enabled']:
                         summary = c.summary()
@@ -712,6 +810,7 @@ class Runtime:
                 pass
             if self.vision:
                 self.vision.close()
+            self._close_optional()
             if self.store:
                 self.store.close()
             self._message('shutdown_done')

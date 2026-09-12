@@ -373,14 +373,14 @@ class Storage:
             if row is None:
                 raise ValueError('事件不存在')
             item = json.loads(row[0])
-            expected = {'ACKNOWLEDGED': 'OPEN', 'RESOLVED': 'ACKNOWLEDGED'}
-            if expected.get(status) != item['status'] or not operator.strip():
+            expected = {'ACKNOWLEDGED': ('OPEN',), 'CLAIMED': ('ACKNOWLEDGED',), 'RESOLVED': ('ACKNOWLEDGED', 'CLAIMED')}
+            if item['status'] not in expected.get(status, ()) or not operator.strip():
                 raise ValueError('请先查看事件，再记录处理结果')
             if status == 'RESOLVED' and not note.strip():
                 raise ValueError('关闭事件需要填写处理结果')
             at = utc_now()
             item.update(status=status)
-            item['human_ack_time' if status == 'ACKNOWLEDGED' else 'human_resolved_time'] = at
+            item[{'ACKNOWLEDGED': 'human_ack_time', 'CLAIMED': 'human_claim_time', 'RESOLVED': 'human_resolved_time'}[status]] = at
             item.setdefault('history', []).append({'status': status, 'at_utc': at, 'operator': operator, 'note': note})
             c.execute('UPDATE events SET status=?,payload=? WHERE id=?', (status, dumps(item), eid))
             return item
