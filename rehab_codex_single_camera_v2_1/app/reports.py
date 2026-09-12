@@ -65,6 +65,53 @@ def _public_ref(value):
     return 'source-' + digest(value)[:16]
 
 
+MEASUREMENT_MODES = {'auto_observed': '自动测量', 'guided_timed': '引导计时（不自动测角度）'}
+
+
+def continuation_evidence(session):
+    """Split this record into observed, approximate, self-reported and unavailable."""
+    summary = session.get('summary') or {}
+    continuation = session.get('continuation') or {}
+    mode = session.get('measurement_mode') or summary.get('measurement_mode') or 'auto_observed'
+    reports = continuation.get('self_reports') or []
+    approximate = summary.get('approximate_range')
+    approximate = approximate if isinstance(approximate, dict) else None
+    return {'mode': mode, 'mode_label': MEASUREMENT_MODES.get(mode, '测量方式未记录'),
+            'self_reported': len(reports), 'prompt_plan': continuation.get('prompt_plan'),
+            'prompted_cycles': continuation.get('prompted_cycles') or 0,
+            'approximate_range': approximate, 'guided': mode == 'guided_timed'}
+
+
+def _continuation_html(session):
+    if session.get('scene_id') != 'rehab':
+        return ''
+    evidence = continuation_evidence(session)
+    if not evidence['guided'] and not evidence['self_reported']:
+        return ''
+    rows = ['<tr><td><b>本次进行方式</b><br>'+fmt(evidence['mode_label'])+'</td><td>'
+            + ('引导计时按固定节奏提示动作，没有自动判定动作阶段、次数或幅度；'
+               '本记录不作为训练所需的评估依据。' if evidence['guided'] else
+               '自动测量按动作定义观察；本人另外记录的次数单独列出。')+'</td></tr>']
+    if evidence['guided']:
+        plan = evidence['prompt_plan'] or {}
+        rows.append('<tr><td><b>提示节奏</b><br>'
+                    + fmt(f"准备 {plan.get('ready_s')} 秒 / 动作 {plan.get('outbound_s')} 秒 / 回位 {plan.get('return_s')} 秒")
+                    + '</td><td>本机固定提示计时，共提示 '+fmt(evidence['prompted_cycles'], 0)
+                    + ' 轮。提示轮数只表示界面提示了几次，不表示已完成几次动作。</td></tr>')
+        approximate = evidence['approximate_range']
+        rows.append('<tr><td><b>近似角度范围</b><br>'
+                    + (f"{fmt(approximate['min_deg'])}° ～ {fmt(approximate['max_deg'])}°" if approximate else '— · 无可用角度样本')
+                    + '</td><td>'
+                    + ('按本次有效帧统计的投影角范围，没有按动作出程 / 回程分期；'
+                       '不是一次完整动作的幅度，也不是临床关节活动度。' if approximate else
+                       '本次没有取得足够的连续有效帧；缺测不等于 0。')+'</td></tr>')
+    if evidence['self_reported']:
+        rows.append('<tr><td><b>自己记录的完成次数</b><br>'+fmt(evidence['self_reported'], 0)+' 次</td>'
+                    '<td>由本人在运行中点击记录，属于人工报告，不是画面测量；不与自动观察到的次数相加。</td></tr>')
+    return ('<h2>本次可以和不能说明什么</h2>'
+            '<table><tr><th>记录内容</th><th>怎么理解</th></tr>'+''.join(rows)+'</table>')
+
+
 def _conditions_html(conditions):
     c = conditions or {}
     view = {'frontal': '正面', 'sagittal': '侧面', 'front': '正面'}.get(c.get('view'), c.get('view'))
@@ -276,9 +323,14 @@ def render_result_summary(s, *, document=True):
     def row(term, value, explanation):
         rows.append('<tr><td><b>'+fmt(term)+'</b><br>'+value+'</td><td>'+fmt(explanation)+'</td></tr>')
 
-    row('任务完成', fmt(summary.get('completed'), 0)+' 次',
-        '到达已记录的站位计一次，回坐后才可再计次。次数不代表起立能力评级。' if eid == 'sit_to_stand' else
-        '观察到动作出程并回到起点才计一次。完成次数与活动幅度、动作质量分别评价。')
+    evidence = continuation_evidence(s)
+    if evidence['guided']:
+        row('任务完成', '— · 本次为引导计时',
+            '引导计时不自动判定动作次数。下面的自报次数是本人记录，本记录不作为训练所需的评估依据。')
+    else:
+        row('任务完成', fmt(summary.get('completed'), 0)+' 次',
+            '到达已记录的站位计一次，回坐后才可再计次。次数不代表起立能力评级。' if eid == 'sit_to_stand' else
+            '观察到动作出程并回到起点才计一次。完成次数与活动幅度、动作质量分别评价。')
     row('部分尝试 / 中断或无法评价', fmt(summary.get('partial'), 0)+' / '+fmt(summary.get('invalid'), 0),
         '未完成往返和因遮挡、断流等无法判断的尝试单独保留；不能一概解释为做得差。')
     if motion:
@@ -318,6 +370,15 @@ def render_result_summary(s, *, document=True):
     issue_names = list(dict.fromkeys(LABELS.get(i.get('rule_id'), '其他已记录的可见规则事件') for i in issues))
     row('可见动作表现', fmt('；'.join(issue_names) if issue_names else '未记录到有有效证据的规则问题'),
         '只说明画面中被规则记录的表现。没有记录到问题，不等于动作完全正常，也不能判断肌力或病因。')
+    if evidence['guided']:
+        approximate = evidence['approximate_range']
+        row('近似角度范围', (f"{fmt(approximate['min_deg'])}° ～ {fmt(approximate['max_deg'])}°"
+                       if approximate else '— · 无可用角度样本'),
+            '按有效帧统计，没有按动作分期；不是一次动作的幅度，也不是临床活动度。' if approximate else
+            '本次没有取得足够连续有效帧；缺测不等于 0。')
+    if evidence['self_reported']:
+        row('自己记录的完成次数', fmt(evidence['self_reported'], 0)+' 次',
+            '本人在运行中点击记录的人工报告，不是画面测量，也不与自动次数相加。')
     view = {'frontal': '正面', 'sagittal': '侧面'}.get(session_conditions(s).get('view'), '机位未记录')
     body = ('<h1>本次结果解读</h1><p>'+fmt(spec['label'])+' · '+fmt(SIDES.get(session_value(s, 'side'), '测试侧未记录'))+
             ' · '+fmt(view)+' · '+fmt(MODES.get(session_value(s, 'submode'), '模式未记录'))+'</p>'
@@ -325,6 +386,7 @@ def render_result_summary(s, *, document=True):
             ' · '+fmt(s.get('start_utc'))+'</p>'
             '<p class="note">这是摄像头观察报告，不是诊断或临床活动度鉴定。— 表示缺少有效证据或不适用，不能读成 0。</p>'
             '<table><tr><th>康复指标与测试数据</th><th>这些数字怎么理解</th></tr>'+''.join(rows)+'</table>')
+    body += _continuation_html(s)
     if eid in ('neck_flexion', 'neck_extension'):
         body += ('<h2>头颈测量说明</h2><p>本项是头部相对躯干的二维投影变化：同侧眼—耳线作为头部参考，'
                  '肩—髋线作为躯干参考。髋点用于区别头部运动与身体前倾，不是在评估髋关节；'
@@ -336,7 +398,13 @@ def render_result_summary(s, *, document=True):
                      '主机位测量有效时，主结果仍可记录；身份不明或画面中断时不会继续计入。</p>')
         else:
             body += '<p>本记录沿用保存时的双摄有效性规则，未按新版规则重新计算。</p>'
-    body += ('<h2>下一步</h2><p>可继续评估其他动作，在“身体档案”汇总。进入训练前，需选择可用评估记录并人工确认个人计划；'
+    body += '<h2>下一步</h2><p>'
+    if evidence['guided']:
+        body += ('本次活动已保存。想要可比较的测量记录时，可在光线和取景较好时重做一次自动测量评估；'
+                 '引导计时记录只保存在历史中。')
+    else:
+        body += '可继续评估其他动作，在“身体档案”汇总。'
+    body += ('进入训练前，需选择可用评估记录并人工确认个人计划；'
              '本报告不会自动开具处方。复测请尽量保持相同机位、测试侧和测量条件，不凭一次角度变化判断康复改善。'
              '疼痛、头晕或不适时停止，并向康复专业人员反馈。</p>')
     return _document('本次结果解读', body) if document else body
@@ -371,6 +439,7 @@ def render_report(s):
                    '<table><tr><th>序号</th><th>完成情况</th><th>个人目标</th><th>代表角度 °</th>'
                    '<th>最小 °</th><th>最大 °</th><th>幅度 °</th><th>时长 s</th><th>观察情况</th><th>可见问题</th></tr>'
                    + (''.join(rows) or '<tr><td colspan="10">没有已记录的动作重复。</td></tr>') + '</table>')
+        detail += _continuation_html(s)
         detail += _saved_plan_html(s)
         detail += _timing_html(s)
         detail += _dual_camera_html(s)
@@ -643,7 +712,16 @@ def export_session(snapshot, directory):
                        issues=dumps(rep.get('issues') or []))
             writer.writerow({key: _csv_value(value) for key, value in row.items()})
     with (out/'annotations.csv').open('w', newline='', encoding='utf-8-sig') as f:
-        csv.writer(f).writerow(['annotation_origin', 'annotator', 'annotation_version', 'participant_id', 'recording_id', 'evidence_time_s', 'human_label', 'notes'])
+        writer = csv.writer(f)
+        writer.writerow(['annotation_origin', 'annotator', 'annotation_version', 'participant_id', 'recording_id', 'evidence_time_s', 'human_label', 'notes'])
+        # A self-reported completion is a human annotation, never a measured repetition.
+        for report in ((s.get('continuation') or {}).get('self_reports') or []):
+            writer.writerow([_csv_value(v) for v in ('human', 'participant', 'self-report-1',
+                            session_value(s, 'participant_id'), s.get('recording_id'),
+                            report.get('observation_time_s'), 'self_reported_repetition',
+                            'reported at '+str(report.get('at_utc')))])
+    if s.get('scene_id') == 'rehab':
+        (out/'continuation.json').write_text(dumps(continuation_evidence(s), indent=2), encoding='utf-8')
     return out
 
 

@@ -15,7 +15,7 @@ from .exercises import EXERCISE_IDS, exercise_spec
 from .movement_timing import timing_for_plan, TIMING_VERSION
 
 
-COMPARISON_VERSION = 'recorded-conditions-3'
+COMPARISON_VERSION = 'recorded-conditions-4'
 SCOPE_KEYS = ('participant_id', 'source_kind', 'usage_context', 'exercise_id', 'side', 'submode')
 METRICS = {'range_deg': '观察幅度 °', 'peak_angle_deg': '最大投影角 °', 'completed': '完整次数',
            'outbound_s': '出程中位数 s', 'endpoint_dwell_s': '峰区 / 站位停留中位数 s',
@@ -39,6 +39,7 @@ CONDITION_LABELS = {
     'plan.use_of_hands': '扶物安排', 'plan.needs_companion': '陪同要求', 'plan.ready_s': '准备确认时间',
     'plan.dwell_s': '阶段确认时间', 'plan.max_gap_s': '连续观察间隔上限', 'plan.rest_deg': '回位阈值',
     'plan.raising_delta_deg': '出程阈值', 'plan.issue_hold_s': '问题持续阈值'}
+CONDITION_LABELS['measurement_mode'] = '本次进行方式'
 CONDITION_LABELS.update(capture_mode='单摄 / 双摄', dual_camera='双摄分工与配对条件',
                         **{'dual_camera.frontal': '正面逐路测量条件', 'dual_camera.sagittal': '侧面逐路测量条件'})
 NOTE = ('只核对记录中可核查的条件；仍需人工核对真实机位、姿势、支撑和使用安排。'
@@ -158,6 +159,10 @@ def condition_snapshot(session):
     # A missing timing version denotes legacy data, not newly measured durations.
     version = session.get('movement_timing_version')
     add('movement_timing_version', version, version is None or isinstance(version, str) and bool(version), nullable=True)
+    # Records saved before this field existed were all gated on automatic
+    # measurement, so absence is read as auto_observed, never as guided.
+    mode = session.get('measurement_mode', 'auto_observed')
+    add('measurement_mode', mode, mode in ('auto_observed', 'guided_timed'))
     values = _normalized(values)
     return {'version': COMPARISON_VERSION, 'origin': 'derived_from_saved_snapshot', 'values': values,
             'missing': sorted(set(missing)), 'signature': digest(values) if not missing else None}

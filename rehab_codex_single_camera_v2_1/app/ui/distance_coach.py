@@ -19,6 +19,8 @@ class DistanceCoach(QDialog):
     finish_requested = Signal()
     privacy_requested = Signal()
     control_requested = Signal(str, bool)
+    self_report_requested = Signal()
+    guided_pause_requested = Signal()
 
     def __init__(self, parent=None, *, root=None):
         super().__init__(parent)
@@ -26,6 +28,10 @@ class DistanceCoach(QDialog):
         self.setMinimumSize(980, 680)
         self.resize(1280, 800)
         self.state = 'UNSELECTED'
+        self.countdown_seconds = 0
+        self.self_reported = 0
+        self.guided_mode = False
+        self.guided_paused = False
         self.training_data = {}
         self.training_mode = False
         self._live_display = False
@@ -96,6 +102,12 @@ class DistanceCoach(QDialog):
         footer = QHBoxLayout()
         self.exit_hint = self.label('', 'coachMeta')
         footer.addWidget(self.exit_hint, 1)
+        self.guided_pause = QPushButton('暂停提示')
+        self.guided_pause.clicked.connect(self.guided_pause_requested)
+        footer.addWidget(self.guided_pause)
+        self.self_report = QPushButton('记一次（我完成了）')
+        self.self_report.clicked.connect(self.self_report_requested)
+        footer.addWidget(self.self_report)
         self.privacy = QPushButton('停止采集')
         self.privacy.setObjectName('danger')
         self.privacy.clicked.connect(self.privacy_requested)
@@ -123,6 +135,19 @@ class DistanceCoach(QDialog):
         self.training.progress.hide()
         self.finish.setEnabled(self.state == 'ONLINE')
         self.privacy.setEnabled(self.state in ('ONLINE', 'PREVIEW', 'CONNECTING', 'ERROR'))
+        self.guided_pause.setVisible(self.guided_mode and self.state == 'ONLINE')
+        self.guided_pause.setEnabled(available and self.state == 'ONLINE')
+        self.guided_pause.setText('继续提示' if self.guided_paused else '暂停提示')
+        self.self_report.setVisible(self.state == 'ONLINE')
+        self.self_report.setEnabled(available and self.state == 'ONLINE')
+        self.self_report.setText('记一次（我完成了）' if not self.self_reported
+                                 else f'记一次（已记 {self.self_reported} 次）')
+
+    def set_countdown(self, seconds):
+        """An interface wait before the run starts; it records nothing."""
+        self.countdown_seconds = seconds if isinstance(seconds, int) and seconds > 0 else 0
+        if self.countdown_seconds and self.state == 'PREVIEW':
+            self.show_hold(f'{self.countdown_seconds} 秒后开始\n请保持起始姿势')
 
     def show_hold(self, text):
         self.hold.setText(text)
@@ -158,7 +183,18 @@ class DistanceCoach(QDialog):
         self.training_data = summary.get('training') or {}
         stage = self.training_data.get('stage')
         completed = summary.get('completed')
+        self.self_reported = data.get('self_reported', 0) if self.state == 'ONLINE' else 0
         self.count.setText(f'已完成 {completed} 次' if completed is not None else '尚未开始' if self.state != 'ONLINE' else '等待有效动作')
+        guided = data.get('continuation_mode') == 'guided'
+        self.guided_mode = guided
+        self.guided_paused = bool((data.get('guided_prompt') or {}).get('paused'))
+        if guided:
+            prompt = data.get('guided_prompt') or {}
+            cycle = prompt.get('cycle')
+            self.count.setText('引导计时'+(f' · 第 {cycle} 轮' if cycle else '')+
+                               (f'\n自己记录 {self.self_reported} 次' if self.self_reported else '\n完成一次请点“记一次”'))
+        elif self.self_reported:
+            self.count.setText(self.count.text()+f'\n自己记录 {self.self_reported} 次')
         if self.training_data:
             self.count.setText(f"第 {self.training_data.get('set_number', '—')} / {self.training_data.get('target_sets', '—')} 组\n"
                                f"{self.training_data.get('set_reps', '—')} / {self.training_data.get('target_reps', '—')} 次")
@@ -190,6 +226,10 @@ class DistanceCoach(QDialog):
                         and timing['hold_elapsed_s']+1e-8 < timing['hold_min_s'])
         self.set_feedback('')
         guidance = data.get('guidance')
+        if self.countdown_seconds and self.state == 'PREVIEW':
+            self.show_hold(f'{self.countdown_seconds} 秒后开始\n请保持起始姿势')
+            self.set_controls(available)
+            return
         if guidance:
             self.feedback.setStyleSheet('font-size:20px; font-weight:400; color:#675675;')
             self.back.setText('返回处理并恢复' if guidance.get('recovery') else '返回普通界面')

@@ -152,7 +152,20 @@ class ExerciseGuide(QFrame):
     def apply_guidance(self, guidance):
         phase = guidance.get('phase')
         index = {'REST': 0, 'WAIT_READY': 0, 'SEATED_READY': 0, 'RAISING': 1, 'RISING': 1,
-                 'PEAK_OR_HOLD': 1, 'LOWERING': 2}.get(phase)
+                 'PEAK_OR_HOLD': 1, 'LOWERING': 2, 'ready': 0, 'outbound': 1, 'return': 2}.get(phase)
+        prompt = guidance.get('prompt_label')
+        if index is not None and prompt:
+            # A guided prompt states what to do now; the step picture illustrates
+            # that request and is never presented as an observed phase.
+            if index != self.step_index or not getattr(self, '_guidance_image_active', False):
+                self.select_step(index)
+            self._guidance_image_active = True
+            self.instruction.setText(guidance['instruction'])
+            remaining = guidance.get('prompt_remaining_s')
+            seconds = f" · 还有 {remaining:.0f} 秒" if isinstance(remaining, (int, float)) else ''
+            self.status.setText('按提示：'+prompt+seconds)
+            self.status.show()
+            return
         if index is not None and guidance['measurement_valid'] and guidance['level'] == 'action':
             if index != self.step_index or not getattr(self, '_guidance_image_active', False):
                 self.select_step(index)

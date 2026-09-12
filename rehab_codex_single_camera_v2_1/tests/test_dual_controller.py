@@ -170,14 +170,40 @@ def test_auxiliary_geometry_is_optional_for_confirmation_but_manual_identity_is_
 
 
 @pytest.mark.parametrize('view', ['primary', 'auxiliary'])
-def test_final_manual_confirmation_expires_if_person_changes_before_start(dual, view):
+def test_reacquired_tracking_keeps_the_acknowledgement_and_only_notes_it(dual, view):
     dual.c.confirm(dual.setup)
     packet, pose = dual.emit(.2, return_input=True)
     (pose if view == 'primary' else pose.paired_pose).people[0].track_key = 'another-person'
     dual.c.consume(packet, pose)
-    assert not dual.c.confirmed
-    with pytest.raises(ValueError, match='本次机位确认'):
+    assert dual.c.confirmed and dual.c.confirmation_reacquired and not dual.c.confirmation_withdrawn
+    dual.c.start()
+
+
+@pytest.mark.parametrize('view', ['primary', 'auxiliary'])
+def test_acknowledgement_expires_when_the_participant_leaves_the_picture(dual, view):
+    dual.c.confirm(dual.setup)
+    for t in (.2, 1., 2.4):
+        packet, pose = dual.emit(t, return_input=True)
+        if view == 'primary':
+            pose.people = []
+        else:
+            pose.paired_pose.people = []
+        dual.c.consume(packet, pose)
+    assert not dual.c.confirmed and '没有人' in dual.c.confirmation_withdrawn
+    with pytest.raises(ValueError, match='核对'):
         dual.c.start()
+
+
+@pytest.mark.parametrize('view', ['primary', 'auxiliary'])
+def test_acknowledgement_expires_immediately_when_another_person_is_visible(dual, view):
+    dual.c.confirm(dual.setup)
+    packet, pose = dual.emit(.2, return_input=True)
+    if view == 'primary':
+        pose.people = pose.people*2
+    else:
+        pose.paired_pose.people = pose.paired_pose.people*2
+    dual.c.consume(packet, pose)
+    assert not dual.c.confirmed and '不止一位' in dual.c.confirmation_withdrawn
 
 
 def test_auxiliary_geometry_fluctuation_does_not_repeat_the_final_confirmation(dual):

@@ -16,13 +16,19 @@ from .training import TrainingEngine
 from .exercises import exercise_spec
 from .assessment import build_body_profile, build_training_reference
 from .landmark_schemas import joint_names, BACKEND_SCHEMAS
-from .joint_calibration import stable_preview_value, provenance, validate_start_value
+from .guided import GuidedEngine, measurement_mode, prompt_plan
+from .joint_calibration import (stable_preview_value, provenance, validate_start_value,
+                                same_conditions)
 from .measurement_guidance import measurement_hint
 from .quality import angle_delta
 
 
 class SceneController:
     """Single owner, used by runtime worker; no UI toolkit or camera construction."""
+    # How long the participant may be absent from the picture before this
+    # preview's explicit acknowledgement has to be given again.
+    CONFIRMATION_ABSENCE_S = 2.
+
     def __init__(self, storage, camera, test_mode=False, vision_config=None):
         self.storage, self.camera, self.test_mode = storage, camera, test_mode
         self.generation = 0
@@ -53,6 +59,12 @@ class SceneController:
         self.latest_secondary_observation = self.latest_primary_observation = None
         self.active_secondary_track = None
         self.confirmation_binding = None
+        self.confirmation_absent_since = None
+        self.confirmation_withdrawn = ''
+        self.confirmation_reacquired = False
+        self.live_joint_baseline = {}
+        self.carried_preparation = None
+        self.preparation_reuse = None
         if self.pending_path.is_file():
             self.pending = json.loads(self.pending_path.read_text(encoding='utf-8'))
             self.state = 'SAVE_FAILED'
@@ -101,7 +113,13 @@ class SceneController:
             self.stop('configuration_change')
         self.source, self.setup = copy.deepcopy(source), copy.deepcopy(setup)
         self.live_joint_baseline = {}
+        # Preparation the person already completed is offered back to this preview
+        # only once the same recorded conditions are observed again.
+        self.carried_preparation = dict(joint_baseline=copy.deepcopy(self.setup['plan'].get('joint_baseline') or {}),
+                                        calibration=copy.deepcopy(self.setup['plan'].get('calibration') or {}))
+        self.preparation_reuse = None
         self.setup['plan']['joint_baseline'] = {}
+        self.setup['plan']['calibration'] = {}
         self.capture_options = copy.deepcopy(options or {})
         self.input_diagnostics = {}
         self.last_error = ''
@@ -127,6 +145,8 @@ class SceneController:
         self.gate.reset(self.context)
         self._reset_secondary(self.context)
         self.confirmed = False
+        self.confirmation_binding = self.confirmation_absent_since = None
+        self.confirmation_withdrawn, self.confirmation_reacquired = '', False
         self.analyzer = self._analyzer(setup['plan']['side'])
         self.latest_packet = self.latest_pose = self.latest_observation = None
         self.state = 'CONNECTING'
@@ -148,6 +168,73 @@ class SceneController:
             self.camera.stop()
             raise
         return self.context
+
+    def _review_confirmation(self, pose, observation, auxiliary):
+        """Withdraw this preview's acknowledgement only on evidenced change.
+
+        A tracker id is explicitly not an identity, so re-acquired tracking of a
+        continuously visible person keeps the acknowledgement and is only noted.
+        A crowd, or the participant actually leaving the picture, withdraws it
+        with a stated reason so the person knows what to check.
+        """
+        from .joint_calibration import preparation_binding
+        if not self.confirmed:
+            self.confirmation_absent_since = None
+            return
+        binding = preparation_binding(self)
+        if not same_conditions(self.confirmation_binding, binding):
+            self.confirmed, self.confirmation_absent_since = False, None
+            self.confirmation_withdrawn = '拍摄条件已变化，请重新核对本次准备'
+            return
+        views = [observation.status] + ([auxiliary.status] if auxiliary is not None else [])
+        if 'MULTI_PERSON' in views:
+            self.confirmed, self.confirmation_absent_since = False, None
+            self.confirmation_withdrawn = '画面中不止一位，请只保留本人后重新核对'
+            return
+        if 'NO_PERSON_DETECTED' not in views:
+            self.confirmation_absent_since = None
+            self.confirmation_reacquired = self.confirmation_reacquired or binding != self.confirmation_binding
+            return
+        if self.confirmation_absent_since is None:
+            self.confirmation_absent_since = pose.time_s
+        elif pose.time_s-self.confirmation_absent_since >= self.CONFIRMATION_ABSENCE_S:
+            self.confirmed, self.confirmation_absent_since = False, None
+            self.confirmation_withdrawn = '画面中一度没有人，请回到画面后重新核对'
+
+    def _calibration_provenance(self):
+        return {'source_ref': self.source['ref'], 'frame_size': list(self.latest_pose.size) if self.latest_pose else None,
+                'side': self.setup['plan']['side'], 'view': self.setup['view']}
+
+    def _adopt_carried_preparation(self):
+        """Reuse still-applicable preparation instead of demanding a repeat.
+
+        Reuse needs complete recorded evidence of the same person, source, frame
+        size, model, action, side and view. Anything else is reset with the
+        reason, and the person still re-acknowledges this preview explicitly.
+        """
+        carried, self.carried_preparation = self.carried_preparation, None
+        if not carried or self.setup['scene_id'] != 'rehab' or self.latest_pose is None:
+            return
+        plan = self.setup['plan']
+        reused, reasons = [], []
+        baseline = carried.get('joint_baseline') or {}
+        if baseline.get('rest_value') is not None:
+            if same_conditions(baseline.get('provenance'), provenance(self)):
+                self.live_joint_baseline = copy.deepcopy(baseline)
+                plan['joint_baseline'] = copy.deepcopy(baseline)
+                self.analyzer = self._analyzer(plan['side'])
+                reused.append('joint_baseline')
+            else:
+                reasons.append('动作、侧别、机位、画面尺寸或输入已变化，需要重新记录起点')
+        calibration = carried.get('calibration') or {}
+        if any(calibration.get(key) is not None for key in ('seated_knee', 'standing_knee')):
+            if calibration.get('provenance') == self._calibration_provenance():
+                plan['calibration'] = copy.deepcopy(calibration)
+                reused.append('calibration')
+            else:
+                reasons.append('坐站基线的输入、画面尺寸、侧别或机位已变化，需要重新记录')
+        if reused or reasons:
+            self.preparation_reuse = dict(reused=reused, reasons=sorted(set(reasons)))
 
     def record_joint_baseline(self, history, position):
         if self.state != 'PREVIEW' or self.setup['scene_id'] != 'rehab' or self.latest_pose is None:
@@ -172,7 +259,7 @@ class SceneController:
                         'measurement_kind': 'observed_comfort_start', 'recorded_at': utc_now()}
         elif position == 'direction' and spec['directional_calibration']:
             baseline = copy.deepcopy(self.live_joint_baseline)
-            if baseline.get('provenance') != current_provenance:
+            if not same_conditions(baseline.get('provenance'), current_provenance):
                 raise ValueError('请先在当前预览记录舒适起点')
             delta = angle_delta(value, baseline['rest_value'])
             if not 5 <= abs(delta) <= 90:
@@ -192,7 +279,8 @@ class SceneController:
         baseline = plan.get('joint_baseline') or {}
         if not baseline and not spec['baseline_required']:
             return
-        if (not baseline or baseline != self.live_joint_baseline or baseline.get('provenance') != provenance(self)):
+        if (not baseline or baseline != self.live_joint_baseline
+                or not same_conditions(baseline.get('provenance'), provenance(self))):
             raise ValueError('请在本次预览重新记录舒适起始姿势；不能沿用其他人或旧机位的基线')
         if spec['directional_calibration'] and baseline.get('direction_sign') not in (-1, 1):
             raise ValueError('请先按所选动作方向做舒适的小幅试动作，并点击“记录活动方向”')
@@ -211,6 +299,10 @@ class SceneController:
             raise ValueError('用户、模式、场景、动作、侧别或机位已经改变，请重新预览')
         if not setup.get('participant_confirmed'):
             raise ValueError('请人工确认参与者和机位')
+        if self.latest_observation is not None and self.latest_observation.status == 'MULTI_PERSON':
+            raise ValueError('画面中不止一位，请只保留当前参与者后再核对')
+        if setup.get('continuation_mode', 'auto') not in ('auto', 'guided'):
+            raise ValueError('未知的本次进行方式')
         if self.dual_config:
             from .dual_camera import other_view
             dual = setup.get('dual_camera') or {}
@@ -233,23 +325,26 @@ class SceneController:
         if scene == 'activity' and not setup.get('activity_permission'):
             raise ValueError('活动任务需要人工确认活动许可')
         if scene == 'rehab':
-            self._check_joint_baseline(setup['plan'])
+            # A guided, timed session may proceed without a recorded baseline; any
+            # baseline it does carry is still checked against this preview.
+            guided = setup.get('continuation_mode') == 'guided'
+            if not guided or setup['plan'].get('joint_baseline'):
+                self._check_joint_baseline(setup['plan'])
             expected_view = exercise_spec(exercise)['view']
             if setup['view'] != expected_view:
                 raise ValueError('此动作需要'+('正面' if expected_view == 'frontal' else '侧面')+'机位')
-            if exercise == 'sit_to_stand':
+            if exercise == 'sit_to_stand' and not (guided and not setup['plan'].get('calibration', {}).get('seated_knee')):
                 c = setup['plan'].get('calibration', {})
                 if not all(k in c for k in ('seated_knee', 'standing_knee', 'seated_hip_y', 'standing_hip_y')):
                     raise ValueError('请分别记录舒适坐位与站位基线')
                 if c['seated_knee']-c['standing_knee'] < 20 or c['seated_hip_y']-c['standing_hip_y'] < .05:
                     raise ValueError('坐位/站位基线区分不足，请检查完整下肢视野并重新记录')
-                expected = {'source_ref': self.source['ref'], 'frame_size': list(self.latest_pose.size) if self.latest_pose else None,
-                            'side': setup['plan']['side'], 'view': setup['view']}
-                if c.get('provenance') != expected:
+                if c.get('provenance') != self._calibration_provenance():
                     raise ValueError('坐站基线不属于当前来源、尺寸、侧别或机位，请重新记录')
                 from .joint_calibration import preparation_binding
-                if c.get('sampling_identity') is not None and c['sampling_identity'] != preparation_binding(self):
-                    raise ValueError('坐站基线的参与者或预览已变化，请重新记录')
+                if c.get('sampling_identity') is not None and not same_conditions(
+                        c['sampling_identity'], preparation_binding(self)):
+                    raise ValueError('坐站基线的记录条件已变化，请重新记录')
         setup['setup_confirmed_at'] = utc_now()
         setup['actual_size_confirmed'] = list(self.latest_packet.image.shape[1::-1])
         setup['source_ref'] = self.source['ref']
@@ -265,13 +360,24 @@ class SceneController:
         self.setup, self.confirmed = setup, True
         from .joint_calibration import preparation_binding
         self.confirmation_binding = preparation_binding(self)
+        self.confirmation_absent_since = None
+        self.confirmation_withdrawn, self.confirmation_reacquired = '', False
         return copy.deepcopy(setup)
 
     def start(self):
         if self.pending is not None or self.state != 'PREVIEW' or not self.confirmed:
-            raise ValueError('需要有效预览和本次机位确认后才能开始')
-        if self.latest_pose is None or self.latest_observation is None or self.latest_observation.status != 'VALID':
+            # Say what changed instead of only repeating that a confirmation is missing.
+            raise ValueError(self.confirmation_withdrawn if self.confirmation_withdrawn and self.state == 'PREVIEW'
+                             else '需要有效预览和本次核对后才能开始')
+        # A guided, timed session still needs a working input and this preview's
+        # human acknowledgement; only the automatic measurement gate is relaxed.
+        guided = self.setup.get('continuation_mode') == 'guided' and self.setup['scene_id'] == 'rehab'
+        if self.latest_pose is None or self.latest_observation is None:
+            raise ValueError('尚未取得画面，请重新打开预览')
+        if not guided and self.latest_observation.status != 'VALID':
             raise ValueError('尚未取得有效的单人姿态，请检查模型与站位')
+        if self.latest_observation.status == 'MULTI_PERSON':
+            raise ValueError('画面中不止一位，请只保留当前参与者后重新核对')
         if self.dual_config:
             self._validate_current_pair()
             sizes = self.setup['dual_camera']['confirmed_sizes']
@@ -285,15 +391,16 @@ class SceneController:
         if self.setup['scene_id'] == 'rehab':
             from .joint_calibration import preparation_binding
             binding = preparation_binding(self)
-            if self.confirmation_binding != binding:
+            if not same_conditions(self.confirmation_binding, binding):
                 self.confirmed = False
-                raise ValueError('参与者或机位已变化，请重新完成本次机位确认')
+                raise ValueError('拍摄条件已变化，请重新完成本次核对')
             sampling = (plan.get('calibration') or {}).get('sampling_identity')
-            if sampling is not None and sampling != binding:
-                raise ValueError('坐站基线的参与者或预览已变化，请重新记录')
-            self._check_joint_baseline(plan)
+            if sampling is not None and not same_conditions(sampling, binding):
+                raise ValueError('坐站基线的记录条件已变化，请重新记录')
+            if not guided or plan.get('joint_baseline'):
+                self._check_joint_baseline(plan)
             necessary = exercise_spec(plan['exercise_id'])['required_metrics']
-            if any(self.latest_observation.value(k) is None for k in necessary):
+            if not guided and any(self.latest_observation.value(k) is None for k in necessary):
                 raise ValueError(measurement_hint(self.latest_observation, plan, self.latest_pose.schema_id)
                                  or '动作必要关节不可见，请调整机位后再开始')
             if plan.get('submode') not in ('assessment', 'training'):
@@ -338,7 +445,8 @@ class SceneController:
             raise ValueError('训练计划要求陪同，请确认陪同者在场')
         scene = self.setup['scene_id']
         if scene == 'rehab':
-            engine = TrainingEngine(plan) if plan['submode'] == 'training' else RehabEngine(plan)
+            engine = (GuidedEngine(plan) if guided else
+                      TrainingEngine(plan) if plan['submode'] == 'training' else RehabEngine(plan))
         else:
             from .activity import ActivityEngine
             from .bedroom import BedroomEngine
@@ -377,6 +485,13 @@ class SceneController:
                         'actual_capture': {'size': list(packet.image.shape[1::-1]), 'reported_fps': packet.reported_fps,
                                            'received_fps': packet.received_fps},
                         'repetitions': [], 'events': [], 'metrics': [], 'summary': {}}
+        if scene == 'rehab':
+            # Keep the operating mode with the evidence: a guided, timed run is a
+            # different kind of record, never a relabelled automatic measurement.
+            self.session['measurement_mode'] = measurement_mode(self.setup.get('continuation_mode'))
+            self.session['continuation'] = {'mode': self.session['measurement_mode'],
+                                            'prompt_plan': prompt_plan() if guided else None,
+                                            'prompted_cycles': 0, 'self_reports': []}
         if self.dual_config:
             from .dual_view import session_snapshot
             self.session['dual_camera'] = session_snapshot(self)
@@ -446,10 +561,10 @@ class SceneController:
         if auxiliary is not None and not identity_visible(auxiliary):
             obs = replace(obs, status='UNKNOWN', metrics={}, reasons=obs.reasons+['secondary_view_'+auxiliary.status.lower()])
         self.latest_packet, self.latest_pose, self.latest_observation = packet, pose, obs
-        if self.state == 'PREVIEW' and self.confirmed and self.setup['scene_id'] == 'rehab':
-            from .joint_calibration import preparation_binding
-            if self.confirmation_binding != preparation_binding(self):
-                self.confirmed = False
+        if self.carried_preparation and self.state in ('CONNECTING', 'PREVIEW'):
+            self._adopt_carried_preparation()
+        if self.state == 'PREVIEW' and self.setup['scene_id'] == 'rehab':
+            self._review_confirmation(pose, obs, auxiliary)
         if self.state == 'CONNECTING':
             self.state = 'PREVIEW'
         if self.state != 'ONLINE' or self.engine is None:
@@ -519,6 +634,53 @@ class SceneController:
         if training_event_count is not None and training_event_count != len(self.engine.training_events):
             self._checkpoint_training()
         return True
+
+    def record_self_report(self):
+        """An explicit human count. Never mixed into measured repetitions."""
+        if self.state != 'ONLINE' or self.session is None or self.setup['scene_id'] != 'rehab':
+            raise ValueError('请先开始本次康复任务，再记录完成情况')
+        continuation = self.session.setdefault('continuation', {'mode': self.session.get('measurement_mode', 'auto_observed'),
+                                                                'prompt_plan': None, 'prompted_cycles': 0, 'self_reports': []})
+        reports = continuation.setdefault('self_reports', [])
+        observed = self.latest_observation.time_s if self.latest_observation else None
+        reports.append({'number': len(reports)+1, 'at_utc': utc_now(),
+                        'observation_time_s': observed if isinstance(observed, (int, float)) else None,
+                        'origin': 'participant_report', 'annotation_origin': 'human',
+                        'measured': False})
+        if isinstance(self.engine, GuidedEngine):
+            self.engine.note_self_report(len(reports))
+        self._checkpoint_continuation()
+        return len(reports)
+
+    def set_guided_pause(self, paused):
+        """Pause or resume the guided prompt. Capture and privacy are unchanged."""
+        if self.state != 'ONLINE' or self.session is None or not isinstance(self.engine, GuidedEngine):
+            raise ValueError('只有进行中的引导计时可以暂停提示')
+        if self.engine.set_paused(paused):
+            self.session['continuation']['prompt_pauses'] = self.engine.pause_count
+            self._checkpoint_continuation()
+        return self.engine.paused
+
+    def note_guided_prompt(self, cycle):
+        if self.state != 'ONLINE' or self.session is None or not isinstance(self.engine, GuidedEngine):
+            return False
+        before = self.engine.prompted_cycles
+        self.engine.note_prompt_cycle(cycle)
+        if self.engine.prompted_cycles == before:
+            return False
+        self.session['continuation']['prompted_cycles'] = self.engine.prompted_cycles
+        self._checkpoint_continuation()
+        return True
+
+    def _checkpoint_continuation(self):
+        self.session['summary'] = self.engine.summary()
+        try:
+            self.storage.save_session(self.session)
+        except Exception as exc:
+            # A checkpoint is a convenience, not the save gate. Record the
+            # attempt with the session instead of reporting a broken input.
+            self.session.setdefault('continuation', {})['checkpoint_error'] = dict(
+                at_utc=utc_now(), message=str(exc))
 
     def checkpoint_activity(self):
         if self.session is None or self.setup['scene_id'] != 'activity':
@@ -595,6 +757,9 @@ class SceneController:
         self.gate.reset()
         self.context = None
         self.confirmed = False
+        self.confirmation_binding = self.confirmation_absent_since = None
+        self.confirmation_withdrawn, self.confirmation_reacquired = '', False
+        self.carried_preparation, self.preparation_reuse = None, None
         self.active_track = None
         self._reset_secondary()
         self.latest_packet = self.latest_pose = self.latest_observation = None
@@ -612,6 +777,11 @@ class SceneController:
                             processed_frames=self.processed_frames, skipped_capture_frames=self.dropped_frames)
             from .dual_view import update_summary
             update_summary(snapshot)
+            if snapshot.get('scene_id') == 'rehab':
+                # Human-reported completion stays a separate, labelled count.
+                reports = (snapshot.get('continuation') or {}).get('self_reports') or []
+                snapshot['summary']['self_reported_reps'] = len(reports)
+                snapshot['summary'].setdefault('measurement_mode', snapshot.get('measurement_mode', 'auto_observed'))
             self.pending = self.storage.authorized_snapshot(snapshot)
             self.session, self.engine = None, None
             try:

@@ -54,6 +54,6 @@ def default_setup(scene='rehab', exercise='shoulder_abduction'):
             'night_confirmed': False, 'demo_thresholds': False,
             'sedentary_trigger_s': 2700., 'stand_target_s': 60., 'walk_target_s': 120.,
             'low_hold_s': 2., 'poses_consent': False, 'raw_video_consent': False,
-            'reference_frame_consent': False}
+            'reference_frame_consent': False, 'continuation_mode': 'auto'}
     setup.update(_overrides('scenes.yaml', 'scenes', scene))
     return setup

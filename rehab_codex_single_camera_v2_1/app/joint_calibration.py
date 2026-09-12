@@ -1,10 +1,18 @@
 """Preview-only, observed comfort baselines; never clinical limits or goals."""
 from __future__ import annotations
 
+import copy
 import math
 from statistics import median
 
 from .quality import angle_delta
+
+# A baseline may be reused only while every condition a person can re-verify on
+# screen is unchanged. A tracker id is explicitly not an identity and a new
+# preview epoch is not a new posture, so neither may force a repeat recording;
+# the explicit final acknowledgement still covers "same person, same position".
+REUSABLE_CONDITIONS = ('source_ref', 'source_kind', 'usage_context', 'frame_size', 'schema_id',
+                       'model_manifest_id', 'exercise_id', 'side', 'view', 'participant_id')
 
 
 def validate_start_value(plan, value):
@@ -48,6 +56,23 @@ def provenance(controller):
             'model_manifest_id': pose.model_manifest_id, 'track_key': controller.latest_observation.track_key,
             'exercise_id': plan['exercise_id'],
             'side': plan['side'], 'view': controller.setup['view'], 'participant_id': plan['participant_id']}
+
+
+def stable_conditions(record):
+    """The reusable subset of a provenance or binding, or None when incomplete."""
+    if not isinstance(record, dict) or any(record.get(key) in (None, '') for key in REUSABLE_CONDITIONS):
+        return None
+    result = {key: copy.deepcopy(record[key]) for key in REUSABLE_CONDITIONS}
+    if 'auxiliary' in record:
+        auxiliary = record['auxiliary'] if isinstance(record['auxiliary'], dict) else {}
+        result['auxiliary'] = {key: copy.deepcopy(auxiliary.get(key)) for key in ('frame_size', 'source_ref')}
+    return result
+
+
+def same_conditions(left, right):
+    """True only with complete, matching evidence on both sides."""
+    recorded = stable_conditions(left)
+    return recorded is not None and recorded == stable_conditions(right)
 
 
 def preparation_binding(controller):

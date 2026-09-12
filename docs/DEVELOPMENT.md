@@ -26,7 +26,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\Setup-Rehab.ps1 -IncludeLa
 | `app/exercises.py`、`quality.py`、`joint_calibration.py`、`axial_geometry.py` | 动作定义、逐指标可见性、校准、二维几何 |
 | `app/rehab.py`、`training.py`、`assessment.py` | 动作过程、组次执行和评估汇总 |
 | `app/runtime.py`、`scene_controller.py` | 命令、生命周期、开始门禁、配置快照、保存恢复 |
-| `app/guidance.py`、`measurement_guidance.py` | 独立于数据门槛的显示缓冲、单一指导和逐点调整提示 |
+| `app/guidance.py`、`measurement_guidance.py` | 独立于数据门槛的显示缓冲、单一指导、逐点调整提示和可选的继续建议 |
+| `app/guided.py` | 引导计时的固定提示节奏与 `GuidedEngine`；不推断阶段、次数或目标 |
+| `app/journey.py`、`app/ui/journey.py` | 康复与配套场景的步骤序列、完成小结和下一步入口 |
 | `app/storage.py`、`participants.py`、`assessment_batches.py`、`reports.py` | 本地数据库、个人档案、评估清单和导出 |
 | `app/training_plans.py`、`app/ui/plan_library.py` | 个人多项目计划、持久化白名单、版本 / 范围门禁和原生编辑器 |
 | `app/ui/` | 原生界面、身体导航、相机测试、大字指导 |
@@ -45,7 +47,7 @@ Set-Location .\rehab_codex_single_camera_v2_1
 .\.venv\Scripts\python.exe scripts\check_project.py --suite integration
 ```
 
-完整模式按互不重复的文件组执行：业务、界面、逐文件集成。集成文件独立进程运行，避免 Qt、模型和多进程状态互相影响。默认每批最多 300 秒；失败或超时保留日志并停止后续批次。超时只停止本次测试子进程树，不结束其他正在运行的软件。
+完整模式按互不重复的文件组执行：业务、界面、逐文件集成。分组先认 `integration` / `landmarks`，再按名称中的独立词 `ui`、`product`、`guides`、`hub` 归入界面组；这修正了此前把 `quiet`、`guidance` 中的字母误判成界面文件的问题。集成文件独立进程运行，避免 Qt、模型和多进程状态互相影响。默认每批最多 300 秒；失败或超时保留日志并停止后续批次。超时只停止本次测试子进程树，不结束其他正在运行的软件。
 
 日志、JUnit 和 JSON 汇总默认放在 `.runtime/checks/时间/`。可用 `--output` 指定一个尚不存在的新目录。汇总中的 JUnit `tests` 可能包含 pytest 子测试，报告主测试数量和子测试时应按 pytest 原文说明，不重复相加。
 
@@ -62,6 +64,7 @@ Set-Location .\rehab_codex_single_camera_v2_1
 .\.venv\Scripts\python.exe scripts\qa_longitudinal.py --output qa-output\history-review
 .\.venv\Scripts\python.exe scripts\qa_dual_camera.py --output qa-output\dual-camera-review
 .\.venv\Scripts\python.exe scripts\qa_quiet_guidance.py --output qa-output\quiet-guidance-review
+.\.venv\Scripts\python.exe scripts\qa_smooth_flow.py --output qa-output\smooth-flow-review
 .\.venv\Scripts\python.exe scripts\audit_readiness.py --output .runtime\readiness-review
 .\.venv\Scripts\python.exe scripts\check_docs.py
 .\.venv\Scripts\python.exe -m compileall -q app scripts tests

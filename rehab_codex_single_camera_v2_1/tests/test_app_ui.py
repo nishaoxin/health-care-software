@@ -150,8 +150,14 @@ class DesktopTests(unittest.TestCase):
         self.assertNotIn('body_profile', [x[0] for x in self.runtime.calls])
         self.window._handle_message({'kind': 'command_done', 'command': 'stop'})
         self.window._handle_message({'kind': 'saved', 'id': 'assessment-001'})
+        # The profile is re-summarised, but the person stays on the finished
+        # task so its summary and next steps are where they just were.
         self.assertEqual(self.runtime.calls[-1][0], 'body_profile')
-        self.assertEqual(self.window.pages.currentIndex(), 2)
+        self.assertEqual(self.window.pages.currentIndex(), 0)
+        self.assertEqual(self.window._latest_report_id, 'assessment-001')
+        self.assertEqual(self.window.setup_tabs.currentIndex(), 2)
+        self.window.state = 'UNSELECTED'
+        self.assertEqual(self.window._journey_step().key, 'result')
 
     def test_body_profile_response_for_other_person_is_ignored(self):
         profile = build_body_profile([], 'somebody-else')

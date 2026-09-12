@@ -24,10 +24,12 @@ def batches():
     groups = {'core': [], 'ui': [], 'integration': []}
     for path in files:
         relative = path.relative_to(ROOT).as_posix()
-        if re.search(r'ui|product|guide|hub', path.stem):
-            groups['ui'].append(relative)
-        elif 'integration' in path.stem or 'landmarks' in path.stem or path.name == 'test_app_joint_expansion_flow.py':
+        # Isolate real integration files first. Match the interface keywords on
+        # whole name parts so "quiet" or "guidance" is not read as a UI file.
+        if 'integration' in path.stem or 'landmarks' in path.stem or path.name == 'test_app_joint_expansion_flow.py':
             groups['integration'].append(relative)
+        elif re.search(r'(^|_)(ui|product|guides?|hub)(_|$)', path.stem):
+            groups['ui'].append(relative)
         else:
             groups['core'].append(relative)
     flattened = [name for group in groups.values() for name in group]

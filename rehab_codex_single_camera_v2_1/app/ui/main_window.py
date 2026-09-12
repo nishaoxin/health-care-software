@@ -20,7 +20,8 @@ from ..longitudinal import compare_conditions, CONDITION_LABELS
 from ..settings import ROOT, default_setup, default_plan
 from ..exercises import exercise_spec
 from ..exercise_instructions import exercise_instructions
-from ..journey import JourneyStep, current_step, preparation_steps
+from ..journey import (JourneyStep, current_step, current_scene_step, preparation_steps, SCENE_ROIS)
+from ..guided import GUIDED_NOTE
 from ..assessment import build_training_reference
 from ..participants import legacy_participant, new_participant
 from ..camera_selection import choose_camera
@@ -46,7 +47,7 @@ PHASES = {'WAIT_READY': '等待准备', 'REST': '准备姿势', 'RAISING': '动�
           'PEAK_OR_HOLD': '幅度观察 / 保持', 'LOWERING': '正在回位', 'SEATED_READY': '坐位准备',
           'RISING': '正在起立', 'STANDING_REACHED': '已达到站位', 'UNKNOWN': '无法判断',
           'SEATED': '可见坐位', 'STANDING': '可见站位', 'WALKING': '可见步行', 'VISIBLE_MOVING': '可见移动',
-          'VISIBLE_IN_BED': '可见床区姿态', 'BED_EDGE_SIT': '可见床边坐位',
+          'GUIDED': '引导计时', 'VISIBLE_IN_BED': '可见床区姿态', 'BED_EDGE_SIT': '可见床边坐位',
           'BED_EDGE_STAND': '可见床边站立', 'OBSERVED_EXIT': '已观察经过出口',
           'LOW_CANDIDATE': '疑似异常低位 · 待确认', 'LOW_EVENT': '持续低位事件', 'OBSERVING': '观察中'}
 
@@ -90,6 +91,14 @@ class MainWindow(QMainWindow):
         self._journey_framed = False
         self._journey_error = ''
         self._latest_report_id = None
+        self._latest_snapshot = None
+        self._guided = False
+        self._preparation_failed = False
+        self._framing_valid_since = None
+        self._self_reported = 0
+        self._start_countdown = 0
+        self._guided_paused = False
+        self._preparation_reuse_shown = None
         self._result_after_feedback = None
         self.silver_dialog = None
         self.family_demo_dialog = None
@@ -125,6 +134,9 @@ class MainWindow(QMainWindow):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._poll)
         self.timer.start(30)
+        self.countdown_timer = QTimer(self)
+        self.countdown_timer.setInterval(1000)
+        self.countdown_timer.timeout.connect(self._tick_start_countdown)
 
     def _build(self):
         build_workspace(self)
@@ -564,6 +576,13 @@ class MainWindow(QMainWindow):
         self.mirror.setChecked(self._live_mirror)
         self.canvas.mirror = self._live_mirror
         self.mirror.toggled.connect(self._mirror_changed)
+        self.guided_toggle = QCheckBox('引导计时练习（不自动测角度）')
+        self.guided_toggle.setToolTip('看不清或记不上起点时，仍然可以按固定节奏完成练习并保存记录。')
+        box.addWidget(self.guided_toggle)
+        self.guided_note = QLabel(GUIDED_NOTE)
+        self.guided_note.setWordWrap(True)
+        self.guided_note.setObjectName('muted')
+        box.addWidget(self.guided_note)
         self.manual = QCheckBox('已确认单人、机位与舒适动作')
         self.manual.setObjectName('manualConfirmation')
         self.manual.toggled.connect(self._confirmation_changed)
@@ -882,6 +901,14 @@ class MainWindow(QMainWindow):
         self.notice.clear()
         self._request_body()
 
+    def _refresh_body_profile(self):
+        """Re-summarise assessments in place, without leaving the current page."""
+        self.body_profile = None
+        self.body_action.clear()
+        self.body_train.setEnabled(False)
+        self.body_overview.set_loading()
+        self._send('body_profile', **self._body_scope_key())
+
     def _request_body(self):
         self.pages.setCurrentIndex(2)
         self.title.setText('身体档案')
@@ -892,12 +919,8 @@ class MainWindow(QMainWindow):
         self.training_nav.setChecked(False)
         self.body_nav.setChecked(True)
         self._mark_navigation()
-        self.body_profile = None
-        self.body_action.clear()
-        self.body_train.setEnabled(False)
         self.body_browser.setHtml('<h2>正在汇总本地评估记录…</h2>')
-        self.body_overview.set_loading()
-        self._send('body_profile', **self._body_scope_key())
+        self._refresh_body_profile()
 
     def _train_from_body(self):
         item = self.body_action.currentData()
@@ -943,6 +966,12 @@ class MainWindow(QMainWindow):
         if self.constructing:
             return
         self._journey_framed = False
+        self._framing_valid_since = None
+        self._preparation_failed = False
+        self._preparation_reuse_shown = None
+        self._latest_snapshot = None
+        self._self_reported = 0
+        self._cancel_start_countdown()
         if self.silver_dialog:
             self.silver_dialog.close()
         self._journey_error = ''
@@ -960,7 +989,6 @@ class MainWindow(QMainWindow):
         self._accept_context_frames = False
         self._training_execution = {}
         self.video_pair.clear()
-        self.setup['plan']['joint_baseline'] = {}
         self.exercise_guide.select_step(0)
         self.exercise_guide.follow_observation('UNSELECTED', None)
         for metric_card in (self.count_card, self.angle_card, self.valid_card):
@@ -975,6 +1003,7 @@ class MainWindow(QMainWindow):
         if self.constructing:
             return
         self._invalidate()
+        self.setup['plan']['joint_baseline'] = {}
         self._clear_training_reference()
         live = self.source_kind.currentData() == 'LIVE_CAMERA'
         self.mirror.blockSignals(True)
@@ -996,6 +1025,7 @@ class MainWindow(QMainWindow):
         if self.constructing:
             return
         self._invalidate()
+        self.setup['plan']['joint_baseline'] = {}
         self._clear_training_reference()
         self._sync_scene()
         self._refresh_body_scope()
@@ -1015,6 +1045,7 @@ class MainWindow(QMainWindow):
             return
         self._invalidate()
         self.setup['plan']['calibration'] = {}
+        self.setup['plan']['joint_baseline'] = {}
         self.setup['rois'] = {}
         self.canvas.rois = {}
         self._camera_selection_touched = True
@@ -1035,6 +1066,7 @@ class MainWindow(QMainWindow):
             return
         self._invalidate()
         self.setup['plan']['calibration'] = {}
+        self.setup['plan']['joint_baseline'] = {}
         self.setup['rois'] = {}
         self.canvas.rois = {}
         self._camera_selection_touched = True
@@ -1178,7 +1210,9 @@ class MainWindow(QMainWindow):
     def _sync_scene(self):
         self._update_personal_reminders()
         training = self.scene == 'rehab' and self.submode.currentData() == 'training'
-        self.training_panel.setVisible(training)
+        # Guided sessions have no set/rest engine, so its controls stay hidden
+        # instead of offering an action that can only fail.
+        self.training_panel.setVisible(training and not self._guided)
         self.task_header.setVisible(not training)
         self.setup['plan'].update(participant_id=self.participant_id, side=self.side.currentData(),
                                   submode=self.submode.currentData())
@@ -1186,7 +1220,13 @@ class MainWindow(QMainWindow):
         self.rehab_controls.setVisible(self.scene == 'rehab')
         self.plan_button.setVisible(training)
         self.plan_text.setVisible(training)
-        self.baselines.setVisible(self.scene == 'rehab' and self.exercise.currentData() == 'sit_to_stand')
+        self.baselines.setVisible(self.scene == 'rehab' and self.exercise.currentData() == 'sit_to_stand'
+                                  and not self._guided)
+        self.guided_toggle.setVisible(self.scene == 'rehab')
+        self.guided_note.setVisible(self.scene == 'rehab' and self._guided)
+        self.guided_toggle.blockSignals(True)
+        self.guided_toggle.setChecked(self._guided)
+        self.guided_toggle.blockSignals(False)
         self.region_controls.setVisible(self.scene != 'rehab')
         self.activity_controls.setVisible(self.scene == 'activity')
         self.manual.setText('已确认单人、机位与舒适动作' if self.scene == 'rehab' else '已确认单人、机位与全部区域')
@@ -1216,13 +1256,13 @@ class MainWindow(QMainWindow):
         self.timing_readout.hide()
         self.exercise_guide.set_exercise(plan['exercise_id'], plan['side'])
         self.setup_tabs.setTabVisible(0, self.scene == 'rehab')
-        if self.scene != 'rehab':
-            self.setup_tabs.setCurrentIndex(1)
+        if self.scene != 'rehab' and self.setup_tabs.currentIndex() == 0:
+            self.setup_tabs.setCurrentIndex(2)  # These scenes now have their own step list.
         self.movement_steps.setText(instructions['position']+'\n\n1  '+instructions['start']+'\n\n2  '+instructions['move']+'\n\n3  '+instructions['return'])
         self.movement_details.setVisible(self.scene == 'rehab')
         self.measurement_details.setVisible(self.scene == 'rehab')
         self.companion.setVisible(bool(plan.get('needs_companion')) or self.scene != 'rehab')
-        joint_task = self.scene == 'rehab' and plan['exercise_id'] != 'sit_to_stand'
+        joint_task = self.scene == 'rehab' and plan['exercise_id'] != 'sit_to_stand' and not self._guided
         optional = joint_task and not spec['baseline_required']
         target_layout = self.optional_baseline.box if optional else self.setup_panel.widget().layout()
         if target_layout.indexOf(self.joint_baselines) < 0:
@@ -1299,7 +1339,12 @@ class MainWindow(QMainWindow):
         self._buttons()
 
     def _mirror_changed(self):
-        self._invalidate()
+        # Display only. Re-acknowledging is enough; the camera keeps running.
+        self._confirmed = False
+        self.manual.setChecked(False)
+        if self.state == 'PREVIEW':
+            self.runtime.command('unconfirm')
+        self._cancel_start_countdown()
         if self.source_kind.currentData() == 'LIVE_CAMERA':
             self._live_mirror = self.mirror.isChecked()
         else:
@@ -1328,12 +1373,15 @@ class MainWindow(QMainWindow):
             self.distance_coach.privacy_requested.connect(lambda: self._send('privacy', reason='privacy_pause'))
             self.distance_coach.control_requested.connect(
                 lambda action, confirmed: self._send('training_control', action=action, setup_confirmed=confirmed))
+            self.distance_coach.self_report_requested.connect(lambda: self._send('self_report'))
+            self.distance_coach.guided_pause_requested.connect(self._toggle_guided_pause)
         self._render_distance_coach()
         self.distance_coach.showFullScreen()
 
     def _render_distance_coach(self):
         if self.distance_coach is not None:
             data = self._last_coach_view or dict(state=self.state, summary={})
+            self.distance_coach.set_countdown(self._start_countdown)
             self.distance_coach.render(data, self.setup['plan'], mirror=self.mirror.isChecked(),
                                        source_kind=self.source_kind.currentData(), usage_context=self.usage.currentData(),
                                        available=self.busy == 0 and not self._camera_testing)
@@ -1358,6 +1406,7 @@ class MainWindow(QMainWindow):
                      poses_consent=self.poses.isChecked(), activity_permission=self.permission.isChecked(),
                      demo_thresholds=self.demo.isChecked(), real_bed=self.real_bed.isChecked(),
                      needs_assistance=self.assistance.isChecked(), night_confirmed=self.night.isChecked())
+        setup['continuation_mode'] = 'guided' if self._guided and self.scene == 'rehab' else 'auto'
         setup['allowed_activity_tasks'] = list(self.activity_options.currentData())
         setup.update({key: control.value() for key, control in self.activity_durations.items()})
         setup['plan'].update(exercise_id=self.exercise.currentData(), side=self.side.currentData(),
@@ -1403,10 +1452,12 @@ class MainWindow(QMainWindow):
             self.notice.setText(str(exc))
             return
         self.manual.setChecked(False)
-        self.setup['plan']['joint_baseline'] = {}
-        if source['kind'] == 'LIVE_CAMERA':
-            self.setup['plan']['calibration'] = {}
-            self._sync_scene()
+        self._framing_valid_since = None
+        self._preparation_failed = False
+        self._preparation_reuse_shown = None
+        self._cancel_start_countdown()
+        # Preparation is offered back to the new preview only when the runtime
+        # observes the same recorded conditions; it decides, not the interface.
         self.canvas.caption = '正在连接输入'
         self.video_pair.clear()
         self.last_generation = -1
@@ -1444,28 +1495,53 @@ class MainWindow(QMainWindow):
         self._send('confirm', setup=self._read_setup())
 
     def _journey_step(self):
+        if self.scene != 'rehab':
+            return current_scene_step(self.scene, self.state, rois=tuple(self.setup['rois']),
+                                      permission=self.permission.isChecked(),
+                                      confirmed=getattr(self, '_confirmed', False),
+                                      saved=bool(self._latest_report_id))
         request = getattr(self, '_last_sample_request', None)
         if self.state == 'PREVIEW' and self.preparation_active and request:
-            steps = preparation_steps(self.setup['plan'], dual=self._dual_enabled())
+            steps = preparation_steps(self.setup['plan'], dual=self._dual_enabled(), guided=self._guided)
             for number, step in enumerate(steps, 1):
                 if step[0] == request[1]:
                     return JourneyStep(step[0], step[1], '保持本步骤姿势，等待下方记录完成；需要调整时可取消。',
                                        '正在记录…', number, len(steps))
         return current_step(self.setup['plan'], self.state, framed=self._journey_framed,
                             confirmed=getattr(self, '_confirmed', False), dual=self._dual_enabled(),
-                            saved=bool(self._latest_report_id))
+                            saved=bool(self._latest_report_id), guided=self._guided)
 
     def _journey_next(self):
         if self.busy or self._camera_testing or self.preparation_active or self.state in ('CONNECTING', 'SAVE_FAILED'):
             return
+        if self._start_countdown:
+            return
+        self._journey_error = ''
         if self.scene != 'rehab':
-            if self.state == 'PREVIEW':
-                self._send('start') if getattr(self, '_confirmed', False) else self._confirm()
-            else:
+            self.setup_tabs.setCurrentIndex(2)
+            step = self._journey_step().key
+            if step == 'camera':
                 self._preview()
+            elif step == 'regions':
+                missing = [title for name, title in SCENE_ROIS[self.scene] if name not in self.setup['rois']]
+                if missing:
+                    self._journey_error = '还需要圈定：'+'、'.join(missing)+'。在“设置”里选择区域名称，再在画面上拖矩形。'
+                    self.setup_tabs.setCurrentIndex(1)
+            elif step == 'permission':
+                # The labelled button is the explicit permission, as elsewhere.
+                self.permission.setChecked(True)
+                self.notice.flash('已确认本次站立 / 步行活动许可。可在“设置”里调整任务与时间。')
+            elif step == 'confirm':
+                self._confirm()
+            elif step == 'start':
+                self._begin_start_countdown()
+            elif step == 'active':
+                self._finish_task()
+            elif step == 'result':
+                self._send('report', id=self._latest_report_id)
+            self._buttons()
             return
         self.setup_tabs.setCurrentIndex(2)
-        self._journey_error = ''
         step = self._journey_step().key
         if step == 'reference':
             self._show_body()
@@ -1486,22 +1562,83 @@ class MainWindow(QMainWindow):
             else:
                 self._confirm()
         elif step == 'start':
-            self._send('start')
+            self._begin_start_countdown()
         elif step == 'active':
             self._finish_task()
         elif step == 'result':
             self._send('report', id=self._latest_report_id)
         self._buttons()
 
+    def _begin_start_countdown(self):
+        """A short interface countdown before the run starts. It records nothing."""
+        if self.state != 'PREVIEW' or self.busy or self._start_countdown:
+            return
+        if not self.countdown_enabled.isChecked():
+            self._send('start')
+            return
+        self._start_countdown = 3
+        self.journey.set_countdown(self._start_countdown)
+        self.countdown_timer.start()
+        self._buttons()
+
+    def _cancel_start_countdown(self):
+        if self._start_countdown:
+            self.notice.flash('已取消开始倒计时，可以继续调整。')
+        self._start_countdown = 0
+        self.countdown_timer.stop()
+        if hasattr(self, 'journey'):
+            self.journey.set_countdown(0)
+        if self.distance_coach is not None:
+            self.distance_coach.set_countdown(0)
+        self._buttons()
+
+    def _tick_start_countdown(self):
+        if self.state != 'PREVIEW' or self.busy or not self._start_countdown:
+            self._cancel_start_countdown()
+            return
+        self._start_countdown -= 1
+        self.journey.set_countdown(self._start_countdown)
+        if self.distance_coach is not None:
+            self.distance_coach.set_countdown(self._start_countdown)
+        if self._start_countdown <= 0:
+            self.countdown_timer.stop()
+            self._start_countdown = 0
+            self._send('start')
+        self._buttons()
+
+    def _set_guided_mode(self, enabled):
+        if self.constructing or bool(enabled) == self._guided:
+            return
+        self._guided = bool(enabled)
+        for control in (self.guided_toggle, self.journey.guided):
+            control.blockSignals(True)
+            control.setChecked(self._guided)
+            control.blockSignals(False)
+        self._journey_error = ''
+        self._cancel_start_countdown()
+        self._confirmed = False
+        self.manual.setChecked(False)
+        if self.state == 'PREVIEW':
+            self.runtime.command('unconfirm')
+        self.notice.flash('已切换到引导计时练习：按提示活动，完成一次可自己点“记一次”。' if self._guided
+                          else '已回到自动测量：需要记录起点并核对后开始。')
+        self._sync_scene()
+
+    def _toggle_guided_pause(self):
+        if self.busy or self.state != 'ONLINE' or not self._guided:
+            return
+        self._send('guided_pause', paused=not self._guided_paused)
+
+    def _open_latest_report(self):
+        if self._latest_report_id and not self.busy:
+            self._send('report', id=self._latest_report_id)
+
     def _render_journey(self, available):
         rehab = self.scene == 'rehab'
-        self.setup_tabs.setTabVisible(2, rehab)
-        if not rehab:
-            self.preview_button.setText('打开预览')
-            self.confirm_button.setText('确认准备')
-            return
+        self.setup_tabs.setTabVisible(2, True)
         step = self._journey_step()
-        self.preparation_review.setVisible(self.state == 'PREVIEW' and step.key == 'confirm' and not self.preparation_active)
+        self.preparation_review.setVisible(rehab and self.state == 'PREVIEW' and step.key == 'confirm'
+                                           and not self.preparation_active)
         if getattr(self, '_journey_last_step', None) != step.key:
             self._journey_last_step = step.key
             # Reset after Qt recalculates the step height, not on every frame.
@@ -1509,7 +1646,7 @@ class MainWindow(QMainWindow):
                               if self._journey_last_step == key else None)
         info = exercise_instructions(self.exercise.currentData())
         explanation = ''
-        if self.exercise.currentData() in ('neck_flexion', 'neck_extension') and step.key in ('camera', 'framing'):
+        if rehab and self.exercise.currentData() in ('neck_flexion', 'neck_extension') and step.key in ('camera', 'framing'):
             explanation = ('为什么要拍到髋？肩—髋连线是躯干参考，用来区分低头与身体前倾，并非测髋关节。'
                            '穿着衣服即可，取景到同侧髋部，不必露出皮肤或拍到脚；另一侧肩不用入镜。'
                            '双摄仍使用侧面这一路完成该测量。')
@@ -1517,10 +1654,24 @@ class MainWindow(QMainWindow):
                 explanation = '肩—髋连线用于躯干参考，不是测髋。穿衣即可，取景到同侧髋部，不必拍到脚或另一侧肩。'
         self.journey.explanation.setText(explanation)
         self.journey.explanation.setVisible(bool(explanation))
-        self.journey.render(step, context=self.side.currentText()+' · '+info['view_label'],
+        guidance = (self._last_coach_view or {}).get('guidance') if rehab else None
+        offer = ''
+        if rehab and self._guided:
+            offer = GUIDED_NOTE
+        elif rehab and step.key not in ('active', 'result', 'save_failed'):
+            if self._preparation_failed:
+                offer = '这一步可以先跳过：勾选下面的“引导计时练习”，按提示完成本次活动并保存记录。'
+            elif (guidance or {}).get('offer') == 'guided':
+                offer = (guidance or {}).get('offer_text', '')
+        context = (self.side.currentText()+' · '+info['view_label']+(' · 引导计时' if self._guided else '')
+                   if rehab else SCENES[self.scene]+' · 仅观察当前场景')
+        self.journey.render(step, context=context,
                             companion=self.companion.isChecked(),
                             needs_companion=self.setup['plan'].get('needs_companion', False),
-                            enabled=available and not self.preparation_active, message=self._journey_error)
+                            enabled=available and not self.preparation_active and not self._start_countdown,
+                            message=self._journey_error, offer=offer, guided=self._guided,
+                            guided_available=rehab, summary=self._completion_summary(step))
+        self.journey.set_countdown(self._start_countdown)
         self.next_step_hint.setText(f'{step.number} / {step.total}  {step.title}')
         if self.state in ('UNSELECTED', 'OFFLINE', 'ERROR', 'PRIVACY_PAUSED'):
             button = self.preview_button
@@ -1529,8 +1680,31 @@ class MainWindow(QMainWindow):
         else:
             return
         button.setText(step.action)
-        button.setEnabled(available and not self.preparation_active and
+        button.setEnabled(available and not self.preparation_active and not self._start_countdown and
                           (step.key != 'start' or self.participant.text().strip() == self.participant_id))
+
+    def _completion_summary(self, step):
+        """Say plainly what this saved record does and does not contain."""
+        snapshot = self._latest_snapshot
+        if step.key != 'result' or not snapshot or snapshot.get('id') != self._latest_report_id:
+            return ''
+        summary = snapshot.get('summary') or {}
+        guided = snapshot.get('measurement_mode') == 'guided_timed'
+        lines = ['本次为引导计时：没有自动判定次数或幅度，不作为训练所需的评估依据。' if guided
+                 else f"自动观察到的完整动作：{summary.get('completed', 0)} 次。"]
+        span = None if guided else summary.get('motion_range')
+        approximate = summary.get('approximate_range')
+        if isinstance(span, dict) and summary.get('motion_range_valid') is not False:
+            lines.append(f"可观察幅度：{span['min_deg']:.0f}° ～ {span['max_deg']:.0f}°。")
+        elif isinstance(approximate, dict):
+            lines.append(f"近似角度范围：{approximate['min_deg']:.0f}° ～ {approximate['max_deg']:.0f}°"
+                         "（按有效帧统计，未按动作分期）。")
+        else:
+            lines.append('这次没有取得可解释的角度范围；缺测不等于 0。')
+        reported = summary.get('self_reported_reps') or 0
+        if reported:
+            lines.append(f'自己记录的完成次数：{reported} 次（本人报告，不是自动测量）。')
+        return '\n'.join(lines)
 
     def _record_joint_baseline(self, position):
         self._start_preparation('joint_baseline', position)
@@ -1611,7 +1785,7 @@ class MainWindow(QMainWindow):
         self.preview_button.setEnabled(available and self.state not in ('ONLINE', 'SAVE_FAILED'))
         preparing = getattr(self, 'preparation_active', False)
         self.confirm_button.setEnabled(available and self.state == 'PREVIEW' and not preparing)
-        self.confirm_button.setText('已核对，确认准备' if self.scene == 'rehab' else '确认准备')
+        self.confirm_button.setText('已核对，确认准备')
         training_ready = (self.scene != 'rehab' or self.submode.currentData() != 'training'
                           or (self.setup['plan'].get('training_plan_confirmed') and
                               (self.setup['plan'].get('assessment_reference') or {}).get('status') == 'ASSESSED'))
@@ -1619,6 +1793,14 @@ class MainWindow(QMainWindow):
                                      and bool(training_ready) and self.participant.text().strip() == self.participant_id)
         self.stop_button.setEnabled(self.state in ('ONLINE', 'PREVIEW', 'CONNECTING', 'ERROR'))
         self.privacy_button.setEnabled(self.state in ('ONLINE', 'PREVIEW', 'CONNECTING'))
+        guided_running = self.scene == 'rehab' and self.state == 'ONLINE' and self._guided
+        self.guided_pause_button.setVisible(guided_running)
+        self.guided_pause_button.setEnabled(available and guided_running)
+        self.guided_pause_button.setText('继续提示' if self._guided_paused else '暂停提示')
+        self.self_report_button.setVisible(self.scene == 'rehab' and self.state == 'ONLINE')
+        self.self_report_button.setEnabled(available and self.state == 'ONLINE')
+        self.self_report_button.setText('记一次（我完成了）' if not self._self_reported
+                                        else f'记一次（已记 {self._self_reported} 次）')
         self.retry_button.setVisible(self.state == 'SAVE_FAILED')
         self.retry_button.setEnabled(available)
         self.backup_button.setVisible(self.state == 'SAVE_FAILED')
@@ -1634,6 +1816,9 @@ class MainWindow(QMainWindow):
         primary = (self.retry_button if self.state == 'SAVE_FAILED' else self.stop_button if self.state == 'ONLINE'
                    else self.start_button if self.state == 'PREVIEW' and confirmed and training_ready
                    else self.confirm_button if self.state == 'PREVIEW' else self.preview_button)
+        if self._start_countdown:
+            for button in (self.preview_button, self.confirm_button, self.start_button):
+                button.setEnabled(False)
         for button in (self.preview_button, self.confirm_button, self.start_button, self.stop_button, self.retry_button):
             name = 'primary' if button is primary else ''
             if button.objectName() != name:
@@ -1652,7 +1837,8 @@ class MainWindow(QMainWindow):
         self.feedback.setVisible(self.state not in ('UNSELECTED', 'CONNECTING'))
         if hasattr(self, 'poses'):
             for button in (self.joint_rest_button, self.joint_direction_button, *self.sit_baseline_buttons):
-                button.setEnabled(available and self.state == 'PREVIEW' and not preparing)
+                button.setEnabled(available and self.state == 'PREVIEW' and not preparing and not self._guided)
+            self.guided_toggle.setEnabled(available and self.state != 'ONLINE')
             self.preparation_cancel.setVisible(preparing and self.state == 'PREVIEW')
             self.preparation_review.setVisible(self.scene == 'rehab' and self.state == 'PREVIEW' and not confirmed and not preparing)
             self.preparation_review.setText('本轮核对：'+self.manual.text().removeprefix('已确认')+'；所需关节点可见、已回到起点且无不适。')
@@ -1792,9 +1978,10 @@ class MainWindow(QMainWindow):
             if m.get('command') == 'prepare_sample':
                 self.preparation_active = False
                 self.preparation_cancel.hide()
-            if self.scene == 'rehab' and m.get('command') in ('confirm', 'open', 'start', 'prepare_sample', 'joint_baseline', 'baseline'):
+            if m.get('command') in ('confirm', 'open', 'start', 'prepare_sample', 'joint_baseline', 'baseline'):
                 self._journey_error = m['text']
-                if self.state != 'ONLINE':
+                self._cancel_start_countdown()
+                if self.state != 'ONLINE' and self.setup_tabs.currentIndex() != 1:
                     self.setup_tabs.setCurrentIndex(2)
                     self.notice.clear()
                 self._buttons()
@@ -1823,8 +2010,19 @@ class MainWindow(QMainWindow):
             self.preparation_status.setText(m['text'])
             if not m['active'] and m['text'].startswith('已记录'):
                 self.preparation_status.flash(m['text'])
+                self._preparation_failed = False
+            elif not m['active']:
+                # A failed sampling is where the guided path becomes worth offering.
+                self._preparation_failed = True
             self.preparation_cancel.setVisible(m['active'])
-            self.preparation_retry.setVisible(not m['active'] and ('重试' in m['text'] or '重新' in m['text']))
+            self.preparation_retry.setVisible(not m['active'] and ('重试' in m['text'] or '再试' in m['text'] or '重新' in m['text']))
+            self._buttons()
+        elif kind == 'self_report':
+            context = m.get('context')
+            if context and (not self._accept_context_frames or context.generation < self.last_generation):
+                return
+            self._self_reported = m['count']
+            self.notice.flash(f"已记下第 {m['count']} 次（本人记录，与自动测量分开保存）。")
             self._buttons()
         elif kind == 'camera_test_stopped':
             if not self._camera_testing:
@@ -1933,6 +2131,8 @@ class MainWindow(QMainWindow):
             self._sync_scene()
         elif kind == 'saved':
             self._journey_error = ''
+            self._self_reported = 0
+            self._latest_snapshot = None
             if self._feedback_after_save or self._summarize_after_save:
                 self._close_distance_coach()
                 self._last_coach_view = None
@@ -1948,10 +2148,12 @@ class MainWindow(QMainWindow):
                 scope = self._summarize_after_save
                 self._summarize_after_save = None
                 if scope == self._body_scope_key():
+                    # Stay on the finished task: show its summary and next steps
+                    # here, and refresh the body profile without a page jump.
                     self._latest_report_id = m['id']
                     self.setup_tabs.setCurrentIndex(2)
                     self._send('report', id=m['id'])
-                    self._request_body()
+                    self._refresh_body_profile()
         elif kind == 'training_plans':
             if (self.plan_library_dialog and m['scope'] == self._body_scope_key()
                     and m['scope'] == self.plan_library_dialog.scope):
@@ -1973,8 +2175,9 @@ class MainWindow(QMainWindow):
             self.body_overview.set_profile(profile)
             self._buttons()
             if self.body_action.count():
-                self.notice.setText('评估已汇总。选择项目后可进入训练。')
-            else:
+                message = '评估已汇总。选择项目后可进入训练。'
+                self.notice.setText(message) if self.pages.currentIndex() == 2 else self.notice.flash(message, 6000)
+            elif self.pages.currentIndex() == 2:
                 self.notice.clear()
         elif kind == 'longitudinal_history':
             if self.longitudinal_dialog:
@@ -2021,6 +2224,9 @@ class MainWindow(QMainWindow):
                     dialog.browser.setHtml(m['html'])
             self.notice.flash('训练感受已保存，测量结果未改变。')
         elif kind == 'report':
+            if m['snapshot'].get('id') == self._latest_report_id:
+                self._latest_snapshot = m['snapshot']
+                self._buttons()
             dialog = ReportDialog(m['snapshot'], m['html'], self._export, self, on_feedback=self._request_training_review)
             self.report_windows.append(dialog)
             dialog.show()
@@ -2085,8 +2291,16 @@ class MainWindow(QMainWindow):
             self.preparation_status.clear()
             self.preparation_cancel.hide()
             self.preparation_retry.hide()
+        if self.state != 'PREVIEW' and self._start_countdown:
+            self._cancel_start_countdown()
+        self._self_reported = data.get('self_reported', 0) if self.state == 'ONLINE' else 0
+        self._guided_paused = bool((data.get('guided_prompt') or {}).get('paused')) and self.state == 'ONLINE'
+        self._apply_preparation_reuse(data)
+        self._advance_framing(data)
         if self.scene == 'rehab' and self.state == 'ONLINE' and previous_state != 'ONLINE':
             self.setup_tabs.setCurrentIndex(0)
+        if previous_state == 'ONLINE' and self.state != 'ONLINE' and self.setup_tabs.currentIndex() == 0:
+            self.setup_tabs.setCurrentIndex(2)  # Come back to the step list and its next actions.
         self._training_execution = (data.get('summary') or {}).get('training') or {}
         training_stage = self._training_execution.get('stage')
         self._confirmed = data['confirmed']
@@ -2143,10 +2357,11 @@ class MainWindow(QMainWindow):
                 self.angle_card.show_value(f"{summary.get('low_observed_s', 0):.1f}")
             ratio = summary.get('valid_ratio')
             self.valid_card.show_value(None if ratio is None else f'{ratio*100:.0f}')
-            phase = PHASES.get(summary.get('phase'), summary.get('phase', ''))
+            phase = PHASES.get(summary.get('phase')) or summary.get('phase') or ''
             if training_stage and training_stage != 'ACTIVE':
                 phase = TRAINING_STAGES.get(training_stage, phase)
-            self.feedback.setText(phase+' · '+summary.get('message', ''))
+            message = summary.get('message') or ''
+            self.feedback.setText(phase+' · '+message if phase else message)
             self.debug.setPlainText(dumps(summary, indent=2))
         elif self.state not in ('ONLINE',):
             for c in (self.count_card, self.angle_card, self.valid_card):
@@ -2216,6 +2431,39 @@ class MainWindow(QMainWindow):
             if (self.state == 'ONLINE' and previous_state != 'ONLINE' and context and context.run_id
                     and self.auto_distance.isChecked()):
                 self._open_distance_coach()
+
+    def _apply_preparation_reuse(self, data):
+        """Tell the person once whether earlier preparation still applies."""
+        reuse = data.get('preparation_reuse')
+        if not reuse or self.scene != 'rehab':
+            return
+        signature = dumps(reuse)
+        if signature == self._preparation_reuse_shown:
+            return
+        self._preparation_reuse_shown = signature
+        parts = []
+        if reuse.get('reused'):
+            names = {'joint_baseline': '动作起点', 'calibration': '坐站基线'}
+            parts.append('已沿用上次的'+'、'.join(names[k] for k in reuse['reused'] if k in names)+'，不用重新记录。')
+        for reason in reuse.get('reasons') or []:
+            parts.append(reason+'。')
+        if parts:
+            self.notice.flash(' '.join(parts), 7000)
+
+    def _advance_framing(self, data):
+        """Framing is acknowledged by a steady picture, not by an extra click."""
+        if self.scene != 'rehab' or self.state != 'PREVIEW' or self._journey_framed:
+            self._framing_valid_since = None if self.state != 'PREVIEW' else self._framing_valid_since
+            return
+        if not data.get('current_measurement_valid'):
+            self._framing_valid_since = None
+            return
+        now = time.monotonic()
+        if self._framing_valid_since is None:
+            self._framing_valid_since = now
+        elif now-self._framing_valid_since >= 1.2:
+            self._journey_framed = True
+            self._framing_valid_since = None
 
     def _refresh_guidance_visibility(self, *args):
         if not hasattr(self, 'journey'):

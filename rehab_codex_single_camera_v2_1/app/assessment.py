@@ -195,6 +195,10 @@ def build_body_profile(sessions, participant_id, source_kind='LIVE_CAMERA', usag
                     or session.get('source_kind') != source_kind
                     or session.get('usage_context') != usage_context or not _ended(session)):
                 continue
+            # A guided, timed activity record is kept in history but is never an
+            # assessment: it has no automatic phase analysis to be evidence of.
+            if session.get('measurement_mode') == 'guided_timed':
+                continue
             key = session_value(session, 'exercise_id'), session_value(session, 'side')
             if key[0] not in EXERCISE_IDS or key[1] not in ('left', 'right'):
                 continue

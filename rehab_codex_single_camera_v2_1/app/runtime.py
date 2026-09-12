@@ -17,6 +17,8 @@ from .assessment import build_body_profile
 from .exercises import exercise_spec
 from .measurement_guidance import measurement_hint, adjustment_action
 from .guidance import GuidancePolicy
+from .guided import prompt_state
+from .joint_calibration import same_conditions
 from .scene_controller import SceneController
 from .settings import ROOT, load_settings, default_setup
 from .source_worker import put_latest
@@ -37,6 +39,12 @@ def input_timeout_reason(state, now, connect_started_wall, last_frame_wall, sett
 
 class Runtime:
     """UI sends commands; this thread owns orchestration, rules, and storage calls."""
+    # Interface tolerances for ordinary tracking noise. They buffer presentation
+    # and sampling patience only; no measurement threshold is relaxed by them.
+    dropout_tolerance_s = 1.5
+    crowd_tolerance_s = .8
+    sampling_window_s = 6.
+
     def __init__(self, data_dir=None):
         self.data_dir = Path(data_dir or ROOT/'data')
         self.commands, self.messages, self.views = queue.Queue(), queue.Queue(), queue.Queue(maxsize=1)
@@ -53,6 +61,9 @@ class Runtime:
         self.capture_settings = {}
         self.camera_test = False
         self.camera_test_frames = 0
+        self.guided_started = None
+        self.guided_paused_at = None
+        self._guided_key = None
         self.dual_receive_gate = PacketGate()
         self.thread = threading.Thread(target=self._run, name='application-runtime', daemon=True)
         self.thread.start()
@@ -138,6 +149,10 @@ class Runtime:
                                'observation_status': c.latest_observation.status if pose and c.latest_observation else None}
         if not testing and c.setup.get('scene_id') == 'rehab':
             plan = c.setup['plan']
+            view['continuation_mode'] = c.setup.get('continuation_mode', 'auto')
+            view['guided_prompt'] = self._guided_prompt()
+            view['preparation_reuse'] = copy.deepcopy(c.preparation_reuse)
+            view['self_reported'] = len(((c.session or {}).get('continuation') or {}).get('self_reports') or [])
             obs = c.latest_observation if pose else None
             spec = exercise_spec(plan['exercise_id'])
             keys = [spec.get('raw_metric', spec['metric'])] if c.state == 'PREVIEW' else spec['required_metrics']
@@ -182,6 +197,19 @@ class Runtime:
     def _message(self, kind, **data):
         self.messages.put({'kind': kind, **data})
 
+    def _guided_prompt(self):
+        """Local prompt clock for a guided session. Presentation only."""
+        c = self.controller
+        if (c.state != 'ONLINE' or c.setup.get('scene_id') != 'rehab'
+                or c.setup.get('continuation_mode') != 'guided' or self.guided_started is None):
+            return None
+        paused_at = self.guided_paused_at
+        state = prompt_state((paused_at if paused_at is not None else time.monotonic())-self.guided_started,
+                             c.setup['plan']['exercise_id'])
+        if state is not None and paused_at is not None:
+            state = dict(state, paused=True)
+        return state
+
     def _preparation_binding(self):
         from .joint_calibration import preparation_binding
         return preparation_binding(self.controller)
@@ -218,13 +246,32 @@ class Runtime:
         if preparation is None:
             return
         c = self.controller
-        if (c.state != 'PREVIEW' or c.context != preparation['context'] or
-                self._preparation_binding() != preparation['binding'] or
-                c.latest_observation.status in ('NO_PERSON_DETECTED', 'MULTI_PERSON') or
-                (c.dual_config and c.latest_secondary_observation.status in ('NO_PERSON_DETECTED', 'MULTI_PERSON'))):
-            self._cancel_preparation('参与者或机位已变化，请重新准备后采样。')
-            return
         now = time.monotonic() if now is None else now
+        binding = self._preparation_binding()
+        if (c.state != 'PREVIEW' or c.context != preparation['context'] or
+                not same_conditions(binding, preparation['binding'])):
+            self._cancel_preparation('拍摄条件已变化，请重新准备后采样。')
+            return
+        if binding != preparation['binding']:
+            # Re-acquired tracking is not a new posture, so this sampling keeps
+            # running. The stable window still requires one continuous run under
+            # the current track, so observations are never mixed across it.
+            preparation['binding'] = binding
+        crowded = (c.latest_observation.status == 'MULTI_PERSON' or
+                   (c.dual_config and c.latest_secondary_observation.status == 'MULTI_PERSON'))
+        missing = (c.latest_observation.status == 'NO_PERSON_DETECTED' or
+                   (c.dual_config and c.latest_secondary_observation.status == 'NO_PERSON_DETECTED'))
+        # A single dropped frame is not a changed posture. Only a problem that
+        # persists ends the sampling, so ordinary tracking flicker is absorbed.
+        if crowded or missing:
+            since = preparation.setdefault('trouble_since', now)
+            limit = self.crowd_tolerance_s if crowded else self.dropout_tolerance_s
+            if now-since >= limit:
+                self._cancel_preparation('画面中不止一位，请只保留当前参与者后重试。' if crowded else
+                                         '一直没看到测试部位，请调整取景后重试，或改用引导计时练习。')
+                return
+        else:
+            preparation.pop('trouble_since', None)
         until = preparation['countdown_until']
         if now < until:
             count = math.ceil(until-now)
@@ -233,7 +280,7 @@ class Runtime:
                 self._message('preparation', active=True, text=f'{count} 秒后采样，请保持当前舒适姿势。', context=c.context)
             return
         if preparation['sampling_until'] is None:
-            preparation['sampling_until'] = now+4.
+            preparation['sampling_until'] = now+self.sampling_window_s
             preparation['sampling_started_wall'] = now
             self.preview_history = []  # Never sample the pose held before the countdown ended.
             self._message('preparation', active=True, text='正在采样，请稳定保持约 1 秒。', context=c.context)
@@ -257,7 +304,7 @@ class Runtime:
                 self._view(c.latest_packet, c.latest_pose)
                 return
         if now >= preparation['sampling_until']:
-            self._cancel_preparation('尚未取得连续稳定画面，请调整取景后重试采样。')
+            self._cancel_preparation('尚未取得连续稳定画面。可以再试一次，也可以改用引导计时练习。')
 
     def _collect_preview_observation(self, packet):
         c = self.controller
@@ -391,6 +438,9 @@ class Runtime:
                 raise ValueError('画面过期，请重新预览')
             c.vision_config['device_at_start'] = self.vision.device
             context = c.start()
+            self.guided_started = time.monotonic() if c.setup.get('continuation_mode') == 'guided' else None
+            self.guided_paused_at = None
+            self._guided_key = None
             if c.dual_config:
                 self.dual_receive_gate.reset(context)
             self.vision.clear()
@@ -415,9 +465,24 @@ class Runtime:
             self.preview_history = []
             self.connect_started_wall = None
             self.last_frame_wall = None
+            self.guided_started = self.guided_paused_at = self._guided_key = None
             self._view()
             if had_session and c.last_saved_id:
                 self._message('saved', id=c.last_saved_id)
+        elif name == 'guided_pause':
+            paused = c.set_guided_pause(kw['paused'])
+            now = time.monotonic()
+            if paused and self.guided_paused_at is None:
+                self.guided_paused_at = now
+            elif not paused and self.guided_paused_at is not None:
+                # Resuming continues the same prompt cycle; paused time is not counted.
+                self.guided_started += now-self.guided_paused_at
+                self.guided_paused_at = None
+            self._view(c.latest_packet, c.latest_pose)
+        elif name == 'self_report':
+            total = c.record_self_report()
+            self._message('self_report', count=total, context=c.context)
+            self._view(c.latest_packet, c.latest_pose)
         elif name == 'training_control':
             self.audio.reset()
             try:
@@ -700,6 +765,13 @@ class Runtime:
                             self._message('command_done', command=name)
                 c = self.controller
                 self._tick_preparation()
+                prompt = self._guided_prompt()
+                if prompt is not None and not prompt.get('paused') and prompt['key'] != self._guided_key:
+                    # Refresh the prompt even between frames; the record only ever
+                    # counts prompts issued, never an assumed movement.
+                    self._guided_key = prompt['key']
+                    c.note_guided_prompt(prompt['cycle'])
+                    self._view(c.latest_packet, c.latest_pose)
                 worker = self.camera.worker
                 if worker is not None:
                     statuses = worker.read_status()
